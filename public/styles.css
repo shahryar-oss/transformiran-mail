@@ -442,27 +442,32 @@ body.delta-panel-open .delta-fab { display: none; }
   .delta-fab { animation: none !important; }
 }
 
-/* DELTA PANEL — slides in when FAB clicked */
+/* DELTA PANEL — full-height slide-in from the RIGHT side.
+   Mirrors the dashboard's ka-panel (which slides from the left)
+   but flipped to match Shahryar's "AI on the right" preference.
+   The panel sits ABOVE the inbox; you can still see the email
+   list/folders peek behind it on wide screens. */
 .delta-panel {
   position: fixed;
-  bottom: 22px;
-  right: 22px;
-  width: 420px;
-  max-width: calc(100vw - 44px);
-  max-height: calc(100vh - 44px);
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 440px;
+  max-width: calc(100vw - 60px);
   background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 20px 60px rgba(40, 47, 57, .25);
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 40px rgba(40, 47, 57, .14);
   display: flex;
   flex-direction: column;
   z-index: 9001;
   overflow: hidden;
-  animation: slideUp .2s ease-out;
+  transform: translateX(100%);
+  transition: transform .25s ease-out;
+  pointer-events: none;
 }
-@keyframes slideUp {
-  from { transform: translateY(8px); opacity: 0; }
-  to   { transform: translateY(0);   opacity: 1; }
+.delta-panel.open {
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .delta-panel-head {

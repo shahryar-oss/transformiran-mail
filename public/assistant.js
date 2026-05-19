@@ -1,7 +1,10 @@
-// Delta FAB controller — Phase 0.
-// Matches the dashboard's ka-fab pattern: button shows logo by default,
-// flips to ✕ when panel is open. Body class hides the FAB while open.
-// Phase 1+: wire chat to /api/assistant, voice mic to /api/transcribe.
+// Delta FAB + panel controller — Phase 0/1.
+// Mirrors the dashboard's ka-fab pattern:
+//   - FAB always visible in bottom-right when panel is closed
+//   - Click FAB → panel slides in from the RIGHT (full height)
+//   - FAB hides via body.delta-panel-open while panel is open
+//   - Esc or click outside closes the panel
+// Phase 2+: wire chat to /api/assistant, voice mic, etc.
 
 (() => {
   const fab = document.getElementById("deltaFab");
@@ -10,28 +13,37 @@
 
   if (!fab || !panel) return;
 
+  function isOpen() {
+    return panel.classList.contains("open");
+  }
   function openPanel() {
-    panel.hidden = false;
+    panel.classList.add("open");
+    panel.setAttribute("aria-hidden", "false");
     fab.classList.add("open");
     document.body.classList.add("delta-panel-open");
+    // Move focus into the input for immediate typing.
+    const input = panel.querySelector(".delta-input");
+    if (input && !input.disabled) setTimeout(() => input.focus(), 80);
   }
   function closePanel() {
-    panel.hidden = true;
+    panel.classList.remove("open");
+    panel.setAttribute("aria-hidden", "true");
     fab.classList.remove("open");
     document.body.classList.remove("delta-panel-open");
   }
 
   fab.addEventListener("click", () => {
-    if (panel.hidden) openPanel(); else closePanel();
+    if (isOpen()) closePanel(); else openPanel();
   });
   closeBtn?.addEventListener("click", closePanel);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !panel.hidden) closePanel();
+    if (e.key === "Escape" && isOpen()) closePanel();
   });
 
+  // Click outside the panel (but anywhere else on the page) to dismiss.
   document.addEventListener("click", (e) => {
-    if (panel.hidden) return;
+    if (!isOpen()) return;
     if (panel.contains(e.target) || fab.contains(e.target)) return;
     closePanel();
   });
