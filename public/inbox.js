@@ -118,6 +118,58 @@
     });
   }
 
+  // ----- Quick filter pills (Phase 2c.3) --------------------------------
+  // Filters the visible inbox list by classification. 'All' shows everything.
+  // Counts update as classifications arrive.
+  let _allMessages = [];
+  let _classificationMap = {};
+  let _activeFilter = "all";
+
+  function setFilter(filterKey) {
+    _activeFilter = filterKey;
+    document.querySelectorAll(".qf-pill").forEach((p) => {
+      p.classList.toggle("active", p.dataset.filter === filterKey);
+    });
+    document.querySelectorAll(".mail-row").forEach((row) => {
+      const id = row.dataset.id;
+      if (filterKey === "all") {
+        row.classList.remove("filtered-out");
+        return;
+      }
+      const c = _classificationMap[id];
+      const match = c && c.category === filterKey;
+      row.classList.toggle("filtered-out", !match);
+    });
+    updateFilterCounts();
+  }
+
+  function updateFilterCounts() {
+    const counts = { URGENT: 0, REPLY_NEEDED: 0, TASK: 0, INTERNAL: 0, RECEIPT: 0 };
+    for (const id of Object.keys(_classificationMap)) {
+      const cat = _classificationMap[id].category;
+      if (counts[cat] !== undefined) counts[cat] += 1;
+    }
+    const total = _allMessages.length;
+    const visibleCount = (cat) =>
+      cat === "all"
+        ? total
+        : counts[cat] || 0;
+    document.querySelectorAll(".qf-pill").forEach((p) => {
+      const key = p.dataset.filter;
+      const slot = p.querySelector(".qf-count");
+      if (!slot) return;
+      const n = visibleCount(key);
+      slot.textContent = n > 0 ? n : "";
+      slot.style.display = n > 0 ? "" : "none";
+    });
+  }
+
+  function wireFilterPills() {
+    document.querySelectorAll(".qf-pill").forEach((p) => {
+      p.addEventListener("click", () => setFilter(p.dataset.filter));
+    });
+  }
+
   // ----- AI classification overlay (Phase 2c.1) -------------------------
   const TAG_LABEL = {
     URGENT:       "Urgent",
@@ -132,6 +184,7 @@
 
   function paintClassifications(map) {
     if (!map) return;
+    Object.assign(_classificationMap, map);
     for (const [id, c] of Object.entries(map)) {
       const slot = document.querySelector(`.mail-tag-slot[data-tag-for="${CSS.escape(id)}"]`);
       if (!slot) continue;
@@ -140,6 +193,9 @@
       const reason = c.reason ? ` — ${c.reason}` : "";
       slot.innerHTML = `<span class="mail-tag ${cls}" title="${escapeHtml(reason.replace(/^ — /, ""))}">${escapeHtml(label)}</span>`;
     }
+    updateFilterCounts();
+    // Re-apply current filter so newly classified rows hide/show correctly.
+    if (_activeFilter !== "all") setFilter(_activeFilter);
   }
 
   async function classifyVisible(messages) {
@@ -614,7 +670,10 @@
     }
     try {
       const { messages } = await loadInbox();
+      _allMessages = messages;
       renderList(messages);
+      wireFilterPills();
+      updateFilterCounts();
       // Kick off classification in the background — tags fill in as they arrive.
       classifyVisible(messages);
     } catch (err) {

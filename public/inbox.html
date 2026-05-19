@@ -80,6 +80,37 @@
       <div class="list-search">
         <input type="text" placeholder="Search mail…" disabled>
       </div>
+      <!-- Quick filter pills — instantly filter the inbox by AI classification -->
+      <div class="quick-filters" id="quickFilters">
+        <button class="qf-pill active" data-filter="all">
+          <span class="qf-label">All</span>
+          <span class="qf-count" id="qf-count-all"></span>
+        </button>
+        <button class="qf-pill" data-filter="URGENT">
+          <span class="qf-dot tag-urgent"></span>
+          <span class="qf-label">Urgent</span>
+          <span class="qf-count" id="qf-count-URGENT"></span>
+        </button>
+        <button class="qf-pill" data-filter="REPLY_NEEDED">
+          <span class="qf-dot tag-reply-needed"></span>
+          <span class="qf-label">Reply</span>
+          <span class="qf-count" id="qf-count-REPLY_NEEDED"></span>
+        </button>
+        <button class="qf-pill" data-filter="TASK">
+          <span class="qf-dot tag-task"></span>
+          <span class="qf-label">Task</span>
+          <span class="qf-count" id="qf-count-TASK"></span>
+        </button>
+        <button class="qf-pill" data-filter="INTERNAL">
+          <span class="qf-dot tag-internal"></span>
+          <span class="qf-label">Internal</span>
+          <span class="qf-count" id="qf-count-INTERNAL"></span>
+        </button>
+        <button class="qf-pill" data-filter="RECEIPT">
+          <span class="qf-label">Receipts</span>
+          <span class="qf-count" id="qf-count-RECEIPT"></span>
+        </button>
+      </div>
     </header>
 
     <div id="mailList" class="mail-list">
@@ -149,9 +180,12 @@
     </div>
 
     <div class="delta-suggestions" id="deltaSuggestions">
-      <button class="delta-chip" data-prompt="What needs my attention today?">What needs my attention today?</button>
+      <button class="delta-chip" data-prompt="Organize my inbox — group what I should do, what can wait, and what I can ignore.">Organize my inbox</button>
+      <button class="delta-chip" data-prompt="Find the urgent emails I need to handle today.">Find urgent emails</button>
+      <button class="delta-chip" data-prompt="Plan my day based on what's in my inbox and calendar.">Plan my day</button>
       <button class="delta-chip" data-prompt="Who am I behind on replying to?">Who am I behind on?</button>
-      <button class="delta-chip" data-prompt="Summarize my inbox in 3 bullets.">Summarize inbox</button>
+      <button class="delta-chip" data-prompt="Summarize my inbox in 5 bullets — sorted by importance.">Summarize inbox</button>
+      <button class="delta-chip" data-prompt="Translate any Farsi or Dutch emails into English for me.">Translate non-English mail</button>
     </div>
 
     <div class="delta-footer-note">
