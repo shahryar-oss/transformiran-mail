@@ -64,9 +64,10 @@
     </nav>
 
     <div class="rail-footer">
-      <div class="user-chip">
-        <span class="user-initial">S</span>
-        <span class="user-name">Not connected</span>
+      <div class="user-chip" id="userChip" title="Signed in">
+        <span class="user-initial" id="userInitial">·</span>
+        <span class="user-name" id="userName">Loading…</span>
+        <a href="/auth/logout" class="logout-link" title="Sign out" aria-label="Sign out">↪</a>
       </div>
     </div>
   </aside>
@@ -80,18 +81,17 @@
       </div>
     </header>
 
-    <div class="list-empty">
-      <div class="empty-icon">✉︎</div>
-      <div class="empty-title">No mailbox connected yet</div>
-      <div class="empty-sub">
-        This is the Phase 0 shell. In the next phase we wire Gmail OAuth and
-        Delta will start reading your inbox.
+    <div id="mailList" class="mail-list">
+      <div class="list-empty" id="loadingState">
+        <div class="empty-icon">✉︎</div>
+        <div class="empty-title">Loading your inbox…</div>
+        <div class="empty-sub">Pulling the most recent messages from Gmail.</div>
       </div>
     </div>
   </section>
 
   <!-- RIGHT: reading pane -->
-  <section class="reader">
+  <section class="reader" id="reader">
     <div class="reader-empty">
       <div class="empty-sub">Select an email to read it here.</div>
     </div>
@@ -151,6 +151,7 @@
   </div>
 </div>
 
+<script src="/inbox.js"></script>
 <script src="/assistant.js"></script>
 </body>
 </html>
