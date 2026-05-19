@@ -60,9 +60,9 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--paper);
 }
 
-/* LEFT RAIL — frozen for now. Folder list is short; when it grows
-   beyond the viewport we'll allow scroll via overflow-y:auto.
-   For Phase 1 we keep it static so the rail acts like a fixed sidebar. */
+/* LEFT RAIL — frozen WHEN content fits, scrolls only if labels grow.
+   overflow-y:auto = no scrollbar when content is short (looks frozen),
+   scrollbar appears automatically when label list exceeds viewport. */
 .rail {
   background: var(--cream);
   border-right: 1px solid var(--line);
@@ -70,8 +70,15 @@ button { font-family: inherit; cursor: pointer; }
   flex-direction: column;
   padding: 14px 10px;
   min-height: 0;       /* allows the grid cell to constrain it */
-  overflow: hidden;    /* freeze — content fits within 100vh today */
+  overflow-y: auto;    /* frozen until folder list grows past viewport */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
+/* Hide scrollbar visually when not actually scrolling — keeps the
+   "frozen" look until growth actually requires interaction. */
+.rail::-webkit-scrollbar { width: 0; }
+.rail:hover::-webkit-scrollbar { width: 6px; }
+.rail::-webkit-scrollbar-thumb { background: rgba(40,47,57,.18); border-radius: 3px; }
 
 .brand {
   display: flex;
