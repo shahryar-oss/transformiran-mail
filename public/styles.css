@@ -266,13 +266,47 @@ button { font-family: inherit; cursor: pointer; }
   white-space: nowrap;
   margin-bottom: 2px;
 }
+.mail-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+.mail-tag-slot {
+  flex-shrink: 0;
+  display: inline-flex;
+}
 .mail-snippet {
   font-size: 12.5px;
   color: var(--navy-soft);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
+
+/* AI classification tag chips — one per category, color-coded.
+   Urgent = brand red. Reply needed = gold. Task = navy. The rest are
+   muted/neutral so the urgent stuff visually dominates. */
+.mail-tag {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+.mail-tag.tag-urgent       { background: var(--red); color: white; }
+.mail-tag.tag-reply-needed { background: var(--gold); color: white; }
+.mail-tag.tag-task         { background: var(--navy); color: white; }
+.mail-tag.tag-internal     { background: rgba(63, 182, 255, .15); color: #1B6FA8; }
+.mail-tag.tag-receipt      { background: rgba(40, 47, 57, .08); color: var(--navy-soft); }
+.mail-tag.tag-newsletter   { background: rgba(138, 133, 118, .12); color: var(--muted); }
+.mail-tag.tag-fyi          { background: rgba(138, 133, 118, .12); color: var(--muted); }
+.mail-tag.tag-auto         { background: rgba(138, 133, 118, .10); color: var(--muted); }
 
 .list-empty {
   flex: 1;
@@ -396,6 +430,90 @@ button { font-family: inherit; cursor: pointer; }
 .reader-attachment .ra-name { flex: 1; font-weight: 500; color: var(--navy); }
 .reader-attachment .ra-meta { color: var(--muted); font-size: 11.5px; }
 .reader-attachment .ra-icon { color: var(--muted); }
+
+/* ============================================================
+   OUTLOOK-STYLE READER TOOLBAR — top of the open email
+   ============================================================ */
+.reader-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  margin: -24px -24px 16px;       /* extends to the column edges */
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+  flex-wrap: wrap;
+}
+.tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--navy-soft);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.tb-btn:hover:not(:disabled) {
+  background: var(--paper);
+  color: var(--navy);
+  border-color: var(--line);
+}
+.tb-btn:disabled { opacity: .45; cursor: wait; }
+.tb-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  display: block;
+  flex-shrink: 0;
+}
+.tb-btn.active {
+  color: var(--gold-dark);
+  background: rgba(178, 142, 68, .08);
+}
+.tb-btn.tb-danger:hover:not(:disabled) {
+  color: var(--bad);
+  border-color: rgba(196, 69, 69, .25);
+  background: #FCEDED;
+}
+.tb-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--line);
+  margin: 0 4px;
+}
+
+/* ============================================================
+   TOAST — small ephemeral notification (archive/star/etc feedback)
+   ============================================================ */
+.delta-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--navy);
+  color: white;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(40, 47, 57, .25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s, transform .18s;
+  z-index: 9500;
+}
+.delta-toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.delta-toast.error { background: var(--bad); }
+.delta-toast.ok { background: var(--good); }
 
 /* ============================================================
    DRAFT COMPOSER — inline reply card above the read message

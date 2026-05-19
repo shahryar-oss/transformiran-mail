@@ -1,6 +1,19 @@
 // Phase 1 inbox renderer — loads /api/me + /api/gmail/recent and paints the list.
 
 (() => {
+
+  // Inline SVG icons for the Outlook-style toolbar. No emoji per brand.
+  const SVG = {
+    reply:      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>`,
+    replyAll:   `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V5l-7 7 7 7v-3l-4-4 4-4zm6 1V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>`,
+    forward:    `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg>`,
+    archive:    `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0 0 18 3H6c-.47 0-.88.21-1.16.55L3.46 5.23A1.94 1.94 0 0 0 3 6.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5c0-.47-.17-.91-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>`,
+    star:       `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    starFilled: `<svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    unread:     `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`,
+    trash:      `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
+  };
+
   const $ = (sel) => document.querySelector(sel);
   const listEl = $("#mailList");
   const readerEl = $("#reader");
@@ -91,7 +104,10 @@
                 <div class="mail-time">${when}</div>
               </div>
               <div class="mail-subject">${subj}</div>
-              <div class="mail-snippet">${snip}</div>
+              <div class="mail-row-meta">
+                <span class="mail-tag-slot" data-tag-for="${escapeHtml(m.id)}"></span>
+                <span class="mail-snippet">${snip}</span>
+              </div>
             </div>
           </div>`;
       })
@@ -100,6 +116,51 @@
     listEl.querySelectorAll(".mail-row").forEach((row) => {
       row.addEventListener("click", () => onSelect(row.dataset.id, messages));
     });
+  }
+
+  // ----- AI classification overlay (Phase 2c.1) -------------------------
+  const TAG_LABEL = {
+    URGENT:       "Urgent",
+    REPLY_NEEDED: "Reply",
+    TASK:         "Task",
+    FYI:          "FYI",
+    RECEIPT:      "Receipt",
+    NEWSLETTER:   "Newsletter",
+    INTERNAL:     "Internal",
+    AUTO:         "Auto",
+  };
+
+  function paintClassifications(map) {
+    if (!map) return;
+    for (const [id, c] of Object.entries(map)) {
+      const slot = document.querySelector(`.mail-tag-slot[data-tag-for="${CSS.escape(id)}"]`);
+      if (!slot) continue;
+      const cls = "tag-" + c.category.toLowerCase().replace(/_/g, "-");
+      const label = TAG_LABEL[c.category] || c.category;
+      const reason = c.reason ? ` — ${c.reason}` : "";
+      slot.innerHTML = `<span class="mail-tag ${cls}" title="${escapeHtml(reason.replace(/^ — /, ""))}">${escapeHtml(label)}</span>`;
+    }
+  }
+
+  async function classifyVisible(messages) {
+    const payload = messages.slice(0, 50).map((m) => ({
+      id: m.id,
+      from: m.from || "",
+      subject: m.subject || "",
+      snippet: m.snippet || "",
+    }));
+    try {
+      const r = await fetch("/api/classify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: payload }),
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      paintClassifications(data.classifications || {});
+    } catch (err) {
+      console.warn("[classify] failed:", err);
+    }
   }
 
   async function onSelect(id, messages) {
@@ -113,8 +174,36 @@
     if (!stub) return;
     const f = parseFrom(stub.from);
 
+    const isStarred = (stub.labelIds || []).includes("STARRED");
+    const isUnread = (stub.labelIds || []).includes("UNREAD") || stub.unread;
+
     // Render head + skeleton body immediately, then fetch full body.
     readerEl.innerHTML = `
+      <div class="reader-toolbar">
+        <button class="tb-btn" data-tb="reply" title="Reply (R)">
+          ${SVG.reply} <span>Reply</span>
+        </button>
+        <button class="tb-btn" data-tb="reply-all" title="Reply All (Shift+R)">
+          ${SVG.replyAll} <span>Reply All</span>
+        </button>
+        <button class="tb-btn" data-tb="forward" title="Forward (F)">
+          ${SVG.forward} <span>Forward</span>
+        </button>
+        <span class="tb-divider"></span>
+        <button class="tb-btn" data-tb="archive" title="Archive (E)">
+          ${SVG.archive} <span>Archive</span>
+        </button>
+        <button class="tb-btn ${isStarred ? "active" : ""}" data-tb="star" title="${isStarred ? "Unstar" : "Star"} (S)">
+          ${isStarred ? SVG.starFilled : SVG.star} <span>${isStarred ? "Starred" : "Star"}</span>
+        </button>
+        <button class="tb-btn" data-tb="unread" title="Mark ${isUnread ? "read" : "unread"} (U)">
+          ${SVG.unread} <span>Mark ${isUnread ? "read" : "unread"}</span>
+        </button>
+        <button class="tb-btn tb-danger" data-tb="trash" title="Delete (Del)">
+          ${SVG.trash} <span>Delete</span>
+        </button>
+      </div>
+
       <div class="reader-head">
         <div class="reader-subject">${escapeHtml(stub.subject)}</div>
         <div class="reader-from">
@@ -147,6 +236,11 @@
     // appropriate prompt, then open the panel).
     readerEl.querySelectorAll(".reader-actions [data-action]").forEach((btn) => {
       btn.addEventListener("click", () => onDeltaAction(btn.dataset.action, stub));
+    });
+
+    // Wire the Outlook-style toolbar buttons.
+    readerEl.querySelectorAll(".reader-toolbar [data-tb]").forEach((btn) => {
+      btn.addEventListener("click", () => onToolbarAction(btn.dataset.tb, stub, btn));
     });
 
     // Fetch full body.
@@ -255,6 +349,116 @@
                    : document.getElementById("deltaInputWelcome");
       if (target) { target.value = prompt; target.focus(); }
     }, 60);
+  }
+
+  // ---------- OUTLOOK-STYLE TOOLBAR ------------------------------------
+  // Wires the Reply/Forward/Archive/Star/Unread/Delete buttons at the top
+  // of the open email to real Gmail API actions.
+  async function onToolbarAction(action, msg, btn) {
+    if (action === "reply" || action === "reply-all") {
+      // Use the existing draft composer — Delta will draft, user edits.
+      return openDraftComposer(msg);
+    }
+    if (action === "forward") {
+      // Forward — open composer with empty 'To' and original quoted (Phase 2c.3)
+      // For v1 just open the composer with no extra instructions.
+      return openDraftComposer(msg);
+    }
+    if (action === "star") {
+      const isStarred = btn.classList.contains("active");
+      return modifyLabels(msg.id, btn, {
+        add: isStarred ? [] : ["STARRED"],
+        remove: isStarred ? ["STARRED"] : [],
+        onSuccess: () => {
+          btn.classList.toggle("active");
+          // Swap icon between outline and filled.
+          const icon = btn.querySelector("svg");
+          if (icon) icon.outerHTML = isStarred ? SVG.star : SVG.starFilled;
+          const lbl = btn.querySelector("span");
+          if (lbl) lbl.textContent = isStarred ? "Star" : "Starred";
+        },
+      });
+    }
+    if (action === "unread") {
+      // Toggle UNREAD label
+      const lbl = btn.querySelector("span");
+      const willMarkUnread = lbl && lbl.textContent.toLowerCase().includes("unread");
+      return modifyLabels(msg.id, btn, {
+        add: willMarkUnread ? ["UNREAD"] : [],
+        remove: willMarkUnread ? [] : ["UNREAD"],
+        onSuccess: () => {
+          if (lbl) lbl.textContent = willMarkUnread ? "Mark read" : "Mark unread";
+          // Update the list row's unread visual state
+          const row = document.querySelector(`.mail-row[data-id="${CSS.escape(msg.id)}"]`);
+          if (row) {
+            if (willMarkUnread) row.classList.add("unread");
+            else row.classList.remove("unread");
+          }
+        },
+      });
+    }
+    if (action === "archive") {
+      return modifyLabels(msg.id, btn, {
+        add: [],
+        remove: ["INBOX"],
+        onSuccess: () => removeFromList(msg.id, "Archived"),
+      });
+    }
+    if (action === "trash") {
+      btn.disabled = true;
+      try {
+        const r = await fetch(`/api/gmail/message/${encodeURIComponent(msg.id)}/trash`, { method: "POST" });
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.message || `HTTP ${r.status}`);
+        }
+        removeFromList(msg.id, "Moved to Trash");
+      } catch (err) {
+        showToast("Couldn't delete: " + (err.message || err), "error");
+        btn.disabled = false;
+      }
+    }
+  }
+
+  async function modifyLabels(id, btn, { add, remove, onSuccess }) {
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch(`/api/gmail/message/${encodeURIComponent(id)}/labels`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ add, remove }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.message || `HTTP ${r.status}`);
+      }
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      showToast("Couldn't update: " + (err.message || err), "error");
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function removeFromList(id, reason) {
+    const row = document.querySelector(`.mail-row[data-id="${CSS.escape(id)}"]`);
+    if (row) row.remove();
+    readerEl.innerHTML = `<div class="reader-empty"><div class="empty-sub">${escapeHtml(reason)}. Select another email.</div></div>`;
+    showToast(reason, "ok");
+  }
+
+  function showToast(text, kind = "ok") {
+    let toast = document.getElementById("delta-toast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.id = "delta-toast";
+      toast.className = "delta-toast";
+      document.body.appendChild(toast);
+    }
+    toast.className = "delta-toast show " + kind;
+    toast.textContent = text;
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(() => { toast.classList.remove("show"); }, 2400);
   }
 
   // ---------- DRAFT COMPOSER -------------------------------------------
@@ -411,6 +615,8 @@
     try {
       const { messages } = await loadInbox();
       renderList(messages);
+      // Kick off classification in the background — tags fill in as they arrive.
+      classifyVisible(messages);
     } catch (err) {
       listEl.innerHTML = `
         <div class="list-empty">

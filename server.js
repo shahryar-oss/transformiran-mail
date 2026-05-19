@@ -10,6 +10,7 @@ const { dbReady, pool } = require("./lib/db");
 const auth = require("./lib/auth");
 const gmail = require("./lib/gmail");
 const assistant = require("./lib/assistant");
+const classifier = require("./lib/classifier");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -210,6 +211,67 @@ app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/gmail/recent] failed:", err);
     res.status(500).json({ error: "gmail_fetch_failed", message: err.message });
+  }
+});
+
+// Gmail label / state mutations — power the Outlook-style top toolbar.
+// Body: { add: ["STARRED"], remove: ["INBOX"] }
+app.post("/api/gmail/message/:id/labels", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return res.status(400).json({ error: "bad_id" });
+  const add = Array.isArray(req.body?.add) ? req.body.add : [];
+  const remove = Array.isArray(req.body?.remove) ? req.body.remove : [];
+  if (!add.length && !remove.length) return res.status(400).json({ error: "no_changes" });
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+    const r = await g.users.messages.modify({
+      userId: "me",
+      id,
+      requestBody: { addLabelIds: add, removeLabelIds: remove },
+    });
+    res.json({ ok: true, labelIds: r.data.labelIds || [] });
+  } catch (err) {
+    console.error("[/api/gmail/message/:id/labels] failed:", err);
+    res.status(500).json({ error: "label_modify_failed", message: err.message });
+  }
+});
+
+// Trash a message (Gmail moves it to Trash; user can restore from there).
+app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+    await g.users.messages.trash({ userId: "me", id });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/gmail/message/:id/trash] failed:", err);
+    res.status(500).json({ error: "trash_failed", message: err.message });
+  }
+});
+
+// Classify a batch of inbox messages. Returns existing-cached + newly-classified.
+// Body: { messages: [{ id, from, subject, snippet }, ...] }
+app.post("/api/classify", auth.requireAuth, async (req, res) => {
+  const { messages } = req.body || {};
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ error: "messages_required" });
+  }
+  if (messages.length > 100) {
+    return res.status(400).json({ error: "too_many", max: 100 });
+  }
+  try {
+    const result = await classifier.classifyForUser(req.user.id, messages);
+    res.json({ classifications: result, count: Object.keys(result).length });
+  } catch (err) {
+    console.error("[/api/classify] failed:", err);
+    res.status(500).json({ error: "classify_failed", message: err.message });
   }
 });
 
