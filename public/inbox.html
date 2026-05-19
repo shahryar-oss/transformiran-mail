@@ -146,7 +146,13 @@
       <img src="/delta-logo.png" alt="Delta" class="delta-mini-logo">
       <span>Delta</span>
     </div>
-    <button class="delta-close" aria-label="Close panel" title="Close panel">×</button>
+    <div class="delta-panel-actions">
+      <button id="deltaNewChat" class="delta-new-chat" title="Start a new chat" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+        <span>New chat</span>
+      </button>
+      <button class="delta-close" aria-label="Close panel" title="Close panel">×</button>
+    </div>
   </header>
 
   <!-- WELCOME STATE — visible until the first message is sent -->

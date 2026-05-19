@@ -893,6 +893,11 @@ body.delta-panel-open .delta-fab { display: none; }
   box-sizing: border-box;
   flex-shrink: 0;
 }
+.delta-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .delta-close {
   background: transparent;
   border: none;
@@ -904,6 +909,25 @@ body.delta-panel-open .delta-fab { display: none; }
   cursor: pointer;
 }
 .delta-close:hover { background: var(--cream-dark); color: var(--navy); }
+
+.delta-new-chat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--red);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(233, 42, 46, .25);
+  transition: background .15s, transform .1s;
+}
+.delta-new-chat:hover { background: var(--red-dark); transform: translateY(-1px); }
+.delta-new-chat svg { width: 14px; height: 14px; fill: currentColor; }
 
 /* ---------- DELTA WELCOME STATE — vertically centered ---------- */
 .delta-welcome {
@@ -1069,31 +1093,32 @@ body.delta-panel-open .delta-fab { display: none; }
 .delta-messages::-webkit-scrollbar { width: 6px; }
 .delta-messages::-webkit-scrollbar-thumb { background: rgba(40,47,57,.15); border-radius: 3px; }
 
+.delta-msg-wrap {
+  display: flex;
+  flex-direction: column;
+  max-width: 90%;
+}
+.delta-msg-wrap.user { align-self: flex-end; align-items: flex-end; }
+.delta-msg-wrap.assistant { align-self: flex-start; align-items: flex-start; }
+
 .delta-msg {
-  max-width: 86%;
   padding: 10px 14px;
   border-radius: 14px;
   font-size: 13.5px;
   line-height: 1.55;
-  white-space: pre-wrap;
   word-wrap: break-word;
 }
 .delta-msg.user {
-  align-self: flex-end;
-  background: var(--red);              /* "your voice" stands out, like brand callout quotes */
+  background: var(--red);
   color: white;
   border-bottom-right-radius: 4px;
+  white-space: pre-wrap;
 }
 .delta-msg.assistant {
-  align-self: flex-start;
   background: var(--cream);
   color: var(--navy);
   border: 1px solid var(--line);
   border-bottom-left-radius: 4px;
-}
-.delta-msg.assistant.loading {
-  color: var(--muted);
-  font-style: italic;
 }
 .delta-msg.error {
   background: #FCEDED;
@@ -1110,6 +1135,99 @@ body.delta-panel-open .delta-fab { display: none; }
   vertical-align: text-bottom;
   box-sizing: border-box;
 }
+
+/* "Delta is thinking..." dots */
+.delta-thinking { color: var(--muted); font-style: italic; }
+.delta-thinking .dot {
+  display: inline-block;
+  opacity: 0;
+  animation: dotPulse 1.4s infinite;
+}
+.delta-thinking .dot:nth-child(1) { animation-delay: 0s; }
+.delta-thinking .dot:nth-child(2) { animation-delay: .25s; }
+.delta-thinking .dot:nth-child(3) { animation-delay: .5s; }
+@keyframes dotPulse {
+  0%, 60%, 100% { opacity: 0; }
+  30% { opacity: 1; }
+}
+
+/* Per-message action row under assistant bubbles */
+.delta-msg-actions {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  margin-left: 6px;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.delta-msg-wrap.assistant:hover .delta-msg-actions { opacity: 1; }
+.delta-msg-act {
+  background: transparent;
+  border: none;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background .12s, color .12s;
+  padding: 0;
+}
+.delta-msg-act:hover { background: var(--cream-dark); color: var(--navy); }
+.delta-msg-act svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* ---- Markdown content inside Delta messages ---- */
+.md-content { display: block; }
+.md-content > *:first-child { margin-top: 0; }
+.md-content > *:last-child { margin-bottom: 0; }
+.md-content p { margin: 0 0 8px; }
+.md-content .md-h {
+  margin: 14px 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .1px;
+  color: var(--navy);
+}
+.md-content h3.md-h { font-size: 14px; }
+.md-content h4.md-h { font-size: 13px; color: var(--gold-dark); text-transform: uppercase; letter-spacing: .6px; }
+.md-content strong { font-weight: 700; color: var(--navy); }
+.md-content em { font-style: italic; }
+.md-content .md-list {
+  margin: 4px 0 10px;
+  padding-left: 20px;
+}
+.md-content .md-list li { margin: 3px 0; }
+.md-content ol.md-list li { padding-left: 4px; }
+.md-content .md-code {
+  background: rgba(40, 47, 57, .07);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12.5px;
+  color: var(--gold-dark);
+}
+.md-content .md-pre {
+  background: rgba(40, 47, 57, .06);
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+.md-content .md-pre code { background: none; color: var(--navy); padding: 0; }
+.md-content .md-bq {
+  border-left: 3px solid var(--gold);
+  padding-left: 10px;
+  margin: 6px 0;
+  color: var(--navy-soft);
+  font-style: italic;
+}
+.md-content a {
+  color: var(--gold-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.md-content a:hover { color: var(--red-dark); }
 
 .delta-foot {
   padding: 12px 14px 14px;
