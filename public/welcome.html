@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Welcome to Delta Mail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" type="image/png" href="/delta-logo.png">
+<style>
+  body {
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 20% 0%, rgba(178,142,68,.08), transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(63,182,255,.06), transparent 50%),
+      var(--cream);
+    overflow-y: auto;
+  }
+  .welcome {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 56px 56px 44px;
+    width: 100%;
+    max-width: 620px;
+    margin: 32px 20px;
+    box-shadow: 0 24px 72px rgba(40,47,57,.10);
+    text-align: center;
+  }
+  .welcome .big-logo {
+    width: 96px; height: 96px;
+    background: #000;
+    border-radius: 22px;
+    margin: 0 auto 24px;
+    box-shadow: 0 8px 24px rgba(40,47,57,.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .welcome .big-logo img { width: 70%; height: 70%; object-fit: contain; display: block; }
+  .welcome h1 {
+    margin: 0 0 8px;
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--navy);
+    letter-spacing: -.2px;
+  }
+  .welcome .lede {
+    color: var(--navy-soft);
+    font-size: 15px;
+    line-height: 1.6;
+    margin: 0 0 28px;
+  }
+  .welcome .speech {
+    text-align: left;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+    margin: 0 0 28px;
+    font-size: 14.5px;
+    line-height: 1.7;
+    color: var(--navy);
+  }
+  .welcome .speech p { margin: 0 0 14px; }
+  .welcome .speech p:last-child { margin-bottom: 0; }
+  .welcome .speech strong { color: var(--gold-dark); }
+
+  .welcome .promises {
+    text-align: left;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 22px;
+  }
+  .welcome .promises li {
+    font-size: 13px;
+    color: var(--navy);
+    padding-left: 22px;
+    position: relative;
+    line-height: 1.5;
+  }
+  .welcome .promises li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 8px;
+    width: 12px; height: 6px;
+    border: 2px solid var(--gold);
+    border-top: none;
+    border-right: none;
+    transform: rotate(-45deg);
+  }
+
+  .welcome .progress-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin: 0 0 22px;
+    font-size: 13px;
+    color: var(--navy-soft);
+    text-align: left;
+  }
+  .welcome .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid var(--line);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .welcome .progress-row.done .spinner {
+    border: 2px solid var(--good);
+    border-top-color: var(--good);
+    animation: none;
+    position: relative;
+  }
+  .welcome .progress-row.done .spinner::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    color: var(--good);
+    display: grid;
+    place-items: center;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .start-btn {
+    background: var(--gold);
+    color: white;
+    border: none;
+    padding: 14px 28px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background .15s, transform .1s;
+    box-shadow: 0 4px 12px rgba(178,142,68,.25);
+  }
+  .start-btn:hover { background: var(--gold-dark); transform: translateY(-1px); }
+  .start-btn:active { transform: translateY(0); }
+  .start-btn:disabled { opacity: .55; cursor: wait; }
+
+  .skip-link {
+    display: block;
+    margin-top: 16px;
+    color: var(--muted);
+    font-size: 12px;
+    text-decoration: none;
+  }
+  .skip-link:hover { color: var(--navy-soft); }
+
+  @media (max-width: 640px) {
+    .welcome { padding: 40px 28px 32px; margin: 16px 12px; }
+    .welcome .promises { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<main class="welcome">
+  <div class="big-logo"><img src="/delta-logo.png" alt="Delta" draggable="false"></div>
+
+  <h1 id="heading">Hello.</h1>
+  <p class="lede" id="lede">I'm Delta — your AI assistant inside Delta Mail.</p>
+
+  <div class="speech" id="speech">
+    <p>Loading your introduction…</p>
+  </div>
+
+  <ul class="promises">
+    <li>Spot what truly needs your attention</li>
+    <li>Draft replies in your voice</li>
+    <li>Remind you about things you said you'd do</li>
+    <li>Translate between Farsi, Armenian, English, Dutch</li>
+    <li>Summarize long threads in seconds</li>
+    <li>Never send a message without your approval</li>
+  </ul>
+
+  <div class="progress-row" id="progressRow">
+    <span class="spinner" aria-hidden="true"></span>
+    <span id="progressText">Taking a quick look at your inbox to get to know you…</span>
+  </div>
+
+  <button class="start-btn" id="startBtn" disabled>Reading your inbox…</button>
+  <a href="#" class="skip-link" id="skipLink" hidden>Skip and take me to my inbox</a>
+</main>
+
+<script>
+(async () => {
+  const headingEl = document.getElementById("heading");
+  const ledeEl = document.getElementById("lede");
+  const speechEl = document.getElementById("speech");
+  const progressRow = document.getElementById("progressRow");
+  const progressText = document.getElementById("progressText");
+  const startBtn = document.getElementById("startBtn");
+  const skipLink = document.getElementById("skipLink");
+
+  // ---- Load user identity from /api/me --------------------------------
+  let me = null;
+  try {
+    const r = await fetch("/api/me");
+    if (!r.ok) throw new Error("not_authed");
+    me = await r.json();
+  } catch (err) {
+    location.href = "/auth/logout";
+    return;
+  }
+
+  const firstName = (me.displayName || me.email).split(/[\s@]/)[0] || "there";
+  const isExec = me.role === "Chief Operating Officer" || me.role === "President & CEO";
+  const humanEA = me.humanEA;
+
+  // ---- Personalized greeting -------------------------------------------
+  headingEl.textContent = `Hello, ${firstName}.`;
+
+  if (isExec) {
+    ledeEl.textContent = `I'm Delta — your AI executive assistant inside Delta Mail.`;
+  } else {
+    ledeEl.textContent = `I'm Delta — your AI assistant inside Delta Mail.`;
+  }
+
+  // ---- Delta's introduction speech -------------------------------------
+  const intro = [];
+  if (isExec) {
+    intro.push(
+      `Welcome aboard, ${firstName}. I'm here to be your <strong>#1 digital executive assistant</strong> — built specifically for how Transform Iran works, the people you talk to, and how you communicate.`
+    );
+  } else {
+    intro.push(
+      `Welcome aboard, ${firstName}. I'm here to help you stay on top of your inbox — built specifically for how Transform Iran works.`
+    );
+  }
+
+  intro.push(
+    `I'm still getting started, so I'd like to take a moment to read through your inbox and learn who you talk to, how you write, and what matters most to you. I'll get sharper every day.`
+  );
+
+  if (humanEA) {
+    intro.push(
+      `I work <strong>alongside ${humanEA}</strong>, your human executive assistant — I handle the digital and email side, ${humanEA} handles the rest. We're a team, never in each other's way.`
+    );
+  }
+
+  intro.push(
+    `I'll never send a message on your behalf without your approval. I'll never invent information. If I don't know something, I'll say so plainly.`
+  );
+
+  intro.push(
+    `Ready when you are.`
+  );
+
+  speechEl.innerHTML = intro.map((p) => `<p>${p}</p>`).join("");
+
+  // ---- Light "scanning" pass — pulls recent inbox so it's cached when
+  //      they enter, gives Delta a real moment to "look around" -----------
+  const SCAN_MIN_MS = 2200; // minimum perceived dwell so the moment feels real
+  const t0 = Date.now();
+
+  let messages = 0;
+  try {
+    const r = await fetch("/api/gmail/recent?limit=30");
+    if (r.ok) {
+      const body = await r.json();
+      messages = body.count || (body.messages || []).length;
+    }
+  } catch (_) { /* don't block welcome on a fetch hiccup */ }
+
+  const elapsed = Date.now() - t0;
+  if (elapsed < SCAN_MIN_MS) {
+    await new Promise((res) => setTimeout(res, SCAN_MIN_MS - elapsed));
+  }
+
+  progressRow.classList.add("done");
+  progressText.textContent = messages
+    ? `Read ${messages} recent messages. I've got the lay of the land.`
+    : `Inbox scan complete.`;
+
+  startBtn.disabled = false;
+  startBtn.textContent = "Get started →";
+  skipLink.hidden = false;
+
+  async function finish() {
+    startBtn.disabled = true;
+    startBtn.textContent = "One moment…";
+    try {
+      await fetch("/api/me/welcome", { method: "POST" });
+    } catch (_) {}
+    location.href = "/";
+  }
+  startBtn.addEventListener("click", finish);
+  skipLink.addEventListener("click", (e) => { e.preventDefault(); finish(); });
+})();
+</script>
+
+</body>
+</html>

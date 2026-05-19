@@ -97,10 +97,14 @@ app.get("/auth/logout", (req, res) => {
 // Pages
 // ====================================================================
 app.get("/", (req, res) => {
-  if (req.user) {
-    return res.sendFile(path.join(__dirname, "public", "inbox.html"));
+  if (!req.user) {
+    return res.sendFile(path.join(__dirname, "public", "landing.html"));
   }
-  res.sendFile(path.join(__dirname, "public", "landing.html"));
+  // First-login welcome — shown until the user clicks "Get started"
+  if (!req.user.welcomed_at) {
+    return res.sendFile(path.join(__dirname, "public", "welcome.html"));
+  }
+  res.sendFile(path.join(__dirname, "public", "inbox.html"));
 });
 
 // Static (after the / route so we control the landing/inbox swap).
@@ -115,8 +119,38 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
     email: req.user.email,
     displayName: req.user.display_name,
     pictureUrl: req.user.picture_url,
+    welcomedAt: req.user.welcomed_at,
+    humanEA: getHumanEAFor(req.user.email),
+    role: getRoleFor(req.user.email),
   });
 });
+
+// Mark the user as welcomed — called by the welcome.html "Get started" button.
+app.post("/api/me/welcome", auth.requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE users SET welcomed_at = NOW() WHERE id = $1 AND welcomed_at IS NULL`,
+      [req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/me/welcome] failed:", err);
+    res.status(500).json({ error: "welcome_failed" });
+  }
+});
+
+function getHumanEAFor(email) {
+  const e = (email || "").toLowerCase();
+  if (e === "shahryar@transformiran.com") return "Pia Fanbele";
+  if (e === "lana@transformiran.com") return "Lauren";
+  return null;
+}
+function getRoleFor(email) {
+  const e = (email || "").toLowerCase();
+  if (e === "shahryar@transformiran.com") return "Chief Operating Officer";
+  if (e === "lana@transformiran.com") return "President & CEO";
+  return "staff";
+}
 
 app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 25));
