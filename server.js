@@ -129,6 +129,7 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
     displayName: req.user.display_name,
     pictureUrl: req.user.picture_url,
     welcomedAt: req.user.welcomed_at,
+    preferredModel: req.user.preferred_model || "basic",
     humanEA: getHumanEAFor(req.user.email),
     role: getRoleFor(req.user.email),
   });
@@ -260,6 +261,87 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/gmail/message/:id/trash] failed:", err);
     res.status(500).json({ error: "trash_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Saved prompts — reusable Delta prompts (↑ key in chat input)
+// ====================================================================
+app.get("/api/prompts", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, title, body, use_count, last_used_at, created_at
+         FROM saved_prompts
+        WHERE user_id = $1
+        ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+        LIMIT 50`,
+      [req.user.id]
+    );
+    res.json({ prompts: r.rows });
+  } catch (err) {
+    console.error("[/api/prompts] list failed:", err);
+    res.status(500).json({ error: "list_failed", message: err.message });
+  }
+});
+
+app.post("/api/prompts", auth.requireAuth, async (req, res) => {
+  const { title, body } = req.body || {};
+  if (!title || !body) return res.status(400).json({ error: "title_and_body_required" });
+  try {
+    const r = await pool.query(
+      `INSERT INTO saved_prompts (user_id, title, body)
+       VALUES ($1, $2, $3)
+       RETURNING id, title, body, use_count, last_used_at, created_at`,
+      [req.user.id, String(title).slice(0, 120), String(body).slice(0, 4000)]
+    );
+    res.json(r.rows[0]);
+  } catch (err) {
+    console.error("[/api/prompts] add failed:", err);
+    res.status(500).json({ error: "add_failed", message: err.message });
+  }
+});
+
+app.delete("/api/prompts/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await pool.query(`DELETE FROM saved_prompts WHERE user_id = $1 AND id = $2`, [req.user.id, id]);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// Bump use counter when a prompt is fired.
+app.post("/api/prompts/:id/used", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await pool.query(
+      `UPDATE saved_prompts SET use_count = use_count + 1, last_used_at = NOW()
+         WHERE user_id = $1 AND id = $2`,
+      [req.user.id, id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+// Update user preferences (currently: preferred_model).
+app.patch("/api/me", auth.requireAuth, async (req, res) => {
+  const { preferred_model } = req.body || {};
+  if (preferred_model && !["basic", "advanced"].includes(preferred_model)) {
+    return res.status(400).json({ error: "bad_model" });
+  }
+  try {
+    await pool.query(
+      `UPDATE users SET preferred_model = $1 WHERE id = $2`,
+      [preferred_model || null, req.user.id]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
   }
 });
 
@@ -466,7 +548,7 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 // Stateless: client passes the conversation history each turn.
 // ====================================================================
 app.post("/api/assistant", auth.requireAuth, async (req, res) => {
-  const { message, history, openMessageId } = req.body || {};
+  const { message, history, openMessageId, model } = req.body || {};
   if (!message || typeof message !== "string" || message.trim().length === 0) {
     return res.status(400).json({ error: "empty_message" });
   }
@@ -482,11 +564,13 @@ app.post("/api/assistant", auth.requireAuth, async (req, res) => {
       history: history || [],
       userMessage: message.trim(),
       openMessageId: openMessageId || null,
+      model: model === "advanced" || model === "basic" ? model : undefined,
     });
     res.json({
       reply: result.reply,
       usage: result.usage,
       model: result.model,
+      toolEvents: result.toolEvents || [],
     });
   } catch (err) {
     console.error("[/api/assistant] failed:", err);

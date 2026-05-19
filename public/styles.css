@@ -1136,6 +1136,23 @@ body.delta-panel-open .delta-fab { display: none; }
   box-sizing: border-box;
 }
 
+/* Tool-call transparency lines (Shortwave-style) */
+.delta-tool-event {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--muted);
+  padding: 4px 10px;
+  align-self: flex-start;
+}
+.delta-tool-event svg {
+  width: 12px; height: 12px;
+  fill: var(--good);
+  flex-shrink: 0;
+}
+.delta-tool-event strong { color: var(--navy-soft); font-weight: 600; }
+
 /* "Delta is thinking..." dots */
 .delta-thinking { color: var(--muted); font-style: italic; }
 .delta-thinking .dot {
@@ -1229,14 +1246,193 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .md-content a:hover { color: var(--red-dark); }
 
+/* Email reference — inline citation to a real message */
+.md-content .md-email-ref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  background: rgba(178, 142, 68, .12);
+  color: var(--gold-dark);
+  padding: 1px 8px;
+  border-radius: 4px;
+  text-decoration: none;
+  border: 1px solid rgba(178, 142, 68, .25);
+  font-weight: 500;
+}
+.md-content .md-email-ref:hover {
+  background: rgba(178, 142, 68, .22);
+  color: var(--navy);
+  cursor: pointer;
+}
+.md-content .md-email-ref::before {
+  content: "✉";
+  font-size: 10px;
+  opacity: .7;
+}
+
+/* Mail row flash when opened from a Delta email-ref click */
+.mail-row.just-opened { animation: rowFlash 1.4s ease; }
+@keyframes rowFlash {
+  0%   { background: rgba(178, 142, 68, .35); }
+  100% { background: transparent; }
+}
+
 .delta-foot {
   padding: 12px 14px 14px;
   border-top: 1px solid var(--line);
   background: var(--paper);
   flex-shrink: 0;
+  position: relative;
 }
 .delta-foot .delta-input-wrap {
   margin: 0;
 }
 .delta-foot .delta-input { min-height: 24px; }
 .delta-foot textarea { rows: 1; }
+
+.delta-input-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Model picker pill — bottom-right of input */
+.delta-model-picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--navy-soft);
+  border-radius: 999px;
+  padding: 4px 6px 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color .12s, color .12s;
+}
+.delta-model-picker:hover { border-color: var(--gold); color: var(--navy); }
+.delta-model-picker svg { width: 12px; height: 12px; fill: currentColor; }
+
+/* Model picker popover */
+.delta-model-popover {
+  position: absolute;
+  bottom: 60px;
+  right: 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(40, 47, 57, .14);
+  z-index: 200;
+  min-width: 220px;
+}
+.dmp-opt {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: block;
+  font-family: inherit;
+}
+.dmp-opt:hover { background: var(--cream); }
+.dmp-opt strong { display: block; font-size: 13px; color: var(--navy); margin-bottom: 2px; }
+.dmp-opt span { display: block; font-size: 11.5px; color: var(--muted); }
+
+/* Saved prompts popover */
+.delta-prompts-popover {
+  position: absolute;
+  bottom: 60px;
+  left: 14px;
+  width: calc(100% - 28px);
+  max-height: 320px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(40, 47, 57, .15);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.dpp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy-soft);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.dpp-add {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold-dark);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: inherit;
+}
+.dpp-add:hover { background: var(--gold); color: white; }
+
+.dpp-list {
+  overflow-y: auto;
+  flex: 1;
+  padding: 4px;
+}
+.dpp-empty {
+  padding: 18px 14px;
+  font-size: 12.5px;
+  color: var(--muted);
+  text-align: center;
+}
+.dpp-item {
+  display: flex;
+  align-items: stretch;
+  border-radius: 8px;
+}
+.dpp-item:hover { background: var(--cream); }
+.dpp-use {
+  flex: 1;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 10px 14px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.dpp-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 2px;
+}
+.dpp-body {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dpp-del {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  width: 32px;
+  cursor: pointer;
+}
+.dpp-del:hover { color: var(--bad); }
