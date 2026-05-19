@@ -716,13 +716,28 @@
   let backfillTimer = null;
   let bannerSticky = false;  // user dismissed the "complete" state
 
+  let backfillAutoStarted = false;
   async function pollBackfill() {
     try {
       const r = await fetch("/api/backfill/status");
       if (!r.ok) return;
       const data = await r.json();
+
+      // First-time entry: no job exists → kick it off automatically.
+      // (This handles existing users who already passed the welcome flow
+      // before backfill was a feature.)
+      if (data.status === "none" && !backfillAutoStarted) {
+        backfillAutoStarted = true;
+        try {
+          await fetch("/api/backfill/start", { method: "POST" });
+          // Re-poll immediately to show the new state
+          setTimeout(pollBackfill, 500);
+        } catch (_) {}
+        return;
+      }
+
       renderBackfill(data);
-      if (data.status === "completed" || data.status === "failed" || data.status === "none") {
+      if (data.status === "completed" || data.status === "failed") {
         // Stop polling but leave the banner visible briefly for completed state.
         if (backfillTimer) { clearInterval(backfillTimer); backfillTimer = null; }
       }
