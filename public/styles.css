@@ -64,7 +64,16 @@ button { font-family: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--line);
   margin-bottom: 12px;
 }
-.brand-mark { width: 32px; height: 32px; border-radius: 7px; object-fit: cover; display: block; }
+.brand-mark {
+  width: 32px; height: 32px;
+  background: #000;
+  border-radius: 7px;
+  padding: 3px;
+  object-fit: contain;
+  display: block;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
 .brand-text { font-weight: 700; letter-spacing: .2px; color: var(--navy); }
 
 .compose-btn {
@@ -305,36 +314,42 @@ button { font-family: inherit; cursor: pointer; }
   width: 56px;
   height: 56px;
   border-radius: 14px;
-  background: transparent;
+  background: #000;
   border: none;
+  cursor: pointer;
   padding: 0;
   overflow: hidden;
-  box-shadow: var(--shadow-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .4);
   z-index: 9000;
-  cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease;
+  transition: transform .15s, box-shadow .15s;
 }
-.delta-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(40,47,57,.18); }
-.delta-fab-logo {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  border-radius: 14px;
+.delta-fab:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(0, 0, 0, .5); }
+.delta-fab img { width: 70%; height: 70%; display: block; object-fit: contain; }
+.delta-fab .delta-fab-x { display: none; color: #fff; font-size: 24px; font-weight: 300; line-height: 1; }
+.delta-fab.open img { display: none; }
+.delta-fab.open .delta-fab-x { display: block; }
+body.delta-panel-open .delta-fab { display: none; }
+
+/* Soft "breathing" idle animation — gentle outward glow pulse + subtle scale.
+   Matches the dashboard's ka-fab pattern. */
+@keyframes delta-breathe {
+  0%, 100% {
+    box-shadow: 0 4px 14px rgba(0,0,0,.4), 0 0 0 0 rgba(178, 142, 68, .35);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 4px 14px rgba(0,0,0,.4), 0 0 0 14px transparent;
+    transform: scale(1.025);
+  }
 }
-.delta-fab-pulse {
-  position: absolute;
-  inset: -4px;
-  border-radius: 18px;
-  border: 2px solid var(--gold);
-  opacity: 0;
-  animation: pulse 2.4s ease-out infinite;
-  pointer-events: none;
+.delta-fab:not(.open):not(:hover) {
+  animation: delta-breathe 2.6s ease-in-out infinite;
 }
-@keyframes pulse {
-  0%   { transform: scale(.85); opacity: .5; }
-  70%  { transform: scale(1.15); opacity: 0; }
-  100% { transform: scale(1.15); opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .delta-fab { animation: none !important; }
 }
 
 /* DELTA PANEL — slides in when FAB clicked */
@@ -376,10 +391,14 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--navy);
 }
 .delta-mini-logo {
-  width: 22px; height: 22px;
+  width: 28px; height: 28px;
+  background: #000;
   border-radius: 6px;
-  object-fit: cover;
+  padding: 3px;
+  object-fit: contain;
   display: block;
+  box-sizing: border-box;
+  flex-shrink: 0;
 }
 .delta-close {
   background: transparent;

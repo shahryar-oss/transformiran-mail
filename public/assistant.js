@@ -1,8 +1,7 @@
-// Delta FAB controller — phase 0.
-// Matches the dashboard's deltaFab/deltaToggle pattern so shared modules
-// (e.g. cmdk.js) can find the same IDs in both products.
-//
-// Phase 1+: wire chat to /api/assistant, voice mic to /api/transcribe, etc.
+// Delta FAB controller — Phase 0.
+// Matches the dashboard's ka-fab pattern: button shows logo by default,
+// flips to ✕ when panel is open. Body class hides the FAB while open.
+// Phase 1+: wire chat to /api/assistant, voice mic to /api/transcribe.
 
 (() => {
   const fab = document.getElementById("deltaFab");
@@ -13,22 +12,24 @@
 
   function openPanel() {
     panel.hidden = false;
-    fab.style.display = "none";
+    fab.classList.add("open");
+    document.body.classList.add("delta-panel-open");
   }
   function closePanel() {
     panel.hidden = true;
-    fab.style.display = "grid";
+    fab.classList.remove("open");
+    document.body.classList.remove("delta-panel-open");
   }
 
-  fab.addEventListener("click", openPanel);
+  fab.addEventListener("click", () => {
+    if (panel.hidden) openPanel(); else closePanel();
+  });
   closeBtn?.addEventListener("click", closePanel);
 
-  // Esc to close
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && !panel.hidden) closePanel();
   });
 
-  // Click outside the panel to close
   document.addEventListener("click", (e) => {
     if (panel.hidden) return;
     if (panel.contains(e.target) || fab.contains(e.target)) return;
