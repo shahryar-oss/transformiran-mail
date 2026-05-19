@@ -50,6 +50,81 @@ html, body {
   background: var(--cream);
 }
 
+/* Backfill banner — sits above the .app grid when historical
+   indexing is running. Slim, gold-themed, dismissible once done. */
+.backfill-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: linear-gradient(90deg, rgba(178, 142, 68, .08), rgba(178, 142, 68, .04));
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--navy);
+  flex-shrink: 0;
+  position: relative;
+}
+.backfill-banner.complete {
+  background: linear-gradient(90deg, rgba(79, 157, 90, .08), rgba(79, 157, 90, .03));
+}
+.bfb-spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--line);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  flex-shrink: 0;
+}
+.backfill-banner.complete .bfb-spinner {
+  border: 2px solid var(--good);
+  border-top-color: var(--good);
+  animation: none;
+  position: relative;
+}
+.backfill-banner.complete .bfb-spinner::after {
+  content: "✓";
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  color: var(--good);
+  font-size: 10px; font-weight: 800;
+}
+.bfb-body {
+  display: flex; flex-direction: column; gap: 1px;
+  flex-shrink: 0;
+}
+.bfb-title { font-weight: 600; }
+.bfb-meta  { color: var(--muted); font-size: 11.5px; }
+.bfb-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--cream-dark);
+  border-radius: 2px;
+  overflow: hidden;
+  margin: 0 6px;
+}
+.bfb-bar-fill {
+  height: 100%;
+  background: var(--gold);
+  width: 0%;
+  transition: width .5s ease;
+}
+.backfill-banner.complete .bfb-bar-fill { background: var(--good); }
+.bfb-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  width: 24px; height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.bfb-dismiss:hover { background: var(--cream-dark); color: var(--navy); }
+
+/* App grid uses available height under the banner */
+body { display: flex; flex-direction: column; }
+.app { flex: 1; min-height: 0; }
+
 button { font-family: inherit; cursor: pointer; }
 
 /* ============================================================

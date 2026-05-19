@@ -12,6 +12,7 @@ const gmail = require("./lib/gmail");
 const assistant = require("./lib/assistant");
 const classifier = require("./lib/classifier");
 const memory = require("./lib/memory");
+const backfill = require("./lib/backfill");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -146,6 +147,42 @@ app.post("/api/me/welcome", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/me/welcome] failed:", err);
     res.status(500).json({ error: "welcome_failed" });
+  }
+});
+
+// ====================================================================
+// Historical backfill — indexes the user's entire Gmail history
+// ====================================================================
+app.post("/api/backfill/start", auth.requireAuth, async (req, res) => {
+  try {
+    const job = await backfill.startJob(req.user.id);
+    res.json({ ok: true, job });
+  } catch (err) {
+    console.error("[/api/backfill/start] failed:", err);
+    res.status(500).json({ error: "start_failed", message: err.message });
+  }
+});
+
+app.get("/api/backfill/status", auth.requireAuth, async (req, res) => {
+  try {
+    const job = await backfill.getJob(req.user.id);
+    if (!job) return res.json({ status: "none" });
+    const pct = job.total_estimated && job.total_estimated > 0
+      ? Math.min(100, Math.round((job.total_indexed / job.total_estimated) * 100))
+      : null;
+    res.json({
+      status: job.status,
+      phase: job.phase,
+      total_estimated: job.total_estimated,
+      total_indexed: job.total_indexed,
+      percent: pct,
+      started_at: job.started_at,
+      completed_at: job.completed_at,
+      last_progress_at: job.last_progress_at,
+      error: job.error,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "status_failed", message: err.message });
   }
 });
 
@@ -599,5 +636,43 @@ app.listen(PORT, () => {
 });
 
 dbReady
-  .then(() => console.log("[boot] db ready"))
+  .then(() => {
+    console.log("[boot] db ready");
+    startBackfillWorker();
+  })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
+
+// ====================================================================
+// BACKFILL WORKER — runs every 20s, finds active jobs and advances them.
+// Each user gets ~1 tick per worker cycle to share the loop fairly.
+// ====================================================================
+function startBackfillWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const r = await pool.query(
+        `SELECT user_id FROM backfill_jobs
+          WHERE status IN ('pending', 'running')
+          ORDER BY updated_at ASC
+          LIMIT 3`
+      );
+      for (const row of r.rows) {
+        try {
+          await backfill.tick(row.user_id);
+        } catch (err) {
+          console.error(`[backfill-worker] user ${row.user_id} tick failed:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[backfill-worker] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  // First run 10s after boot, then every 20s.
+  setTimeout(cycle, 10_000);
+  setInterval(cycle, 20_000);
+  console.log("[boot] backfill worker scheduled (cycle 20s)");
+}

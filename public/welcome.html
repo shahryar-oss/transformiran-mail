@@ -281,9 +281,10 @@
 
   speechEl.innerHTML = intro.map((p) => `<p>${p}</p>`).join("");
 
-  // ---- Light "scanning" pass — pulls recent inbox so it's cached when
-  //      they enter, gives Delta a real moment to "look around" -----------
-  const SCAN_MIN_MS = 2200; // minimum perceived dwell so the moment feels real
+  // ---- Light "scanning" pass — pulls recent inbox AND kicks off the
+  //      full historical backfill in the background. Backfill keeps
+  //      running after they click "Get started" — they don't have to wait. -
+  const SCAN_MIN_MS = 1500;
   const t0 = Date.now();
 
   let messages = 0;
@@ -295,6 +296,10 @@
     }
   } catch (_) { /* don't block welcome on a fetch hiccup */ }
 
+  // Kick off the historical backfill — this runs in the background on the
+  // server. We don't wait for it; we just show progress.
+  try { await fetch("/api/backfill/start", { method: "POST" }); } catch (_) {}
+
   const elapsed = Date.now() - t0;
   if (elapsed < SCAN_MIN_MS) {
     await new Promise((res) => setTimeout(res, SCAN_MIN_MS - elapsed));
@@ -302,8 +307,8 @@
 
   progressRow.classList.add("done");
   progressText.textContent = messages
-    ? `Read ${messages} recent messages. I've got the lay of the land.`
-    : `Inbox scan complete.`;
+    ? `Read ${messages} recent messages. Now scanning your full history in the background…`
+    : `Now scanning your full history in the background…`;
 
   startBtn.disabled = false;
   startBtn.textContent = "Get started →";

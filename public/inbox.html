@@ -9,6 +9,18 @@
 </head>
 <body>
 
+<!-- Backfill progress banner — sits above the app when historical
+     indexing is running. Hidden once status = completed. -->
+<div id="backfillBanner" class="backfill-banner" hidden>
+  <div class="bfb-spinner" aria-hidden="true"></div>
+  <div class="bfb-body">
+    <div class="bfb-title">Delta is reading your full inbox history</div>
+    <div class="bfb-meta" id="bfbMeta">Just started…</div>
+  </div>
+  <div class="bfb-bar"><div class="bfb-bar-fill" id="bfbBarFill"></div></div>
+  <button class="bfb-dismiss" id="bfbDismiss" hidden title="Dismiss">×</button>
+</div>
+
 <!-- Phase 0 shell: Outlook-style three-pane layout. Empty state. -->
 <div class="app">
 

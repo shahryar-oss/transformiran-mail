@@ -708,6 +708,77 @@
     generate("");
   }
 
+  // ---------- BACKFILL BANNER -----------------------------------------
+  const banner = document.getElementById("backfillBanner");
+  const bfbMeta = document.getElementById("bfbMeta");
+  const bfbBar = document.getElementById("bfbBarFill");
+  const bfbDismiss = document.getElementById("bfbDismiss");
+  let backfillTimer = null;
+  let bannerSticky = false;  // user dismissed the "complete" state
+
+  async function pollBackfill() {
+    try {
+      const r = await fetch("/api/backfill/status");
+      if (!r.ok) return;
+      const data = await r.json();
+      renderBackfill(data);
+      if (data.status === "completed" || data.status === "failed" || data.status === "none") {
+        // Stop polling but leave the banner visible briefly for completed state.
+        if (backfillTimer) { clearInterval(backfillTimer); backfillTimer = null; }
+      }
+    } catch (_) {}
+  }
+
+  function fmt(n) {
+    if (!Number.isFinite(n)) return "?";
+    return n.toLocaleString("en-US");
+  }
+
+  function renderBackfill(s) {
+    if (!banner || bannerSticky) return;
+    if (!s || s.status === "none" || !s.status) {
+      banner.hidden = true;
+      return;
+    }
+    if (s.status === "failed") {
+      banner.hidden = false;
+      banner.classList.remove("complete");
+      bfbMeta.textContent = "Backfill paused — " + (s.error || "unknown error");
+      bfbBar.style.width = (s.percent || 0) + "%";
+      bfbDismiss.hidden = false;
+      return;
+    }
+    if (s.status === "completed") {
+      banner.hidden = false;
+      banner.classList.add("complete");
+      bfbMeta.textContent = `Indexed ${fmt(s.total_indexed)} messages — Delta can now search your full history.`;
+      bfbBar.style.width = "100%";
+      bfbDismiss.hidden = false;
+      return;
+    }
+    // running / pending
+    banner.hidden = false;
+    banner.classList.remove("complete");
+    const phase = s.phase === "list" ? "Listing messages" :
+                  s.phase === "meta" ? "Reading details" :
+                  "Indexing";
+    const total = s.total_estimated || 0;
+    const done = s.total_indexed || 0;
+    if (total > 0) {
+      bfbMeta.textContent = `${phase} — ${fmt(done)} of ${fmt(total)} (${s.percent}%)`;
+      bfbBar.style.width = (s.percent || 0) + "%";
+    } else {
+      bfbMeta.textContent = `${phase}…`;
+      bfbBar.style.width = "5%";
+    }
+    bfbDismiss.hidden = true;
+  }
+
+  bfbDismiss?.addEventListener("click", () => {
+    banner.hidden = true;
+    bannerSticky = true;
+  });
+
   async function main() {
     try {
       const me = await loadMe();
@@ -717,6 +788,10 @@
       window.location.href = "/";
       return;
     }
+    // Start backfill polling immediately
+    pollBackfill();
+    backfillTimer = setInterval(pollBackfill, 5000);
+
     try {
       const { messages } = await loadInbox();
       _allMessages = messages;
