@@ -815,6 +815,18 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12.5px;
   color: var(--muted);
 }
+.draft-sig-hint {
+  font-size: 11.5px;
+  color: var(--gold-dark);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.draft-sig-hint::before {
+  content: "✓";
+  font-weight: 800;
+}
 .draft-status.ok { color: var(--good); font-weight: 600; }
 .draft-status.error { color: var(--bad); }
 .draft-status a { color: inherit; }
@@ -1369,6 +1381,19 @@ body.delta-panel-open .delta-fab { display: none; }
 .cd-status.ok { color: var(--good); font-weight: 600; }
 .cd-status.error { color: var(--bad); }
 .cd-status a { color: inherit; }
+
+.cd-sig-hint {
+  font-size: 11px;
+  color: var(--gold-dark);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cd-sig-hint::before {
+  content: "✓";
+  font-weight: 800;
+}
 
 /* Tool-call transparency lines (Shortwave-style) */
 .delta-tool-event {

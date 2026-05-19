@@ -514,6 +514,17 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       openMessageId,
       instructions: instructions || "",
     });
+    // Tell client whether the signature will be appended on save.
+    let signatureAvailable = false;
+    try {
+      const creds = await auth.loadGoogleCreds(req.user.id);
+      if (creds) {
+        const client = gmail.authedClientFromTokens(creds);
+        const sig = await gmail.getCachedSignature(req.user.id, client);
+        signatureAvailable = !!(sig && sig.html);
+      }
+    } catch (_) {}
+
     res.json({
       to: result.to,
       subject: result.subject,
@@ -521,6 +532,7 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       threadId: result.threadId,
       inReplyTo: result.inReplyTo,
       styleExamples: result.styleExamples,
+      signatureAvailable,
     });
   } catch (err) {
     console.error("[/api/assistant/draft] failed:", err);
@@ -530,6 +542,11 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
 
 // Create a real Gmail draft in the user's Drafts folder.
 // User reviews + sends from Gmail itself; we never send on their behalf.
+//
+// Builds a multipart/alternative MIME message with:
+//   - text/plain part (body + signature in plain text)
+//   - text/html part (body in <p>s + the user's actual HTML signature)
+// Gmail then shows the proper formatted signature in the draft.
 app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
   const { to, subject, body, threadId, inReplyTo } = req.body || {};
   if (!to || !body) return res.status(400).json({ error: "to_and_body_required" });
@@ -539,25 +556,19 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
     const client = gmail.authedClientFromTokens(creds);
     const g = google.gmail({ version: "v1", auth: client });
 
-    // Build an RFC-2822 message. Gmail accepts base64url-encoded raw.
-    const lines = [
-      `To: ${to}`,
-      `Subject: ${subject || "(no subject)"}`,
-      `MIME-Version: 1.0`,
-      `Content-Type: text/plain; charset="UTF-8"`,
-      `Content-Transfer-Encoding: 7bit`,
-    ];
-    if (inReplyTo) {
-      lines.push(`In-Reply-To: ${inReplyTo}`);
-      lines.push(`References: ${inReplyTo}`);
-    }
-    lines.push("");
-    lines.push(body);
-    const raw = Buffer.from(lines.join("\r\n"), "utf-8")
-      .toString("base64")
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=+$/, "");
+    // Fetch the user's official Gmail signature (cached for 60 min).
+    const sig = await gmail.getCachedSignature(req.user.id, client);
+    const sigHtml = sig?.html || "";
+    const sigText = sig ? gmail.signatureToPlainText(sigHtml) : "";
+
+    const raw = buildMultipartMessage({
+      to,
+      subject: subject || "(no subject)",
+      bodyText: body,
+      signatureText: sigText,
+      signatureHtml: sigHtml,
+      inReplyTo,
+    });
 
     const draftRes = await g.users.drafts.create({
       userId: "me",
@@ -574,12 +585,76 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
       draftId: draftRes.data.id,
       messageId: draftRes.data.message?.id,
       gmailUrl: `https://mail.google.com/mail/u/0/#drafts`,
+      signatureUsed: !!sigHtml,
     });
   } catch (err) {
     console.error("[/api/gmail/draft] failed:", err);
     res.status(500).json({ error: "draft_save_failed", message: err.message });
   }
 });
+
+// Builds a multipart/alternative RFC-2822 message, base64url-encoded for Gmail.
+// Includes the user's HTML signature in the html part + plain-text signature
+// in the text part. Signature is preceded by Gmail's standard "--" separator.
+function buildMultipartMessage({ to, subject, bodyText, signatureText, signatureHtml, inReplyTo }) {
+  const boundary = "delta_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+  // Convert plain-text body to safe HTML for the html part.
+  const bodyHtml = String(bodyText || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .split(/\n{2,}/)
+    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+    .join("\n");
+
+  // Plain-text part — body, blank line, "--", signature
+  const textPart = [
+    bodyText,
+    signatureText ? `\r\n\r\n-- \r\n${signatureText}` : "",
+  ].join("");
+
+  // HTML part — body HTML + signature HTML (already in HTML form)
+  const htmlPart =
+    `<div style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222">` +
+    bodyHtml +
+    (signatureHtml
+      ? `<br><div class="gmail_signature" data-smartmail="gmail_signature">${signatureHtml}</div>`
+      : "") +
+    `</div>`;
+
+  const headers = [
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+  ];
+  if (inReplyTo) {
+    headers.push(`In-Reply-To: ${inReplyTo}`);
+    headers.push(`References: ${inReplyTo}`);
+  }
+
+  const message =
+    headers.join("\r\n") +
+    "\r\n\r\n" +
+    `--${boundary}\r\n` +
+    `Content-Type: text/plain; charset="UTF-8"\r\n` +
+    `Content-Transfer-Encoding: 7bit\r\n\r\n` +
+    textPart +
+    "\r\n\r\n" +
+    `--${boundary}\r\n` +
+    `Content-Type: text/html; charset="UTF-8"\r\n` +
+    `Content-Transfer-Encoding: 7bit\r\n\r\n` +
+    htmlPart +
+    "\r\n\r\n" +
+    `--${boundary}--\r\n`;
+
+  return Buffer.from(message, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
 
 // ====================================================================
 // Delta chat — POST /api/assistant

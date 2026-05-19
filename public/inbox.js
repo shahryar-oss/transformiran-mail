@@ -570,6 +570,7 @@
       <div class="draft-actions">
         <button class="draft-save btn primary" disabled>Save to Gmail Drafts</button>
         <button class="draft-cancel btn">Cancel</button>
+        <span class="draft-sig-hint" style="display:none">+ your Transform Iran signature</span>
         <span class="draft-status"></span>
       </div>
     `;
@@ -616,6 +617,12 @@
         subjInput.value = data.subject || "";
         bodyTa.value = data.body || "";
         titleEl.textContent = "Draft ready — edit before saving";
+
+        // Signature availability indicator
+        const sigHintEl = composer.querySelector(".draft-sig-hint");
+        if (sigHintEl && data.signatureAvailable) {
+          sigHintEl.style.display = "";
+        }
 
         // Style confidence banner — "Found N writing examples to <recipient>"
         const conf = data.styleExamples;
