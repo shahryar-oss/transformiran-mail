@@ -14,11 +14,14 @@
 */
 
 :root {
-  --gold: #B28E44;
+  /* Transform Iran brand palette — see brand_transform_iran.md */
+  --gold: #B28E44;        /* wordmark + decorative stripes */
   --gold-dark: #8E6F35;
+  --red: #E92A2E;         /* primary emphasis + CTAs (Impact Report pill, Mission box) */
+  --red-dark: #C81F23;
   --cream: #F7F3E9;
   --cream-dark: #EDE6D2;
-  --navy: #282F39;
+  --navy: #282F39;        /* body text + section tabs */
   --navy-soft: #4A5260;
   --paper: #FFFFFF;
   --line: #E2DBC8;
@@ -102,15 +105,18 @@ button { font-family: inherit; cursor: pointer; }
 
 .compose-btn {
   width: 100%;
-  background: var(--gold);
+  background: var(--red);
   color: white;
   border: none;
-  border-radius: var(--radius);
-  padding: 10px 12px;
+  border-radius: 999px;     /* pill shape matches the brand's URL pills */
+  padding: 11px 12px;
   font-weight: 600;
+  letter-spacing: .2px;
   margin-bottom: 16px;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 4px 10px rgba(233, 42, 46, .18);
+  transition: background .15s;
 }
+.compose-btn:hover:not(:disabled) { background: var(--red-dark); }
 .compose-btn:disabled { opacity: .55; cursor: not-allowed; }
 
 .folders { display: flex; flex-direction: column; gap: 14px; }
@@ -215,7 +221,7 @@ button { font-family: inherit; cursor: pointer; }
   content: "";
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: var(--gold);
+  background: var(--red);              /* unread = red dot (matches brand emphasis) */
   margin-top: 14px;
   margin-left: -8px;
   flex-shrink: 0;
@@ -223,7 +229,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .mail-avatar {
   width: 36px; height: 36px;
-  background: var(--gold);
+  background: var(--gold);             /* sender avatar stays gold — decorative, not action */
   color: white;
   border-radius: 50%;
   display: grid; place-items: center;
@@ -396,11 +402,11 @@ button { font-family: inherit; cursor: pointer; }
    ============================================================ */
 .draft-composer {
   background: var(--paper);
-  border: 1px solid var(--gold);
+  border: 1px solid var(--red);
   border-radius: 14px;
   margin-bottom: 24px;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(178, 142, 68, .12);
+  box-shadow: 0 8px 24px rgba(233, 42, 46, .12);
 }
 .draft-head {
   display: flex;
@@ -549,11 +555,11 @@ button { font-family: inherit; cursor: pointer; }
 }
 .btn:hover { background: var(--cream); }
 .btn.primary {
-  background: var(--gold);
-  border-color: var(--gold);
+  background: var(--red);
+  border-color: var(--red);
   color: white;
 }
-.btn.primary:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
+.btn.primary:hover { background: var(--red-dark); border-color: var(--red-dark); }
 
 .btn.delta-btn { display: inline-flex; align-items: center; gap: 7px; }
 .btn.delta-btn img.k-logo {
@@ -884,7 +890,7 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .delta-msg.user {
   align-self: flex-end;
-  background: var(--gold);
+  background: var(--red);              /* "your voice" stands out, like brand callout quotes */
   color: white;
   border-bottom-right-radius: 4px;
 }
