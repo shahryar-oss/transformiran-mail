@@ -2,7 +2,11 @@
 
 Executive-assistant email tool for Transform Iran staff. Replaces Shortwave with a custom Outlook-style inbox + Delta AI that knows the org, the people, and the user's style.
 
-Live: https://mail.transformiran.info *(pending DNS)*
+Live: https://mail.transformiran.info
+
+> **This repository is public, but the code is proprietary** — see [LICENSE](LICENSE). Public visibility is for CI/CD and operational reasons only. No code, design, or assets may be copied or reused.
+>
+> Security issue? See [SECURITY.md](SECURITY.md).
 
 ## Status
 
