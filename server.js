@@ -540,6 +540,80 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
   }
 });
 
+// ====================================================================
+// Compose settings — aliases (sendAs) + signature import + preferences
+// ====================================================================
+app.get("/api/compose/settings", auth.requireAuth, async (req, res) => {
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const sendAs = await gmail.getCachedSendAs(req.user.id, client, false);
+
+    res.json({
+      signatureMode: req.user.signature_mode || "always",
+      defaultSendAs: req.user.default_send_as || null,
+      aliases: sendAs.aliases,
+      primarySignature: sendAs.primarySignature
+        ? {
+            sendAsEmail: sendAs.primarySignature.sendAsEmail,
+            displayName: sendAs.primarySignature.displayName,
+            html: sendAs.primarySignature.html,
+            plainText: gmail.signatureToPlainText(sendAs.primarySignature.html),
+          }
+        : null,
+    });
+  } catch (err) {
+    console.error("[/api/compose/settings] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.patch("/api/compose/settings", auth.requireAuth, async (req, res) => {
+  const { signatureMode, defaultSendAs } = req.body || {};
+  if (signatureMode && !["always", "first", "never"].includes(signatureMode)) {
+    return res.status(400).json({ error: "bad_signature_mode" });
+  }
+  try {
+    const fields = [];
+    const values = [];
+    let i = 1;
+    if (signatureMode !== undefined) {
+      fields.push(`signature_mode = $${i++}`);
+      values.push(signatureMode);
+    }
+    if (defaultSendAs !== undefined) {
+      fields.push(`default_send_as = $${i++}`);
+      values.push(defaultSendAs || null);
+    }
+    if (!fields.length) return res.json({ ok: true });
+    values.push(req.user.id);
+    await pool.query(`UPDATE users SET ${fields.join(", ")} WHERE id = $${i}`, values);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/compose/settings] patch failed:", err);
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+// Force-refresh aliases + signature from Gmail (busts the 60-min cache).
+app.post("/api/compose/refresh", auth.requireAuth, async (req, res) => {
+  try {
+    gmail.invalidateGmailCaches(req.user.id);
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const sendAs = await gmail.getCachedSendAs(req.user.id, client, true);
+    res.json({
+      ok: true,
+      aliases: sendAs.aliases.length,
+      hasSignature: !!sendAs.primarySignature,
+    });
+  } catch (err) {
+    res.status(500).json({ error: "refresh_failed", message: err.message });
+  }
+});
+
 // Read the user's current Gmail signature — for verification.
 // Visit /api/gmail/signature in the browser to see the raw HTML + plain text.
 app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
@@ -586,8 +660,21 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 
     // Fetch the user's official Gmail signature (cached for 60 min).
     const sig = await gmail.getCachedSignature(req.user.id, client);
-    const sigHtml = sig?.html || "";
-    const sigText = sig ? gmail.signatureToPlainText(sigHtml) : "";
+
+    // Decide whether to actually append the signature for THIS draft.
+    // 'always'  → every outgoing message
+    // 'first'   → only the first message of a NEW thread (no inReplyTo)
+    // 'never'   → never
+    const mode = req.user.signature_mode || "always";
+    const useSig =
+      mode === "never"
+        ? false
+        : mode === "first"
+        ? !inReplyTo  // first message in a new thread
+        : true;       // always (default)
+
+    const sigHtml = useSig && sig?.html ? sig.html : "";
+    const sigText = useSig && sig ? gmail.signatureToPlainText(sig.html) : "";
 
     const raw = buildMultipartMessage({
       to,

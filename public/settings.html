@@ -207,6 +207,107 @@
     font-weight: 700;
     margin-top: 2px;
   }
+
+  /* Compose section */
+  .compose-section {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+  .compose-section:first-child {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+  .compose-section-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .compose-h {
+    margin: 0;
+    font-size: 13px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 700;
+  }
+
+  .alias-list { display: flex; flex-direction: column; gap: 6px; }
+  .alias-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .alias-row .alias-email { font-weight: 600; color: var(--navy); font-size: 13.5px; }
+  .alias-row .alias-meta  { font-size: 11.5px; color: var(--muted); margin-left: auto; display: flex; gap: 6px; align-items: center; }
+  .alias-row .alias-badge {
+    background: var(--gold);
+    color: white;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .alias-row .alias-sig-pill {
+    background: rgba(79, 157, 90, .14);
+    color: var(--good);
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+
+  .sig-status {
+    font-size: 12.5px;
+    color: var(--navy-soft);
+    margin-bottom: 10px;
+  }
+  .sig-preview {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  #sigIframe {
+    width: 100%;
+    border: none;
+    background: white;
+    border-radius: 4px;
+    min-height: 80px;
+  }
+
+  .sig-modes { display: flex; flex-direction: column; gap: 6px; }
+  .sig-mode {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s;
+  }
+  .sig-mode:hover { border-color: var(--gold); background: var(--cream); }
+  .sig-mode input { margin-top: 3px; accent-color: var(--red); }
+  .sig-mode strong { display: block; color: var(--navy); font-size: 13.5px; font-weight: 600; margin-bottom: 2px; }
+  .sig-mode span { display: block; color: var(--muted); font-size: 12px; }
+  .sig-mode input:checked ~ div strong { color: var(--red-dark); }
+  .sig-mode:has(input:checked) {
+    border-color: var(--red);
+    background: rgba(233, 42, 46, .03);
+  }
 </style>
 </head>
 <body>
@@ -227,6 +328,59 @@
         <div class="name" id="userName">Loading…</div>
         <div class="email" id="userEmail"></div>
         <div class="role" id="userRole"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Compose: Aliases + Signatures -->
+  <section class="card">
+    <h2>Compose</h2>
+    <p class="card-sub">
+      Manage your sending aliases and signature. Both are imported from
+      Gmail — edit them in
+      <a href="https://mail.google.com/mail/u/0/#settings/general" target="_blank" rel="noopener">Gmail Settings → General</a>
+      and click <em>Refresh from Gmail</em> below.
+    </p>
+
+    <div class="compose-section">
+      <div class="compose-section-head">
+        <h3 class="compose-h">Aliases</h3>
+        <button id="composeRefreshBtn" class="btn" type="button">Refresh from Gmail</button>
+      </div>
+      <div id="aliasList" class="alias-list">
+        <div class="empty-state">Loading…</div>
+      </div>
+    </div>
+
+    <div class="compose-section">
+      <h3 class="compose-h">Signature</h3>
+      <div id="sigStatus" class="sig-status">Loading…</div>
+      <div id="sigPreview" class="sig-preview" hidden>
+        <iframe id="sigIframe" sandbox="allow-same-origin" title="Signature preview"></iframe>
+      </div>
+
+      <div class="sig-modes">
+        <label class="sig-mode">
+          <input type="radio" name="sigMode" value="always" id="sigModeAlways">
+          <div>
+            <strong>Include signature on all outgoing messages</strong>
+            <span>Default — every reply, every new email.</span>
+          </div>
+        </label>
+        <label class="sig-mode">
+          <input type="radio" name="sigMode" value="first" id="sigModeFirst">
+          <div>
+            <strong>Include signature on the first message of new threads only</strong>
+            <span>Keeps replies inside a thread clean — signature only on the opening message.</span>
+          </div>
+        </label>
+        <label class="sig-mode">
+          <input type="radio" name="sigMode" value="never" id="sigModeNever">
+          <div>
+            <strong>Do not include signature on outgoing messages</strong>
+            <span>Delta will sign with your first name only.</span>
+          </div>
+        </label>
       </div>
     </div>
   </section>
@@ -423,6 +577,97 @@
   });
 
   loadMemories();
+
+  // ---------------- Compose: aliases + signature ----------------
+  const aliasListEl = $("aliasList");
+  const sigStatusEl = $("sigStatus");
+  const sigPreviewEl = $("sigPreview");
+  const sigIframe = $("sigIframe");
+  const refreshBtn = $("composeRefreshBtn");
+
+  async function loadCompose(force = false) {
+    aliasListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    sigStatusEl.textContent = "Loading…";
+    const path = force ? "/api/compose/refresh" : "/api/compose/settings";
+    if (force) {
+      const r = await fetch("/api/compose/refresh", { method: "POST" });
+      if (!r.ok) return;
+    }
+    const r = await fetch("/api/compose/settings");
+    if (!r.ok) {
+      aliasListEl.innerHTML = `<div class="empty-state">Couldn't load aliases.</div>`;
+      sigStatusEl.textContent = "Couldn't load signature.";
+      return;
+    }
+    const data = await r.json();
+    renderAliases(data.aliases || []);
+    renderSignature(data.primarySignature);
+    setSigMode(data.signatureMode || "always");
+  }
+
+  function renderAliases(aliases) {
+    if (!aliases.length) {
+      aliasListEl.innerHTML = `<div class="empty-state">No aliases imported.</div>`;
+      return;
+    }
+    aliasListEl.innerHTML = aliases
+      .map((a) => `
+        <div class="alias-row">
+          <div class="alias-email">${escapeHtml(a.sendAsEmail)}</div>
+          <div class="alias-meta">
+            ${a.isDefault ? `<span class="alias-badge">Default</span>` : ""}
+            ${a.hasSignature ? `<span class="alias-sig-pill">Signature</span>` : ""}
+            ${a.isDefault ? "" : (a.treatAsAlias ? "Alias" : "Send-from")}
+          </div>
+        </div>`)
+      .join("");
+  }
+
+  function renderSignature(sig) {
+    if (!sig) {
+      sigStatusEl.textContent = "No signature imported from Gmail.";
+      sigPreviewEl.hidden = true;
+      return;
+    }
+    sigStatusEl.innerHTML = `Imported from <strong>${escapeHtml(sig.sendAsEmail)}</strong> — ${sig.html.length.toLocaleString()} chars.`;
+    sigPreviewEl.hidden = false;
+    sigIframe.srcdoc = `<!doctype html><html><head><base target="_blank"><style>body{margin:6px;font:13px -apple-system,sans-serif;color:#222}img{max-width:100%}</style></head><body>${sig.html}</body></html>`;
+    sigIframe.addEventListener("load", () => {
+      try {
+        const h = sigIframe.contentDocument.documentElement.scrollHeight;
+        sigIframe.style.height = Math.min(h + 20, 600) + "px";
+      } catch (_) {}
+    }, { once: true });
+  }
+
+  function setSigMode(mode) {
+    const el = document.querySelector(`input[name="sigMode"][value="${mode}"]`);
+    if (el) el.checked = true;
+  }
+
+  document.querySelectorAll('input[name="sigMode"]').forEach((r) => {
+    r.addEventListener("change", async () => {
+      if (!r.checked) return;
+      await fetch("/api/compose/settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signatureMode: r.value }),
+      });
+    });
+  });
+
+  refreshBtn?.addEventListener("click", async () => {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = "Refreshing…";
+    try {
+      await loadCompose(true);
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = "Refresh from Gmail";
+    }
+  });
+
+  loadCompose(false);
 })();
 </script>
 
