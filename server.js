@@ -540,6 +540,34 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Read the user's current Gmail signature — for verification.
+// Visit /api/gmail/signature in the browser to see the raw HTML + plain text.
+app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const sig = await gmail.fetchPrimarySignature(client);
+    if (!sig) {
+      return res.json({
+        configured: false,
+        note: "No signature found in users.settings.sendAs.list — either you have none set, or Gmail returned an empty signature field.",
+      });
+    }
+    res.json({
+      configured: true,
+      sendAsEmail: sig.sendAsEmail,
+      displayName: sig.displayName,
+      htmlLength: sig.html?.length || 0,
+      plainText: gmail.signatureToPlainText(sig.html).slice(0, 1500),
+      htmlPreview: (sig.html || "").slice(0, 4000),
+    });
+  } catch (err) {
+    console.error("[/api/gmail/signature] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
 // Create a real Gmail draft in the user's Drafts folder.
 // User reviews + sends from Gmail itself; we never send on their behalf.
 //
