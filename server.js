@@ -11,6 +11,7 @@ const auth = require("./lib/auth");
 const gmail = require("./lib/gmail");
 const assistant = require("./lib/assistant");
 const classifier = require("./lib/classifier");
+const memory = require("./lib/memory");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -107,6 +108,12 @@ app.get("/", (req, res) => {
     return res.sendFile(path.join(__dirname, "public", "welcome.html"));
   }
   res.sendFile(path.join(__dirname, "public", "inbox.html"));
+});
+
+// Settings page — Memory, account info, etc.
+app.get("/settings", (req, res) => {
+  if (!req.user) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public", "settings.html"));
 });
 
 // Static (after the / route so we control the landing/inbox swap).
@@ -253,6 +260,62 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/gmail/message/:id/trash] failed:", err);
     res.status(500).json({ error: "trash_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Delta Memory — persistent facts Delta has been told to remember
+// ====================================================================
+app.get("/api/memory", auth.requireAuth, async (req, res) => {
+  try {
+    const rows = await memory.listAll(req.user.id);
+    res.json({ memories: rows });
+  } catch (err) {
+    console.error("[/api/memory] list failed:", err);
+    res.status(500).json({ error: "list_failed", message: err.message });
+  }
+});
+
+app.post("/api/memory", auth.requireAuth, async (req, res) => {
+  const { subject, subject_email, category, fact } = req.body || {};
+  if (!subject || !fact) return res.status(400).json({ error: "subject_and_fact_required" });
+  try {
+    const row = await memory.add(req.user.id, {
+      subject,
+      subject_email,
+      category,
+      fact,
+      source: "manual",
+    });
+    res.json(row);
+  } catch (err) {
+    console.error("[/api/memory] add failed:", err);
+    res.status(500).json({ error: "add_failed", message: err.message });
+  }
+});
+
+app.patch("/api/memory/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const row = await memory.update(req.user.id, id, req.body || {});
+    if (!row) return res.status(404).json({ error: "not_found" });
+    res.json(row);
+  } catch (err) {
+    console.error("[/api/memory/:id] patch failed:", err);
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/memory/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const ok = await memory.remove(req.user.id, id);
+    res.json({ ok });
+  } catch (err) {
+    console.error("[/api/memory/:id] delete failed:", err);
+    res.status(500).json({ error: "delete_failed", message: err.message });
   }
 });
 
