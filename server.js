@@ -46,16 +46,14 @@ app.use((req, res) => {
 const BOOT_TIME_MS = Date.now();
 const BOOT_TIME = new Date().toISOString();
 
-(async () => {
-  try {
-    await dbReady;
-    app.listen(PORT, () => {
-      console.log(
-        `[transformiran-mail] listening on :${PORT} — booted ${BOOT_TIME}`
-      );
-    });
-  } catch (err) {
-    console.error("[boot] fatal:", err);
-    process.exit(1);
-  }
-})();
+// Start listening immediately so Render's health check passes.
+// DB readiness resolves in the background; /healthz reflects the live state.
+app.listen(PORT, () => {
+  console.log(
+    `[transformiran-mail] listening on :${PORT} — booted ${BOOT_TIME}`
+  );
+});
+
+dbReady
+  .then(() => console.log("[boot] db ready"))
+  .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
