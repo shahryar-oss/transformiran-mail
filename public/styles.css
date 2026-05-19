@@ -1,6 +1,16 @@
 /* Transform Iran — Delta Mail
    Brand palette (matches dashboard):
      gold  #B28E44   cream #F7F3E9   navy  #282F39
+
+   Delta logo treatments (mirrors dashboard ka-fab + .k-logo patterns):
+   - .k-logo        — 14x14 black chip, inline action buttons
+   - .k-logo-sm     — 12x12 black chip, suggestion chips
+   - .k-logo-inline — 14x14 black chip, baseline-aligned for inline text
+   - .delta-btn .k-logo (large variant) — 18x18 for hero CTAs
+   - .delta-fab     — 56x56 corner FAB with breathing animation
+   - .delta-mini-logo — 28x28 in the Delta panel header
+   - .brand-mark    — 32x32 in the left rail
+   See brand_delta_logo.md in user memory — MANDATORY on every Delta button.
 */
 
 :root {
@@ -286,6 +296,12 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12px;
   color: var(--muted);
 }
+.reader-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .reader-body {
   font-size: 14px;
   color: var(--navy);
@@ -301,6 +317,80 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--cream);
   border-radius: 8px;
   border: 1px solid var(--line);
+}
+
+/* ============================================================
+   DELTA SMALL ICON BUTTONS — mirrors dashboard .delta-btn pattern
+   Use this whenever an action invokes Delta. Logo to the left of
+   the text label with 7px gap. Never substitute an emoji.
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  font-family: inherit;
+}
+.btn:hover { background: var(--cream); }
+.btn.primary {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: white;
+}
+.btn.primary:hover { background: var(--gold-dark); border-color: var(--gold-dark); }
+
+.btn.delta-btn { display: inline-flex; align-items: center; gap: 7px; }
+.btn.delta-btn img.k-logo {
+  width: 14px; height: 14px;
+  display: block;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #000;
+  border-radius: 3px;
+  padding: 1.5px;
+  box-sizing: border-box;
+}
+.btn.delta-btn.large img.k-logo {
+  width: 18px; height: 18px;
+  padding: 2px;
+}
+
+/* Standalone small logo (for chips, suggestion pills, etc.) */
+.k-logo {
+  width: 14px; height: 14px;
+  display: inline-block;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #000;
+  border-radius: 3px;
+  padding: 1.5px;
+  vertical-align: text-bottom;
+  box-sizing: border-box;
+}
+.k-logo-sm {
+  width: 12px; height: 12px;
+  padding: 1px;
+}
+/* Inline variant for headings + label text — baseline-aligned */
+.k-logo-inline {
+  width: 14px; height: 14px;
+  display: inline-block;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #000;
+  border-radius: 3px;
+  padding: 1.5px;
+  vertical-align: middle;
+  margin-right: 4px;
+  box-sizing: border-box;
 }
 
 /* ============================================================

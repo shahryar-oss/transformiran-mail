@@ -121,6 +121,20 @@
         <div class="reader-meta">
           ${escapeHtml(msg.date || "")}
         </div>
+        <div class="reader-actions">
+          <button class="btn delta-btn primary" data-action="draft-reply">
+            <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Draft a reply
+          </button>
+          <button class="btn delta-btn" data-action="summarize">
+            <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Summarize
+          </button>
+          <button class="btn delta-btn" data-action="translate">
+            <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Translate
+          </button>
+          <button class="btn delta-btn" data-action="explain">
+            <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Ask about this
+          </button>
+        </div>
       </div>
       <div class="reader-body">
         <p class="reader-snippet">${escapeHtml(msg.snippet)}</p>
@@ -129,6 +143,14 @@
           right now — instant, no quota burn).
         </p>
       </div>`;
+
+    // Placeholder handlers — wire to /api/assistant in Phase 2.
+    readerEl.querySelectorAll(".reader-actions [data-action]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const fab = document.getElementById("deltaFab");
+        if (fab) fab.click();
+      });
+    });
   }
 
   async function main() {

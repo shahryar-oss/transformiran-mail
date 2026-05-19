@@ -64,6 +64,37 @@ Same as dashboard:
 - **No emoji in UI** (flags etc. only where genuinely part of the data, not decoration)
 - **Delta logo MANDATORY on every Delta button** — never substitute an emoji. The dashboard rule applies here too.
 
+### Delta logo asset + size variants
+
+The logo lives at `/delta-logo.png` (1.4MB PNG with black square + gradient triangle + "Delta" wordmark). All variants below are defined in `public/styles.css`. Always wrap or pad with a **black chip** — the logo never floats free on white.
+
+| Class | Size | Use case |
+|---|---|---|
+| `.delta-fab` | 56×56 | Bottom-right corner launcher. Logo at 70% inside. Has breathing animation. |
+| `.delta-mini-logo` | 28×28 | Inside Delta panel header next to "Delta" title |
+| `.brand-mark` | 32×32 | Left rail next to "Delta Mail" wordmark |
+| `.k-logo` (inside `.btn.delta-btn`) | 14×14 | Inline action buttons: "Draft a reply", "Generate report", "Summarize", "Ask Delta..." |
+| `.btn.delta-btn.large .k-logo` | 18×18 | Hero CTA variant |
+| `.k-logo-sm` | 12×12 | Suggestion chips, small pills |
+| `.k-logo-inline` | 14×14 | Inline in headings/labels ("Delta findings", "Delta analysis") |
+
+**Markup pattern for a Delta action button:**
+```html
+<button class="btn delta-btn primary" data-action="draft-reply">
+  <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Draft a reply
+</button>
+```
+
+**Markup pattern for an inline Delta label in a heading:**
+```html
+<h2><img class="k-logo-inline" src="/delta-logo.png" alt="Delta" /> Delta findings</h2>
+```
+
+**Never:**
+- Use an emoji (✦ 🤖 🪄 🔮) as a substitute
+- Place the logo on a non-black background
+- Skip the wrapper/padding — the logo always sits inside a rounded black chip
+
 See user memory:
 - `~/.claude/projects/-Users-danny-Desktop-Account-report/memory/brand_transform_iran.md`
 - `~/.claude/projects/-Users-danny-Desktop-Account-report/memory/brand_delta_logo.md`
