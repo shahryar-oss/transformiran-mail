@@ -498,6 +498,7 @@ body.delta-panel-open .delta-fab { display: none; }
   pointer-events: auto;
 }
 
+/* ---------- DELTA PANEL HEADER ---------- */
 .delta-panel-head {
   display: flex;
   justify-content: space-between;
@@ -505,13 +506,16 @@ body.delta-panel-open .delta-fab { display: none; }
   padding: 12px 14px;
   border-bottom: 1px solid var(--line);
   background: var(--cream);
+  flex-shrink: 0;
 }
 .delta-panel-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: .2px;
   color: var(--navy);
+  font-size: 14px;
 }
 .delta-mini-logo {
   width: 28px; height: 28px;
@@ -531,51 +535,100 @@ body.delta-panel-open .delta-fab { display: none; }
   line-height: 1;
   width: 28px; height: 28px;
   border-radius: 6px;
+  cursor: pointer;
 }
-.delta-close:hover { background: var(--cream-dark); }
+.delta-close:hover { background: var(--cream-dark); color: var(--navy); }
 
-.delta-panel-body {
-  padding: 18px 16px;
+/* ---------- DELTA WELCOME STATE — vertically centered ---------- */
+.delta-welcome {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;   /* vertical centering — the key fix */
+  align-items: center;
+  padding: 24px;
+  text-align: center;
+  min-height: 0;
 }
-.delta-greeting { font-size: 15px; color: var(--navy-soft); text-align: center; padding: 6px 0; }
+.delta-big-logo {
+  width: 72px; height: 72px;
+  border-radius: 18px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .18);
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.delta-big-logo img { width: 70%; height: 70%; display: block; object-fit: contain; }
 
-.delta-input-card {
+.delta-greet {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 24px;
+  color: var(--navy-soft);
+}
+
+.delta-input-wrap {
+  width: 100%;
   background: var(--cream);
   border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  padding: 12px;
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color .15s;
 }
+.delta-input-wrap:focus-within { border-color: var(--gold); }
+
 .delta-input {
   width: 100%;
-  border: none;
   background: transparent;
+  color: var(--navy);
+  border: none;
+  outline: none;
   resize: none;
   font-family: inherit;
   font-size: 13.5px;
-  color: var(--navy);
-  outline: none;
-  padding: 4px 2px;
+  line-height: 1.5;
+  min-height: 48px;
+  max-height: 160px;
 }
-.delta-input-row {
+.delta-input::placeholder { color: var(--muted); }
+
+.delta-input-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 8px;
 }
-.delta-input-tools { display: flex; gap: 4px; }
-.delta-tool {
+.delta-input-actions-left {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+/* Icon-only borderless circular buttons (mic + attach) — exact dashboard treatment. */
+.delta-icon-btn {
   background: transparent;
   border: none;
-  width: 30px; height: 30px;
-  border-radius: 6px;
-  font-size: 16px;
-  color: var(--navy-soft);
+  color: var(--muted);
+  width: 36px; height: 36px;
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background .12s, color .12s;
 }
-.delta-tool:hover:not(:disabled) { background: var(--cream-dark); }
-.delta-tool:disabled { opacity: .45; cursor: not-allowed; }
+.delta-icon-btn:hover:not(:disabled) { background: var(--cream-dark); color: var(--navy); }
+.delta-icon-btn:disabled { opacity: .45; cursor: not-allowed; }
+.delta-icon-btn svg { width: 18px; height: 18px; fill: currentColor; display: block; }
+
 .delta-send {
   background: var(--navy);
   color: white;
@@ -584,12 +637,17 @@ body.delta-panel-open .delta-fab { display: none; }
   border-radius: 999px;
   font-weight: 600;
   font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity .15s;
 }
+.delta-send:hover:not(:disabled) { opacity: .85; }
 .delta-send:disabled { opacity: .45; cursor: not-allowed; }
 
-.delta-hint {
-  font-size: 11.5px;
+.delta-footer-note {
+  margin-top: 20px;
+  font-size: 10.5px;
   color: var(--muted);
   text-align: center;
-  padding: 4px;
+  line-height: 1.5;
 }
