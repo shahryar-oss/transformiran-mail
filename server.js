@@ -258,6 +258,84 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Delta draft a reply — generate a reply body for the open email.
+app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
+  const { openMessageId, instructions } = req.body || {};
+  if (!openMessageId) {
+    return res.status(400).json({ error: "openMessageId_required" });
+  }
+  try {
+    const result = await assistant.draftReply({
+      user: req.user,
+      openMessageId,
+      instructions: instructions || "",
+    });
+    res.json({
+      to: result.to,
+      subject: result.subject,
+      body: result.body,
+      threadId: result.threadId,
+      inReplyTo: result.inReplyTo,
+    });
+  } catch (err) {
+    console.error("[/api/assistant/draft] failed:", err);
+    res.status(500).json({ error: "draft_failed", message: err.message });
+  }
+});
+
+// Create a real Gmail draft in the user's Drafts folder.
+// User reviews + sends from Gmail itself; we never send on their behalf.
+app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
+  const { to, subject, body, threadId, inReplyTo } = req.body || {};
+  if (!to || !body) return res.status(400).json({ error: "to_and_body_required" });
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    // Build an RFC-2822 message. Gmail accepts base64url-encoded raw.
+    const lines = [
+      `To: ${to}`,
+      `Subject: ${subject || "(no subject)"}`,
+      `MIME-Version: 1.0`,
+      `Content-Type: text/plain; charset="UTF-8"`,
+      `Content-Transfer-Encoding: 7bit`,
+    ];
+    if (inReplyTo) {
+      lines.push(`In-Reply-To: ${inReplyTo}`);
+      lines.push(`References: ${inReplyTo}`);
+    }
+    lines.push("");
+    lines.push(body);
+    const raw = Buffer.from(lines.join("\r\n"), "utf-8")
+      .toString("base64")
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=+$/, "");
+
+    const draftRes = await g.users.drafts.create({
+      userId: "me",
+      requestBody: {
+        message: {
+          raw,
+          ...(threadId ? { threadId } : {}),
+        },
+      },
+    });
+
+    res.json({
+      ok: true,
+      draftId: draftRes.data.id,
+      messageId: draftRes.data.message?.id,
+      gmailUrl: `https://mail.google.com/mail/u/0/#drafts`,
+    });
+  } catch (err) {
+    console.error("[/api/gmail/draft] failed:", err);
+    res.status(500).json({ error: "draft_save_failed", message: err.message });
+  }
+});
+
 // ====================================================================
 // Delta chat — POST /api/assistant
 // Stateless: client passes the conversation history each turn.

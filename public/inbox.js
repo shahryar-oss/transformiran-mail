@@ -234,30 +234,169 @@
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
-  // Phase 2b: Delta action buttons in the reader pre-fill the chat prompt
-  // and open the panel. Phase 2b.2 will wire 'Draft a reply' to produce a
-  // structured reply that lands in Gmail Drafts.
+  // Delta action buttons in the reader. 'Draft a reply' has its own
+  // inline workflow (compose card with editable body + save-to-drafts).
+  // The other actions pre-fill the Delta chat input and open the panel.
   function onDeltaAction(action, msg) {
+    if (action === "draft-reply") {
+      return openDraftComposer(msg);
+    }
     const fab = document.getElementById("deltaFab");
     const promptByAction = {
-      "draft-reply": `Draft a reply to this email in my voice. Keep it warm but concise.`,
-      summarize:   `Summarize this email in 3 bullets.`,
-      translate:   `Translate this email into English (or to whichever language I usually reply in if it's already in English).`,
-      explain:     `What is this email actually asking for? What should I do about it?`,
+      summarize: `Summarize this email in 3 bullets.`,
+      translate: `Translate this email into English (or to whichever language I usually reply in if it's already in English).`,
+      explain:   `What is this email actually asking for? What should I do about it?`,
     };
     const prompt = promptByAction[action] || `Help me with this email.`;
-    const input = document.getElementById("deltaInputWelcome")
-              || document.getElementById("deltaInputChat");
-    if (fab && fab.click) fab.click();   // open the panel
+    if (fab && fab.click) fab.click();
     setTimeout(() => {
       const target = document.getElementById("deltaInputChat")?.offsetParent !== null
                    ? document.getElementById("deltaInputChat")
                    : document.getElementById("deltaInputWelcome");
-      if (target) {
-        target.value = prompt;
-        target.focus();
-      }
+      if (target) { target.value = prompt; target.focus(); }
     }, 60);
+  }
+
+  // ---------- DRAFT COMPOSER -------------------------------------------
+  // Inserts a compose card at the top of the reader body, shows a loading
+  // spinner while Delta drafts, then lets the user edit and save to Gmail
+  // Drafts. The user always sends from Gmail itself.
+  async function openDraftComposer(msg) {
+    const bodyEl = document.getElementById("readerBody");
+    if (!bodyEl) return;
+
+    // If a composer is already open for this message, just focus it.
+    if (document.getElementById("draftComposer")) {
+      document.querySelector("#draftComposer textarea")?.focus();
+      return;
+    }
+
+    const composer = document.createElement("div");
+    composer.id = "draftComposer";
+    composer.className = "draft-composer";
+    composer.innerHTML = `
+      <div class="draft-head">
+        <div class="draft-title">
+          <img class="k-logo" src="/delta-logo.png" alt="Delta" />
+          <span>Delta is drafting a reply…</span>
+        </div>
+        <button class="draft-close" aria-label="Discard draft" title="Discard">×</button>
+      </div>
+      <div class="draft-fields">
+        <div class="draft-field"><label>To</label><input class="draft-to" type="text" disabled></div>
+        <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text" disabled></div>
+      </div>
+      <div class="draft-instructions">
+        <input class="draft-extra-instructions" type="text" placeholder="Optional: 'make it shorter', 'in Farsi', 'apologize for the delay'…">
+        <button class="draft-regen btn delta-btn" disabled>
+          <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Re-draft
+        </button>
+      </div>
+      <div class="draft-body-wrap">
+        <textarea class="draft-body" placeholder="Delta's draft will appear here…" disabled></textarea>
+      </div>
+      <div class="draft-actions">
+        <button class="draft-save btn primary" disabled>Save to Gmail Drafts</button>
+        <button class="draft-cancel btn">Cancel</button>
+        <span class="draft-status"></span>
+      </div>
+    `;
+    bodyEl.prepend(composer);
+
+    const toInput = composer.querySelector(".draft-to");
+    const subjInput = composer.querySelector(".draft-subject");
+    const bodyTa = composer.querySelector(".draft-body");
+    const instr = composer.querySelector(".draft-extra-instructions");
+    const regenBtn = composer.querySelector(".draft-regen");
+    const saveBtn = composer.querySelector(".draft-save");
+    const cancelBtn = composer.querySelector(".draft-cancel");
+    const closeBtn = composer.querySelector(".draft-close");
+    const titleEl = composer.querySelector(".draft-title span");
+    const statusEl = composer.querySelector(".draft-status");
+
+    function discardComposer() { composer.remove(); }
+    closeBtn.addEventListener("click", discardComposer);
+    cancelBtn.addEventListener("click", discardComposer);
+
+    let currentDraft = null;
+
+    async function generate(extraInstructions) {
+      titleEl.textContent = "Delta is drafting a reply…";
+      regenBtn.disabled = true;
+      saveBtn.disabled = true;
+      bodyTa.disabled = true;
+      statusEl.textContent = "";
+      bodyTa.value = "";
+
+      try {
+        const r = await fetch("/api/assistant/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            openMessageId: msg.id,
+            instructions: extraInstructions || "",
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || data.error || "draft failed");
+        currentDraft = data;
+        toInput.value = data.to || "";
+        subjInput.value = data.subject || "";
+        bodyTa.value = data.body || "";
+        titleEl.textContent = "Draft ready — edit before saving";
+      } catch (err) {
+        titleEl.textContent = "Couldn't generate a draft";
+        statusEl.textContent = err.message || String(err);
+        statusEl.className = "draft-status error";
+      } finally {
+        regenBtn.disabled = false;
+        saveBtn.disabled = false;
+        bodyTa.disabled = false;
+        instr.value = "";
+      }
+    }
+
+    regenBtn.addEventListener("click", () => generate(instr.value.trim()));
+    instr.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); regenBtn.click(); }
+    });
+
+    saveBtn.addEventListener("click", async () => {
+      if (!currentDraft) return;
+      saveBtn.disabled = true;
+      statusEl.className = "draft-status";
+      statusEl.textContent = "Saving to Gmail Drafts…";
+      try {
+        const r = await fetch("/api/gmail/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: toInput.value,
+            subject: subjInput.value,
+            body: bodyTa.value,
+            threadId: currentDraft.threadId,
+            inReplyTo: currentDraft.inReplyTo,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
+        statusEl.className = "draft-status ok";
+        statusEl.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail Drafts ↗</a>`;
+        titleEl.textContent = "Draft saved";
+        bodyTa.disabled = true;
+        toInput.disabled = true;
+        subjInput.disabled = true;
+        regenBtn.disabled = true;
+        saveBtn.textContent = "Saved";
+      } catch (err) {
+        statusEl.className = "draft-status error";
+        statusEl.textContent = err.message || String(err);
+        saveBtn.disabled = false;
+      }
+    });
+
+    // Kick off the initial draft.
+    generate("");
   }
 
   async function main() {
