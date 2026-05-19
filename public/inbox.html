@@ -118,37 +118,75 @@
     <button class="delta-close" aria-label="Close panel" title="Close panel">×</button>
   </header>
 
-  <div class="delta-welcome">
+  <!-- WELCOME STATE — visible until the first message is sent -->
+  <div class="delta-welcome" id="deltaWelcome">
     <div class="delta-big-logo"><img src="/delta-logo.png" alt="Delta" draggable="false"></div>
     <div class="delta-greet">How can I help you today?</div>
 
     <div class="delta-input-wrap">
       <textarea
         class="delta-input"
+        id="deltaInputWelcome"
         rows="2"
         placeholder="Ask anything about your inbox…"
         maxlength="2000"
-        disabled
       ></textarea>
       <div class="delta-input-actions">
         <div class="delta-input-actions-left">
-          <button class="delta-icon-btn" type="button" aria-label="Attach file" title="Attach a file" disabled>
+          <button class="delta-icon-btn" type="button" aria-label="Attach file" title="Attach a file (coming soon)" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/>
             </svg>
           </button>
-          <button class="delta-icon-btn" type="button" aria-label="Speak instead of type" title="Speak instead of type" disabled>
+          <button class="delta-icon-btn" type="button" aria-label="Speak instead of type" title="Voice input (coming soon)" disabled>
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0z"/>
             </svg>
           </button>
         </div>
-        <button class="delta-send" aria-label="Send" disabled>Send</button>
+        <button class="delta-send" id="deltaSendWelcome" aria-label="Send">Send</button>
       </div>
     </div>
 
+    <div class="delta-suggestions" id="deltaSuggestions">
+      <button class="delta-chip" data-prompt="What needs my attention today?">What needs my attention today?</button>
+      <button class="delta-chip" data-prompt="Who am I behind on replying to?">Who am I behind on?</button>
+      <button class="delta-chip" data-prompt="Summarize my inbox in 3 bullets.">Summarize inbox</button>
+    </div>
+
     <div class="delta-footer-note">
-      © 2026 Transform Iran · Delta is not yet wired to a backend — coming next.
+      © 2026 Transform Iran · Delta reads your inbox to help you reply faster.
+    </div>
+  </div>
+
+  <!-- CHAT STATE — appears after the first message -->
+  <div class="delta-chat" id="deltaChat" hidden>
+    <div class="delta-messages" id="deltaMessages"></div>
+    <div class="delta-foot">
+      <div class="delta-input-wrap">
+        <textarea
+          class="delta-input"
+          id="deltaInputChat"
+          rows="1"
+          placeholder="Reply to Delta…"
+          maxlength="2000"
+        ></textarea>
+        <div class="delta-input-actions">
+          <div class="delta-input-actions-left">
+            <button class="delta-icon-btn" type="button" aria-label="Attach file" title="Attach (coming soon)" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/>
+              </svg>
+            </button>
+            <button class="delta-icon-btn" type="button" aria-label="Speak" title="Voice (coming soon)" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.92V21h-2v-3.08A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0z"/>
+              </svg>
+            </button>
+          </div>
+          <button class="delta-send" id="deltaSendChat" aria-label="Send">Send</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>

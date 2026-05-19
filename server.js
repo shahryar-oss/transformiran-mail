@@ -9,6 +9,7 @@ const path = require("path");
 const { dbReady, pool } = require("./lib/db");
 const auth = require("./lib/auth");
 const gmail = require("./lib/gmail");
+const assistant = require("./lib/assistant");
 const { google } = require("googleapis");
 
 const app = express();
@@ -172,6 +173,42 @@ app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/gmail/recent] failed:", err);
     res.status(500).json({ error: "gmail_fetch_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Delta chat — POST /api/assistant
+// Stateless: client passes the conversation history each turn.
+// ====================================================================
+app.post("/api/assistant", auth.requireAuth, async (req, res) => {
+  const { message, history, openMessageId } = req.body || {};
+  if (!message || typeof message !== "string" || message.trim().length === 0) {
+    return res.status(400).json({ error: "empty_message" });
+  }
+  if (message.length > 8000) {
+    return res.status(400).json({ error: "message_too_long" });
+  }
+  if (history && (!Array.isArray(history) || history.length > 40)) {
+    return res.status(400).json({ error: "bad_history" });
+  }
+  try {
+    const result = await assistant.chat({
+      user: req.user,
+      history: history || [],
+      userMessage: message.trim(),
+      openMessageId: openMessageId || null,
+    });
+    res.json({
+      reply: result.reply,
+      usage: result.usage,
+      model: result.model,
+    });
+  } catch (err) {
+    console.error("[/api/assistant] failed:", err);
+    res.status(500).json({
+      error: "assistant_failed",
+      message: err.message || "Delta couldn't reply right now.",
+    });
   }
 });
 
