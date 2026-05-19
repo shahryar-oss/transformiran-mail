@@ -217,7 +217,14 @@
   }
 
   const firstName = (me.displayName || me.email).split(/[\s@]/)[0] || "there";
-  const isExec = me.role === "Chief Operating Officer" || me.role === "President & CEO";
+  // Tier 1 (Executive) users — kept in sync with EXECUTIVE_EMAILS in lib/assistant.js
+  const execRoles = new Set([
+    "Chief Operating Officer",
+    "President & CEO",
+    "General Overseer, 222 Churches",
+    "Theology & Curriculum Director",
+  ]);
+  const isExec = execRoles.has(me.role);
   const humanEA = me.humanEA;
 
   // ---- Personalized greeting -------------------------------------------

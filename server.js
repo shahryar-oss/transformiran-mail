@@ -142,13 +142,15 @@ app.post("/api/me/welcome", auth.requireAuth, async (req, res) => {
 function getHumanEAFor(email) {
   const e = (email || "").toLowerCase();
   if (e === "shahryar@transformiran.com") return "Pia Fanbele";
-  if (e === "lana@transformiran.com") return "Lauren";
+  if (e === "lana@transformiran.com")     return "Lauren";
   return null;
 }
 function getRoleFor(email) {
   const e = (email || "").toLowerCase();
   if (e === "shahryar@transformiran.com") return "Chief Operating Officer";
-  if (e === "lana@transformiran.com") return "President & CEO";
+  if (e === "lana@transformiran.com")     return "President & CEO";
+  if (e === "lazarus@transformiran.com")  return "General Overseer, 222 Churches";
+  if (e === "maggie@transformiran.com")   return "Theology & Curriculum Director";
   return "staff";
 }
 
