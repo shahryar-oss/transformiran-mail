@@ -5,6 +5,7 @@
 <title>Delta Mail — Transform Iran</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/styles.css">
+<link rel="icon" type="image/png" href="/delta-logo.png">
 <style>
   body { display: grid; place-items: center; min-height: 100vh; background: var(--cream); }
   .landing {
@@ -18,12 +19,12 @@
     text-align: center;
   }
   .landing .delta-mark {
-    width: 64px; height: 64px;
-    background: var(--navy);
-    border-radius: 16px;
-    display: grid; place-items: center;
+    width: 96px; height: 96px;
+    border-radius: 22px;
     margin: 0 auto 20px;
     box-shadow: 0 8px 24px rgba(40,47,57,.18);
+    object-fit: cover;
+    display: block;
   }
   .landing h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; color: var(--navy); }
   .landing .sub { color: var(--navy-soft); font-size: 14px; margin-bottom: 32px; }
@@ -61,17 +62,7 @@
 <body>
 
 <main class="landing">
-  <div class="delta-mark" aria-hidden="true">
-    <svg viewBox="0 0 32 32" width="36" height="36">
-      <defs>
-        <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#3FB6FF"/>
-          <stop offset="100%" stop-color="#A8E063"/>
-        </linearGradient>
-      </defs>
-      <polygon points="16,4 28,26 4,26" fill="url(#dg)"/>
-    </svg>
-  </div>
+  <img class="delta-mark" src="/delta-logo.png" alt="Delta" />
 
   <h1>Delta Mail</h1>
   <p class="sub">Executive-assistant email for <strong>Transform Iran</strong>.</p>
