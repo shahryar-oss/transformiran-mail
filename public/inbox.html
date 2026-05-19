@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta Mail — Transform Iran</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+
+<!-- Phase 0 shell: Outlook-style three-pane layout. Empty state. -->
+<div class="app">
+
+  <!-- LEFT RAIL: folders + tools -->
+  <aside class="rail">
+    <div class="brand">
+      <img src="/logo-ti.svg" alt="Transform Iran" class="brand-mark" onerror="this.style.display='none'">
+      <span class="brand-text">Delta Mail</span>
+    </div>
+
+    <button class="compose-btn" disabled title="Coming in Phase 2">
+      + New email
+    </button>
+
+    <nav class="folders">
+      <div class="folders-group">
+        <a class="folder active" href="#inbox">
+          <span class="folder-name">Inbox</span>
+          <span class="folder-count">—</span>
+        </a>
+        <a class="folder" href="#todo">
+          <span class="folder-name">To-do</span>
+          <span class="folder-count">—</span>
+        </a>
+        <a class="folder" href="#reply-needed">
+          <span class="folder-name">Reply needed</span>
+          <span class="folder-count">—</span>
+        </a>
+        <a class="folder" href="#sent">
+          <span class="folder-name">Sent</span>
+        </a>
+        <a class="folder" href="#drafts">
+          <span class="folder-name">Drafts</span>
+        </a>
+        <a class="folder" href="#archive">
+          <span class="folder-name">Archive</span>
+        </a>
+      </div>
+
+      <div class="folders-group-label">Folders</div>
+      <div class="folders-group">
+        <a class="folder muted" href="#donors">Donors</a>
+        <a class="folder muted" href="#finance">Finance</a>
+        <a class="folder muted" href="#hr">HR</a>
+        <a class="folder muted" href="#iran">Iran ops</a>
+      </div>
+
+      <div class="folders-group-label">Tools</div>
+      <div class="folders-group">
+        <a class="folder muted" href="#calendar">📅 Calendar</a>
+        <a class="folder muted" href="#tasks">✓ Tasks</a>
+        <a class="folder muted" href="#people">👥 People</a>
+      </div>
+    </nav>
+
+    <div class="rail-footer">
+      <div class="user-chip">
+        <span class="user-initial">S</span>
+        <span class="user-name">Not connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MIDDLE: email list -->
+  <section class="list">
+    <header class="list-header">
+      <div class="list-title">Inbox</div>
+      <div class="list-search">
+        <input type="text" placeholder="Search mail…" disabled>
+      </div>
+    </header>
+
+    <div class="list-empty">
+      <div class="empty-icon">✉︎</div>
+      <div class="empty-title">No mailbox connected yet</div>
+      <div class="empty-sub">
+        This is the Phase 0 shell. In the next phase we wire Gmail OAuth and
+        Delta will start reading your inbox.
+      </div>
+    </div>
+  </section>
+
+  <!-- RIGHT: reading pane -->
+  <section class="reader">
+    <div class="reader-empty">
+      <div class="empty-sub">Select an email to read it here.</div>
+    </div>
+  </section>
+
+</div>
+
+<!-- DELTA FAB — bottom-right floating button. Mirrors dashboard pattern. -->
+<button id="deltaFab" class="delta-fab" aria-label="Open Delta" title="Open Delta">
+  <span class="delta-fab-logo" aria-hidden="true">
+    <!-- Delta logo placeholder. Replace with actual SVG once available. -->
+    <svg viewBox="0 0 32 32" width="28" height="28">
+      <defs>
+        <linearGradient id="dg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#3FB6FF"/>
+          <stop offset="100%" stop-color="#A8E063"/>
+        </linearGradient>
+      </defs>
+      <polygon points="16,4 28,26 4,26" fill="url(#dg)"/>
+    </svg>
+  </span>
+  <span class="delta-fab-pulse" aria-hidden="true"></span>
+</button>
+
+<!-- DELTA PANEL — appears when FAB is clicked -->
+<div id="deltaPanel" class="delta-panel" hidden>
+  <header class="delta-panel-head">
+    <div class="delta-panel-title">
+      <span class="delta-mini-logo" aria-hidden="true">Δ</span>
+      <span>Delta</span>
+    </div>
+    <button class="delta-close" aria-label="Close">×</button>
+  </header>
+
+  <div class="delta-panel-body">
+    <div class="delta-greeting">How can I help you today?</div>
+
+    <div class="delta-input-card">
+      <textarea
+        class="delta-input"
+        placeholder="Ask anything about your inbox…"
+        rows="2"
+        disabled
+      ></textarea>
+      <div class="delta-input-row">
+        <div class="delta-input-tools">
+          <button class="delta-tool" title="Attach" disabled>📎</button>
+          <button class="delta-tool" title="Voice" disabled>🎤</button>
+        </div>
+        <button class="delta-send" disabled>Send</button>
+      </div>
+    </div>
+
+    <div class="delta-hint">
+      Phase 0 — Delta is not yet wired to a backend. Coming next.
+    </div>
+  </div>
+</div>
+
+<script src="/assistant.js"></script>
+</body>
+</html>

@@ -1,0 +1,330 @@
+/* Transform Iran — Delta Mail
+   Brand palette (matches dashboard):
+     gold  #B28E44   cream #F7F3E9   navy  #282F39
+*/
+
+:root {
+  --gold: #B28E44;
+  --gold-dark: #8E6F35;
+  --cream: #F7F3E9;
+  --cream-dark: #EDE6D2;
+  --navy: #282F39;
+  --navy-soft: #4A5260;
+  --paper: #FFFFFF;
+  --line: #E2DBC8;
+  --muted: #8A8576;
+  --good: #4F9D5A;
+  --bad: #C44545;
+  --radius: 8px;
+  --radius-lg: 14px;
+  --shadow-sm: 0 1px 2px rgba(40, 47, 57, .06);
+  --shadow-md: 0 6px 18px rgba(40, 47, 57, .08);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--navy);
+  background: var(--cream);
+}
+
+button { font-family: inherit; cursor: pointer; }
+
+/* ============================================================
+   APP SHELL — three-pane Outlook layout
+   ============================================================ */
+.app {
+  display: grid;
+  grid-template-columns: 240px 360px 1fr;
+  height: 100vh;
+  background: var(--paper);
+}
+
+/* LEFT RAIL */
+.rail {
+  background: var(--cream);
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  padding: 14px 10px;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.brand-mark { width: 28px; height: 28px; }
+.brand-text { font-weight: 700; letter-spacing: .2px; color: var(--navy); }
+
+.compose-btn {
+  width: 100%;
+  background: var(--gold);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-sm);
+}
+.compose-btn:disabled { opacity: .55; cursor: not-allowed; }
+
+.folders { display: flex; flex-direction: column; gap: 14px; }
+.folders-group { display: flex; flex-direction: column; }
+.folders-group-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  padding: 0 8px;
+}
+
+.folder {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  text-decoration: none;
+  color: var(--navy);
+  font-weight: 500;
+}
+.folder:hover { background: var(--cream-dark); }
+.folder.active { background: var(--cream-dark); color: var(--gold-dark); font-weight: 600; }
+.folder.muted { color: var(--navy-soft); font-weight: 500; }
+.folder-count { color: var(--muted); font-size: 12px; }
+
+.rail-footer { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--line); }
+.user-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.user-initial {
+  width: 28px; height: 28px;
+  background: var(--gold);
+  color: white;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 700;
+}
+.user-name { color: var(--muted); font-size: 13px; }
+
+/* MIDDLE — email list */
+.list {
+  border-right: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+
+.list-header {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+}
+.list-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.list-search input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream);
+  font-size: 13px;
+}
+.list-search input:disabled { opacity: .7; }
+
+.list-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px 24px;
+  color: var(--muted);
+}
+.empty-icon { font-size: 42px; color: var(--gold); margin-bottom: 10px; }
+.empty-title { font-size: 15px; color: var(--navy); font-weight: 600; margin-bottom: 6px; }
+.empty-sub { font-size: 13px; line-height: 1.5; max-width: 280px; }
+
+/* RIGHT — reading pane */
+.reader {
+  background: var(--paper);
+  padding: 24px;
+  overflow-y: auto;
+}
+.reader-empty {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+
+/* ============================================================
+   DELTA FAB — bottom-right floating launcher
+   Matches dashboard pattern: 56x56, radius 14, bottom 22 right 22
+   ============================================================ */
+.delta-fab {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--navy);
+  border: none;
+  display: grid;
+  place-items: center;
+  box-shadow: var(--shadow-md);
+  z-index: 9000;
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.delta-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(40,47,57,.18); }
+.delta-fab-logo { display: inline-flex; }
+.delta-fab-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 18px;
+  border: 2px solid var(--gold);
+  opacity: 0;
+  animation: pulse 2.4s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes pulse {
+  0%   { transform: scale(.85); opacity: .5; }
+  70%  { transform: scale(1.15); opacity: 0; }
+  100% { transform: scale(1.15); opacity: 0; }
+}
+
+/* DELTA PANEL — slides in when FAB clicked */
+.delta-panel {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  width: 420px;
+  max-width: calc(100vw - 44px);
+  max-height: calc(100vh - 44px);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 60px rgba(40, 47, 57, .25);
+  display: flex;
+  flex-direction: column;
+  z-index: 9001;
+  overflow: hidden;
+  animation: slideUp .2s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.delta-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+}
+.delta-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.delta-mini-logo {
+  display: inline-grid; place-items: center;
+  width: 22px; height: 22px;
+  background: var(--navy); color: white;
+  border-radius: 6px;
+  font-size: 12px; font-weight: 700;
+}
+.delta-close {
+  background: transparent;
+  border: none;
+  color: var(--navy-soft);
+  font-size: 22px;
+  line-height: 1;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+}
+.delta-close:hover { background: var(--cream-dark); }
+
+.delta-panel-body {
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.delta-greeting { font-size: 15px; color: var(--navy-soft); text-align: center; padding: 6px 0; }
+
+.delta-input-card {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+}
+.delta-input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  resize: none;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--navy);
+  outline: none;
+  padding: 4px 2px;
+}
+.delta-input-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+.delta-input-tools { display: flex; gap: 4px; }
+.delta-tool {
+  background: transparent;
+  border: none;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  font-size: 16px;
+  color: var(--navy-soft);
+}
+.delta-tool:hover:not(:disabled) { background: var(--cream-dark); }
+.delta-tool:disabled { opacity: .45; cursor: not-allowed; }
+.delta-send {
+  background: var(--navy);
+  color: white;
+  border: none;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.delta-send:disabled { opacity: .45; cursor: not-allowed; }
+
+.delta-hint {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+  padding: 4px;
+}

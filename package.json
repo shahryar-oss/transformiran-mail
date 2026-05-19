@@ -1,0 +1,23 @@
+{
+  "name": "transformiran-mail",
+  "version": "0.0.1",
+  "description": "Delta Mail — executive-assistant email tool for Transform Iran staff",
+  "private": true,
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.30.1",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "googleapis": "^144.0.0",
+    "pg": "^8.13.1",
+    "resend": "^4.0.1"
+  }
+}
