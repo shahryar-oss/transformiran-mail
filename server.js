@@ -483,6 +483,7 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       body: result.body,
       threadId: result.threadId,
       inReplyTo: result.inReplyTo,
+      styleExamples: result.styleExamples,
     });
   } catch (err) {
     console.error("[/api/assistant/draft] failed:", err);

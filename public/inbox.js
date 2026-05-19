@@ -542,12 +542,24 @@
         </div>
         <button class="draft-close" aria-label="Discard draft" title="Discard">×</button>
       </div>
+      <div class="draft-confidence" style="display:none"></div>
       <div class="draft-fields">
         <div class="draft-field"><label>To</label><input class="draft-to" type="text" disabled></div>
         <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text" disabled></div>
       </div>
+      <div class="draft-tones">
+        <span class="draft-tones-label">Tone:</span>
+        <button class="tone-chip" data-tone="match">Match my style</button>
+        <button class="tone-chip" data-tone="shorter">Shorter</button>
+        <button class="tone-chip" data-tone="warmer">Warmer</button>
+        <button class="tone-chip" data-tone="formal">More formal</button>
+        <button class="tone-chip" data-tone="firm">Firmer / push back</button>
+        <button class="tone-chip" data-tone="apologetic">Apologetic</button>
+        <button class="tone-chip" data-tone="farsi">In Farsi</button>
+        <button class="tone-chip" data-tone="dutch">In Dutch</button>
+      </div>
       <div class="draft-instructions">
-        <input class="draft-extra-instructions" type="text" placeholder="Optional: 'make it shorter', 'in Farsi', 'apologize for the delay'…">
+        <input class="draft-extra-instructions" type="text" placeholder="Or type your own instruction: 'mention the flight is at 4:55 PM'…">
         <button class="draft-regen btn delta-btn" disabled>
           <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Re-draft
         </button>
@@ -604,6 +616,25 @@
         subjInput.value = data.subject || "";
         bodyTa.value = data.body || "";
         titleEl.textContent = "Draft ready — edit before saving";
+
+        // Style confidence banner — "Found N writing examples to <recipient>"
+        const conf = data.styleExamples;
+        const confEl = composer.querySelector(".draft-confidence");
+        if (confEl && conf) {
+          const cls =
+            conf.confidence === "high"   ? "conf-high"   :
+            conf.confidence === "medium" ? "conf-medium" : "conf-low";
+          const recipient = conf.recipient || "this recipient";
+          let label;
+          if (conf.count >= 1) {
+            label = `Matched your style with <strong>${conf.count}</strong> past email${conf.count === 1 ? "" : "s"} to ${escapeHtml(recipient)}`;
+          } else {
+            label = `First email to <strong>${escapeHtml(recipient)}</strong> — using your general tone`;
+          }
+          confEl.className = "draft-confidence " + cls;
+          confEl.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><span>${label}</span>`;
+          confEl.style.display = "flex";
+        }
       } catch (err) {
         titleEl.textContent = "Couldn't generate a draft";
         statusEl.textContent = err.message || String(err);
@@ -619,6 +650,24 @@
     regenBtn.addEventListener("click", () => generate(instr.value.trim()));
     instr.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { e.preventDefault(); regenBtn.click(); }
+    });
+
+    // Tone preset chips — re-draft with that instruction
+    composer.querySelectorAll(".tone-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const tone = chip.dataset.tone;
+        const phrasing = {
+          match:      "Match my style as closely as you can to my past emails with this person.",
+          shorter:    "Make it shorter — same meaning, fewer words.",
+          warmer:     "Warmer tone — more personal, less transactional.",
+          formal:     "More formal tone — appropriate for first contact or sensitive matters.",
+          firm:       "Firmer — push back politely on the request or hold a clear position.",
+          apologetic: "Apologize for the delay (or lack of response) up front, then address the substance.",
+          farsi:      "Write the reply in Farsi instead of the current language.",
+          dutch:      "Write the reply in Dutch instead of the current language.",
+        };
+        generate(phrasing[tone] || tone);
+      });
     });
 
     saveBtn.addEventListener("click", async () => {
