@@ -141,7 +141,7 @@ app.post("/api/me/welcome", auth.requireAuth, async (req, res) => {
 
 function getHumanEAFor(email) {
   const e = (email || "").toLowerCase();
-  if (e === "shahryar@transformiran.com") return "Pia Fanbele";
+  if (e === "shahryar@transformiran.com") return "Pia van Belen";
   if (e === "lana@transformiran.com")     return "Lauren";
   return null;
 }
