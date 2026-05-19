@@ -330,6 +330,66 @@ button { font-family: inherit; cursor: pointer; }
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.reader-loading,
+.reader-empty-body {
+  color: var(--muted);
+  padding: 20px 0;
+  text-align: center;
+  font-size: 13px;
+}
+.reader-error {
+  color: var(--bad);
+  padding: 14px;
+  background: #FCEDED;
+  border: 1px solid rgba(196, 69, 69, .25);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.reader-iframe {
+  width: 100%;
+  border: none;
+  background: var(--paper);
+  min-height: 200px;
+  display: block;
+}
+.reader-text {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--navy);
+  margin: 0;
+  padding: 0;
+}
+
+.reader-attachments {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.reader-attachments-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+.reader-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.reader-attachment .ra-name { flex: 1; font-weight: 500; color: var(--navy); }
+.reader-attachment .ra-meta { color: var(--muted); font-size: 11.5px; }
+.reader-attachment .ra-icon { color: var(--muted); }
 .reader-body {
   font-size: 14px;
   color: var(--navy);

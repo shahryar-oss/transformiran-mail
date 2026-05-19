@@ -10,6 +10,7 @@ const { dbReady, pool } = require("./lib/db");
 const auth = require("./lib/auth");
 const gmail = require("./lib/gmail");
 const assistant = require("./lib/assistant");
+const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
 const app = express();
@@ -209,6 +210,51 @@ app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/gmail/recent] failed:", err);
     res.status(500).json({ error: "gmail_fetch_failed", message: err.message });
+  }
+});
+
+// Fetch a single message in full, including parsed body.
+app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    return res.status(400).json({ error: "bad_id" });
+  }
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+    const r = await g.users.messages.get({ userId: "me", id, format: "full" });
+    const m = r.data;
+    const headers = mime.headersToMap(m.payload?.headers || []);
+    const body = mime.pickBody(m.payload);
+    const safeHtml = mime.sanitizeHtml(body.html);
+    res.json({
+      id: m.id,
+      threadId: m.threadId,
+      labelIds: m.labelIds || [],
+      snippet: m.snippet || "",
+      internalDate: m.internalDate,
+      headers: {
+        from: headers.from || "",
+        to: headers.to || "",
+        cc: headers.cc || "",
+        bcc: headers.bcc || "",
+        subject: headers.subject || "(no subject)",
+        date: headers.date || "",
+        messageId: headers["message-id"] || "",
+        replyTo: headers["reply-to"] || "",
+      },
+      body: {
+        html: safeHtml,
+        text: body.text || mime.htmlToText(body.html || ""),
+      },
+      attachments: body.attachments || [],
+      unread: (m.labelIds || []).includes("UNREAD"),
+    });
+  } catch (err) {
+    console.error("[/api/gmail/message/:id] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
   }
 });
 
