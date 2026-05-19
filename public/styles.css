@@ -38,6 +38,9 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  /* The page itself never scrolls — only the email list and the reading
+     pane scroll independently inside their columns. */
+  overflow: hidden;
   font-family: var(--font);
   font-size: 14px;
   color: var(--navy);
@@ -53,17 +56,21 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   grid-template-columns: 240px 360px 1fr;
   height: 100vh;
+  overflow: hidden; /* container never scrolls — children manage their own */
   background: var(--paper);
 }
 
-/* LEFT RAIL */
+/* LEFT RAIL — frozen for now. Folder list is short; when it grows
+   beyond the viewport we'll allow scroll via overflow-y:auto.
+   For Phase 1 we keep it static so the rail acts like a fixed sidebar. */
 .rail {
   background: var(--cream);
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   padding: 14px 10px;
-  overflow-y: auto;
+  min-height: 0;       /* allows the grid cell to constrain it */
+  overflow: hidden;    /* freeze — content fits within 100vh today */
 }
 
 .brand {
@@ -146,17 +153,22 @@ button { font-family: inherit; cursor: pointer; }
 .logout-link { color: var(--muted); text-decoration: none; font-size: 16px; padding: 0 6px; border-radius: 4px; }
 .logout-link:hover { background: var(--cream-dark); color: var(--navy); }
 
-/* MIDDLE — email list */
+/* MIDDLE — email list. Header is sticky-style (flex-shrink: 0),
+   the .mail-list inner area scrolls. */
 .list {
   border-right: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   background: var(--paper);
+  min-height: 0;      /* allows children to constrain to grid cell */
+  overflow: hidden;   /* contains the inner scroll */
 }
 
 .list-header {
   padding: 16px 18px;
   border-bottom: 1px solid var(--line);
+  flex-shrink: 0;     /* header never collapses */
+  background: var(--paper);
 }
 .list-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
 .list-search input {
@@ -169,7 +181,13 @@ button { font-family: inherit; cursor: pointer; }
 }
 .list-search input:disabled { opacity: .7; }
 
-.mail-list { flex: 1; overflow-y: auto; }
+.mail-list {
+  flex: 1;
+  min-height: 0;        /* required for flex children to scroll */
+  overflow-y: auto;     /* THIS is what scrolls for long inboxes */
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
 
 .mail-row {
   display: flex;
@@ -257,11 +275,14 @@ button { font-family: inherit; cursor: pointer; }
 .empty-title { font-size: 15px; color: var(--navy); font-weight: 600; margin-bottom: 6px; }
 .empty-sub { font-size: 13px; line-height: 1.5; max-width: 280px; }
 
-/* RIGHT — reading pane */
+/* RIGHT — reading pane. Scrolls based on the open email's length. */
 .reader {
   background: var(--paper);
   padding: 24px;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 .reader-empty {
   display: flex;
