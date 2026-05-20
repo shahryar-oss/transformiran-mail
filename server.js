@@ -592,6 +592,79 @@ app.post("/api/inbox/bulk-action", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Convert a batch of inbox threads into to-do tasks.
+// Used by the guided inbox-organize routine (steps 5+6 — high/medium
+// priority unanswered). Each item becomes one task linked back to its
+// source email via source_message_id + source_thread_id.
+// Body: {
+//   items: [{ threadId, messageId, senderName, senderEmail, subject }],
+//   listName?: string,   // defaults to "Reply to"; auto-created if missing
+//   important?: boolean, // step 5 = true, step 6 = false
+//   inMyDay?: boolean    // step 5 = true, step 6 = false
+// }
+app.post("/api/inbox/add-to-todo", auth.requireAuth, async (req, res) => {
+  const { items, listName, important, inMyDay } = req.body || {};
+  if (!Array.isArray(items) || !items.length) {
+    return res.status(400).json({ error: "items_required" });
+  }
+  if (items.length > 100) {
+    return res.status(400).json({ error: "too_many", max: 100 });
+  }
+  try {
+    // Resolve target list — find by case-insensitive name or auto-create.
+    let listId = null;
+    let resolvedName = null;
+    const wantedName = (listName || "Reply to").trim();
+    const existing = await tasks.listLists(req.user.id);
+    const match = existing.find(
+      (l) => (l.name || "").toLowerCase() === wantedName.toLowerCase()
+    );
+    if (match) {
+      listId = Number(match.id);
+      resolvedName = match.name;
+    } else {
+      const created = await tasks.createList(req.user.id, { name: wantedName });
+      listId = Number(created.id);
+      resolvedName = created.name;
+    }
+
+    const created = [];
+    const failed = [];
+    for (const it of items) {
+      try {
+        const senderLabel = it.senderName || it.senderEmail || "(unknown sender)";
+        const title = `Reply to ${senderLabel}${it.subject ? ` — ${it.subject}` : ""}`.slice(0, 500);
+        const row = await tasks.createTask(req.user.id, {
+          title,
+          list_id: listId,
+          notes: null,
+          important: !!important,
+          in_my_day: !!inMyDay,
+          source_message_id: it.messageId || null,
+          source_thread_id: it.threadId || null,
+        });
+        created.push({ taskId: Number(row.id), messageId: it.messageId });
+      } catch (err) {
+        console.warn("[add-to-todo] create failed:", err.message);
+        failed.push({ messageId: it.messageId, error: err.message });
+      }
+    }
+
+    res.json({
+      ok: true,
+      created: created.length,
+      failed: failed.length,
+      listId,
+      listName: resolvedName,
+      tasks: created,
+      failures: failed,
+    });
+  } catch (err) {
+    console.error("[/api/inbox/add-to-todo] failed:", err);
+    res.status(500).json({ error: "add_to_todo_failed", message: err.message });
+  }
+});
+
 // Counts for the folder rail badges — unread inbox + total drafts.
 app.get("/api/counts", auth.requireAuth, async (req, res) => {
   try {

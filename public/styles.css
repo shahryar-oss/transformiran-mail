@@ -2308,6 +2308,208 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .dpp-del:hover { color: var(--bad); }
 
+/* ============================================================
+   GUIDED INBOX-ORGANIZE ROUTINE WIZARD (start_inbox_routine)
+   One step at a time. Brand: cream + gold + navy.
+   ============================================================ */
+.routine-wizard {
+  align-self: stretch;
+  max-width: 100%;
+  margin: 8px 0;
+}
+.rw-step {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(40, 47, 57, .08);
+  display: flex;
+  flex-direction: column;
+}
+.rw-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+}
+.rw-step-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.rw-step-num {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gold-dark);
+}
+.rw-progress {
+  width: 100%;
+  height: 3px;
+  background: var(--cream-dark);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.rw-progress-fill {
+  height: 100%;
+  background: var(--gold);
+  transition: width .35s ease;
+  border-radius: 999px;
+}
+.rw-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  line-height: 1;
+  flex-shrink: 0;
+  margin-left: 10px;
+}
+.rw-close:hover { background: var(--paper); color: var(--navy); }
+.rw-title {
+  padding: 14px 14px 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.3;
+}
+.rw-desc {
+  padding: 0 14px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.rw-count {
+  padding: 4px 14px 8px;
+  font-size: 11px;
+  color: var(--gold-dark);
+  font-weight: 600;
+}
+.rw-list { /* inherits .cb-list rules but tighter for the wizard */
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.rw-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: var(--cream);
+}
+.rw-skip {
+  background: transparent;
+  border: none;
+  color: var(--navy-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 7px 12px;
+  border-radius: 6px;
+}
+.rw-skip:hover:not(:disabled) { background: var(--paper); color: var(--navy); }
+.rw-action-group {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+  justify-content: flex-end;
+}
+.rw-primary {
+  background: var(--red);
+  color: white;
+  border: none;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(233, 42, 46, .22);
+  transition: background .12s;
+}
+.rw-primary:hover:not(:disabled) { background: var(--red-dark); }
+.rw-primary:disabled,
+.rw-skip:disabled,
+.cb-alt-btn:disabled { opacity: .5; cursor: not-allowed; }
+.rw-status {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+.rw-status.ok    { color: var(--good); font-weight: 600; }
+.rw-status.error { color: var(--bad); }
+
+/* Final summary card after the last step (or early stop). */
+.rw-summary {
+  background: var(--paper);
+  border: 1px solid var(--gold);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: 0 4px 14px rgba(178, 142, 68, .14);
+}
+.rw-summary-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 10px;
+}
+.rw-summary-head svg {
+  width: 18px; height: 18px;
+  fill: var(--good);
+}
+.rw-summary-list {
+  margin: 0 0 12px;
+  padding-left: 20px;
+  font-size: 12.5px;
+  color: var(--navy-soft);
+  line-height: 1.7;
+}
+.rw-summary-list li strong { color: var(--navy); }
+.rw-summary-empty {
+  font-size: 12.5px;
+  color: var(--muted);
+  font-style: italic;
+  margin-bottom: 12px;
+}
+.rw-summary-actions { display: flex; gap: 8px; }
+.rw-summary-btn {
+  background: var(--navy);
+  color: white;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+}
+.rw-summary-btn:hover { opacity: .9; }
+.rw-summary-btn.primary { background: var(--red); box-shadow: 0 2px 6px rgba(233, 42, 46, .22); }
+
+/* The 'Organize my inbox' chip — highlighted as the recommended first choice. */
+.delta-chip.primary {
+  background: var(--navy);
+  color: white;
+  border-color: var(--navy);
+  box-shadow: 0 2px 8px rgba(40, 47, 57, .14);
+}
+.delta-chip.primary:hover {
+  background: var(--navy);
+  color: white;
+  border-color: var(--red);
+  box-shadow: 0 4px 12px rgba(233, 42, 46, .18);
+}
+
 /* Inline task-created card in chat (create_task tool result) */
 .chat-task-card {
   background: var(--paper);
