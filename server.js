@@ -233,6 +233,28 @@ app.delete("/api/tasks/:id", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Count of incomplete tasks past their due date — powers the rail badge
+// on /inbox, /tasks, /calendar, /contacts, etc.
+app.get("/api/tasks/overdue-count", auth.requireAuth, async (req, res) => {
+  try {
+    const n = await tasks.overdueCount(req.user.id);
+    res.json({ count: n });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+// Tasks whose due_at or reminder_at hits within the next ~minute or has
+// just passed — for the client-side notification poller.
+app.get("/api/tasks/due-soon", auth.requireAuth, async (req, res) => {
+  try {
+    const rows = await tasks.dueSoon(req.user.id);
+    res.json({ tasks: rows, count: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
 // Steps (sub-tasks) for a task
 app.get("/api/tasks/:id/steps", auth.requireAuth, async (req, res) => {
   const id = Number(req.params.id);

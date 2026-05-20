@@ -168,7 +168,12 @@
   }
   .task-meta > * { display: inline-flex; align-items: center; gap: 4px; }
   .task-meta .due { color: var(--gold-dark); font-weight: 600; }
-  .task-meta .due.overdue { color: var(--red); }
+  .task-meta .due.overdue { color: var(--red); font-weight: 700; }
+  /* When a task is overdue, the whole row picks up red emphasis — title
+     in red, a thin red left border, and the meta 'due' badge stays bold. */
+  .task-row.overdue { border-left: 3px solid var(--red); padding-left: 13px; }
+  .task-row.overdue .task-title { color: var(--red); font-weight: 700; }
+  .task-row.overdue .task-checkbox { border-color: var(--red); }
   .task-meta .my-day-tag { color: var(--good); font-weight: 600; }
   .task-meta .src-link { color: var(--gold-dark); text-decoration: none; }
   .task-meta .src-link:hover { text-decoration: underline; }
@@ -497,5 +502,6 @@
 </div>
 
 <script src="/tasks.js"></script>
+<script src="/task-notifier.js"></script>
 </body>
 </html>

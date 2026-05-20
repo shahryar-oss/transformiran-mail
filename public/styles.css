@@ -3395,3 +3395,19 @@ body.delta-panel-open .delta-fab { display: none; }
   justify-content: flex-end;
   gap: 8px;
 }
+
+/* Red overdue-count badge on the rail's To Do entry. Mirrors the unread
+   badge pattern but red-on-red since these are emphatically urgent. */
+.todo-rail-badge {
+  margin-left: auto;
+  background: var(--red);
+  color: white;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  min-width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+  letter-spacing: .2px;
+}

@@ -172,7 +172,7 @@
     const dueText = formatDue(t.due_at);
     const isOverdue = t.due_at && !isCompleted && new Date(t.due_at) < new Date();
     return `
-      <div class="task-row ${isCompleted ? "completed" : ""} ${isSelected ? "selected" : ""}" data-id="${t.id}">
+      <div class="task-row ${isCompleted ? "completed" : ""} ${isSelected ? "selected" : ""} ${isOverdue ? "overdue" : ""}" data-id="${t.id}">
         <div class="task-checkbox"></div>
         <div class="task-body">
           <div class="task-title">${escapeHtml(t.title)}</div>
