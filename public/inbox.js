@@ -270,7 +270,7 @@
     if (_activeFilter !== "all") setFilter(_activeFilter);
   }
 
-  async function classifyVisible(messages) {
+  async function classifyVisible(messages, opts = {}) {
     const payload = messages.slice(0, 50).map((m) => ({
       id: m.id,
       threadId: m.threadId || "",
@@ -282,7 +282,7 @@
       const r = await fetch("/api/classify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: payload }),
+        body: JSON.stringify({ messages: payload, force: !!opts.force }),
       });
       if (!r.ok) return;
       const data = await r.json();
@@ -291,10 +291,32 @@
       if (data.liveSyncCount > 0) {
         autoArchiveDoneRows();
       }
+      return data;
     } catch (err) {
       console.warn("[classify] failed:", err);
     }
   }
+
+  // Re-classify button — force re-evaluation of all visible tags using the
+  // latest classifier logic (helpful after we upgrade the prompt rules so
+  // existing tags catch up without waiting for natural refresh).
+  document.getElementById("reclassifyBtn")?.addEventListener("click", async (e) => {
+    const btn = e.currentTarget;
+    if (btn.classList.contains("spinning")) return;
+    btn.classList.add("spinning");
+    btn.disabled = true;
+    showToast("Re-classifying visible emails…", "ok");
+    try {
+      const data = await classifyVisible(_allMessages, { force: true });
+      const n = data?.count || 0;
+      showToast(`Re-classified ${n} email${n === 1 ? "" : "s"}`, "ok");
+    } catch (err) {
+      showToast("Re-classify failed: " + (err.message || err), "error");
+    } finally {
+      btn.classList.remove("spinning");
+      btn.disabled = false;
+    }
+  });
 
   // Hide rows that just flipped to DONE — they don't belong in the inbox
   // (the user replied to them, knowingly or via the live sync). The actual

@@ -935,7 +935,7 @@ app.delete("/api/memory/:id", auth.requireAuth, async (req, res) => {
 // auto-marked DONE — no AI call needed. This keeps the live state in sync
 // with Gmail, including replies sent from the Gmail web/mobile UI directly.
 app.post("/api/classify", auth.requireAuth, async (req, res) => {
-  const { messages } = req.body || {};
+  const { messages, force } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: "messages_required" });
   }
@@ -998,9 +998,64 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
       }
     }
 
-    // ---- 2. Classify the rest (and pick up any already-cached). ----
+    // ---- 2. Enrich each remaining message with recipient headers + body.
+    // The classifier needs to know if THIS user is in TO vs CC vs BCC, and
+    // whether the body has a direct ask for them. Snippet alone isn't enough.
+    // Fetch in parallel batches of 10 to stay under Gmail rate limits.
     const remaining = messages.filter((m) => !doneMessageIds.includes(m.id));
-    const aiClassifications = await classifier.classifyForUser(req.user.id, remaining);
+    let enriched = remaining;
+    if (remaining.length) {
+      try {
+        const creds = await auth.loadGoogleCreds(req.user.id);
+        if (creds) {
+          const oauthClient = gmail.authedClientFromTokens(creds);
+          const g = google.gmail({ version: "v1", auth: oauthClient });
+          const CHUNK = 10;
+          const enrichedRows = [];
+          for (let i = 0; i < remaining.length; i += CHUNK) {
+            const slice = remaining.slice(i, i + CHUNK);
+            const fetches = await Promise.all(
+              slice.map((m) =>
+                g.users.messages
+                  .get({ userId: "me", id: m.id, format: "full" })
+                  .then((r) => r.data)
+                  .catch(() => null)
+              )
+            );
+            for (let j = 0; j < slice.length; j++) {
+              const orig = slice[j];
+              const data = fetches[j];
+              if (!data) {
+                enrichedRows.push(orig);
+                continue;
+              }
+              const headers = mime.headersToMap(data.payload?.headers || []);
+              const body = mime.pickBody(data.payload);
+              const bodyText = (body.text || mime.htmlToText(body.html || "") || "").slice(0, 1500);
+              enrichedRows.push({
+                ...orig,
+                from: headers.from || orig.from || "",
+                to: headers.to || "",
+                cc: headers.cc || "",
+                bcc: headers.bcc || "",
+                subject: headers.subject || orig.subject || "",
+                bodyText,
+              });
+            }
+          }
+          enriched = enrichedRows;
+        }
+      } catch (err) {
+        console.warn("[classify] enrichment failed:", err.message);
+      }
+    }
+
+    // ---- 3. Classify the enriched set (and pick up any already-cached). ----
+    const aiClassifications = await classifier.classifyForUser(
+      req.user,
+      enriched,
+      { force: !!force }
+    );
 
     // Merge: build the full response including DONE entries.
     const full = { ...aiClassifications };
