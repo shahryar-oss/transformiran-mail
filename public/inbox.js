@@ -102,6 +102,7 @@
     const params = new URLSearchParams({ folder, limit: "30" });
     if (q) params.set("q", q);
     if (pageToken) params.set("pageToken", pageToken);
+    if (opts.forceFresh) params.set("forceFresh", "1");
     const r = await fetch(`/api/messages?${params}`);
     if (!r.ok) {
       const body = await r.json().catch(() => ({}));
@@ -1273,7 +1274,7 @@
     const btn = document.getElementById("refreshInboxBtn");
     btn?.classList.add("spinning");
     try {
-      const result = await loadInbox();
+      const result = await loadInbox({ forceFresh: true });
       _allMessages = result.messages || [];
       _nextPageToken = result.nextPageToken;
       _classificationMap = {};   // wipe stale state

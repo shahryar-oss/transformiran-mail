@@ -16,6 +16,7 @@ const backfill = require("./lib/backfill");
 const tasks = require("./lib/tasks");
 const importantContacts = require("./lib/important_contacts");
 const memoryExtractor = require("./lib/memory_extractor");
+const inboxCache = require("./lib/inbox_cache");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -441,6 +442,54 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
       });
     }
 
+    // FAST PATH — inbox folder, no query, no pagination → serve from cache.
+    // Drops a typical page load from ~1.5-2s (Gmail list + 30 metadata calls)
+    // to ~50ms (a single Postgres SELECT). The background worker keeps the
+    // cache fresh, and user actions invalidate affected rows. forceFresh=1
+    // (from the manual Refresh button) skips the cache and re-syncs first.
+    const forceFresh = req.query.forceFresh === "1" || req.query.forceFresh === "true";
+    if (folder === "inbox" && !q && !pageToken) {
+      try {
+        if (forceFresh) {
+          // Synchronous sync — block on Gmail to guarantee the user sees
+          // fresh state right now. This is what they're asking for when
+          // they click refresh.
+          await inboxCache.syncForUser(req.user.id);
+        }
+        const cachedCount = await inboxCache.getCountForUser(req.user.id);
+        if (cachedCount > 0) {
+          const cached = await inboxCache.getRecent(req.user.id, { limit });
+          const state = await inboxCache.getState(req.user.id);
+          // Fire-and-forget background sync if cache is older than 60s and
+          // we didn't already do a synchronous one above.
+          if (!forceFresh && (!state?.last_sync_at || (Date.now() - new Date(state.last_sync_at).getTime()) > 60_000)) {
+            setImmediate(() => {
+              inboxCache.syncForUser(req.user.id).catch((err) => {
+                console.warn("[/api/messages] background sync failed:", err.message);
+              });
+            });
+          }
+          return res.json({
+            messages: cached,
+            count: cached.length,
+            nextPageToken: null,
+            folder,
+            cached: true,
+            cachedAt: state?.last_sync_at || null,
+          });
+        }
+        // Cache miss (first ever read for this user) — fall through to live
+        // Gmail fetch, but also kick off a sync so subsequent reads hit cache.
+        setImmediate(() => {
+          inboxCache.syncForUser(req.user.id).catch((err) => {
+            console.warn("[/api/messages] cold-cache sync failed:", err.message);
+          });
+        });
+      } catch (err) {
+        console.warn("[/api/messages] cache lookup failed, falling through to Gmail:", err.message);
+      }
+    }
+
     // Everything else uses messages.list with the appropriate query.
     let query = q;
     if (!q) {
@@ -617,6 +666,19 @@ app.post("/api/inbox/bulk-action", auth.requireAuth, async (req, res) => {
         );
       } catch (err) {
         console.warn("[bulk-action] markMessagesDone failed:", err.message);
+      }
+    }
+
+    // Invalidate cached inbox rows for every thread we acted on, so the
+    // next read doesn't show stale URGENT pills on already-archived rows.
+    if (action !== "unsubscribe") {
+      for (const tid of threadIds) {
+        try { await inboxCache.invalidateThread(req.user.id, tid); } catch (_) {}
+      }
+    } else {
+      // unsubscribe also archives — invalidate any thread we successfully processed.
+      for (const tid of threadIds) {
+        try { await inboxCache.invalidateThread(req.user.id, tid); } catch (_) {}
       }
     }
 
@@ -806,6 +868,17 @@ app.post("/api/gmail/message/:id/labels", auth.requireAuth, async (req, res) => 
       id,
       requestBody: { addLabelIds: add, removeLabelIds: remove },
     });
+    // Update inbox cache so the UI reflects label changes immediately
+    // without waiting for the next background sync.
+    try {
+      if (remove.includes("INBOX")) {
+        await inboxCache.invalidateMessage(req.user.id, id);
+      }
+      if (add.includes("UNREAD"))   await inboxCache.setUnread(req.user.id, id, true);
+      if (remove.includes("UNREAD")) await inboxCache.setUnread(req.user.id, id, false);
+      if (add.includes("STARRED"))   await inboxCache.setStarred(req.user.id, id, true);
+      if (remove.includes("STARRED")) await inboxCache.setStarred(req.user.id, id, false);
+    } catch (_) {}
     res.json({ ok: true, labelIds: r.data.labelIds || [] });
   } catch (err) {
     console.error("[/api/gmail/message/:id/labels] failed:", err);
@@ -823,6 +896,7 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
     const client = gmail.authedClientFromTokens(creds);
     const g = google.gmail({ version: "v1", auth: client });
     await g.users.messages.trash({ userId: "me", id });
+    try { await inboxCache.invalidateMessage(req.user.id, id); } catch (_) {}
     res.json({ ok: true });
   } catch (err) {
     console.error("[/api/gmail/message/:id/trash] failed:", err);
@@ -1407,6 +1481,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
           requestBody: { removeLabelIds: ["INBOX"] },
         });
         archivedThreadId = threadId;
+        try { await inboxCache.invalidateThread(req.user.id, threadId); } catch (_) {}
         // Mark the messages in the thread as DONE in our classification table.
         const messageIds = (tRes.data.messages || []).map((m) => m.id);
         if (messageIds.length) {
@@ -1640,6 +1715,7 @@ dbReady
   .then(async () => {
     console.log("[boot] db ready");
     startBackfillWorker();
+    startInboxCacheWorker();
     try {
       await memoryExtractor.ensureSchema();
       startMemoryExtractorWorker();
@@ -1682,6 +1758,36 @@ function startBackfillWorker() {
   setTimeout(cycle, 10_000);
   setInterval(cycle, 20_000);
   console.log("[boot] backfill worker scheduled (cycle 20s)");
+}
+
+// ====================================================================
+// INBOX CACHE WORKER — every 30s, finds users whose inbox cache is older
+// than 90s and refreshes them in parallel (up to 3 at a time). This keeps
+// the cache within 90s of Gmail truth without overwhelming the Gmail API.
+// ====================================================================
+function startInboxCacheWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const due = await inboxCache.listUsersDueForSync({ stalerThanMs: 90_000, limit: 3 });
+      await Promise.all(
+        due.map((row) =>
+          inboxCache.syncForUser(row.user_id).catch((err) => {
+            console.warn(`[inbox-cache-worker] user ${row.user_id} sync failed:`, err.message);
+          })
+        )
+      );
+    } catch (err) {
+      console.error("[inbox-cache-worker] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 5_000);
+  setInterval(cycle, 30_000);
+  console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness)");
 }
 
 // ====================================================================
