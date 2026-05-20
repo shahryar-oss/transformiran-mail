@@ -799,19 +799,30 @@
     generate("");
   }
 
-  // ---------- COMPOSE MODAL (new email from scratch) -------------------
+  // ---------- COMPOSE MODAL (rich-text new email) ----------------------
   const composeBtn = document.getElementById("composeBtn");
   const composeModal = document.getElementById("composeModal");
+  const cmpFrom = document.getElementById("cmpFrom");
   const cmpTo = document.getElementById("cmpTo");
+  const cmpCc = document.getElementById("cmpCc");
+  const cmpBcc = document.getElementById("cmpBcc");
+  const cmpCcRow = document.getElementById("cmpCcRow");
+  const cmpBccRow = document.getElementById("cmpBccRow");
+  const cmpCcToggle = document.getElementById("cmpCcToggle");
   const cmpSubject = document.getElementById("cmpSubject");
-  const cmpBody = document.getElementById("cmpBody");
+  const cmpBodyRich = document.getElementById("cmpBodyRich");
   const cmpSend = document.getElementById("cmpSend");
   const cmpSave = document.getElementById("cmpSave");
   const cmpDiscard = document.getElementById("cmpDiscard");
+  const cmpAttach = document.getElementById("cmpAttach");
+  const cmpInsertSig = document.getElementById("cmpInsertSig");
   const cmpClose = document.getElementById("composeClose");
   const cmpStatus = document.getElementById("cmpStatus");
   const cmpSigHint = document.getElementById("cmpSigHint");
+  const composeToolbar = document.getElementById("composeToolbar");
   const cmpBackdrop = composeModal?.querySelector(".compose-backdrop");
+
+  let cmpSignatureHtml = "";
 
   function openCompose() {
     if (!composeModal) return;
@@ -819,9 +830,15 @@
     cmpStatus.className = "compose-status";
     cmpStatus.textContent = "";
     setTimeout(() => cmpTo.focus(), 50);
-    // Check signature availability — show hint if user has one configured.
+    // Pull settings — populates From, signature hint, and caches signature HTML.
     fetch("/api/compose/settings").then((r) => r.ok ? r.json() : null).then((s) => {
-      if (s && s.primarySignature && (s.signatureMode || "always") !== "never") {
+      if (!s) return;
+      const primary = (s.aliases || []).find((a) => a.isDefault) || (s.aliases || [])[0];
+      if (cmpFrom && primary) cmpFrom.value = primary.displayName
+        ? `${primary.displayName} <${primary.sendAsEmail}>`
+        : primary.sendAsEmail;
+      cmpSignatureHtml = s.primarySignature?.html || "";
+      if (s.primarySignature && (s.signatureMode || "always") !== "never") {
         cmpSigHint.style.display = "";
       } else {
         cmpSigHint.style.display = "none";
@@ -830,14 +847,14 @@
   }
   function closeCompose(force = false) {
     if (!composeModal) return;
-    const dirty = cmpTo.value || cmpSubject.value || cmpBody.value;
+    const dirty = cmpTo.value || cmpSubject.value || (cmpBodyRich.textContent || "").trim() || cmpCc.value || cmpBcc.value;
     if (dirty && !force && !confirm("Discard this draft?")) return;
     composeModal.hidden = true;
-    cmpTo.value = ""; cmpSubject.value = ""; cmpBody.value = "";
+    cmpTo.value = ""; cmpCc.value = ""; cmpBcc.value = "";
+    cmpSubject.value = ""; cmpBodyRich.innerHTML = "";
+    cmpCcRow.hidden = true; cmpBccRow.hidden = true;
     cmpStatus.textContent = "";
     cmpSend.disabled = false; cmpSave.disabled = false;
-    cmpSend.textContent = "Send";
-    cmpSend.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg> Send`;
   }
 
   composeBtn?.addEventListener("click", openCompose);
@@ -845,22 +862,93 @@
   cmpDiscard?.addEventListener("click", () => closeCompose(true));
   cmpBackdrop?.addEventListener("click", () => closeCompose());
 
+  // Cc / Bcc toggle
+  cmpCcToggle?.addEventListener("click", () => {
+    cmpCcRow.hidden = false;
+    cmpBccRow.hidden = false;
+    cmpCcToggle.style.display = "none";
+    cmpCc.focus();
+  });
+
+  // Insert signature inline (appends HTML signature at the end of the body)
+  cmpInsertSig?.addEventListener("click", () => {
+    if (!cmpSignatureHtml) {
+      cmpStatus.className = "compose-status error";
+      cmpStatus.textContent = "No signature configured. Set one in Gmail → Settings.";
+      return;
+    }
+    cmpBodyRich.focus();
+    // Move caret to end + insert
+    const range = document.createRange();
+    range.selectNodeContents(cmpBodyRich);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    document.execCommand("insertHTML", false,
+      "<br><br>" + cmpSignatureHtml);
+  });
+
+  // Rich-text toolbar
+  composeToolbar?.querySelectorAll("[data-cmd]").forEach((el) => {
+    el.addEventListener("change", (e) => fireCmd(el));
+    el.addEventListener("click", (e) => {
+      if (el.tagName === "BUTTON") { e.preventDefault(); fireCmd(el); }
+    });
+  });
+  function fireCmd(el) {
+    const cmd = el.dataset.cmd;
+    let value = el.dataset.value || null;
+    if (el.tagName === "SELECT") value = el.value || null;
+    if (el.type === "color") value = el.value;
+    if (cmd === "createLink") {
+      value = prompt("Enter URL:", "https://");
+      if (!value) return;
+    }
+    cmpBodyRich.focus();
+    try {
+      document.execCommand(cmd, false, value);
+    } catch (err) {
+      console.warn("execCommand failed:", cmd, err);
+    }
+  }
+
+  async function postCompose(endpoint) {
+    const to = cmpTo.value.trim();
+    if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return false; }
+    const bodyHtml = cmpBodyRich.innerHTML.trim();
+    if (!bodyHtml || bodyHtml === "<br>" || bodyHtml === "<p></p>") {
+      cmpStatus.className = "compose-status error";
+      cmpStatus.textContent = "Write something first.";
+      return false;
+    }
+    const payload = {
+      to,
+      subject: cmpSubject.value,
+      bodyHtml,
+    };
+    if (cmpCc.value.trim()) payload.cc = cmpCc.value.trim();
+    if (cmpBcc.value.trim()) payload.bcc = cmpBcc.value.trim();
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await r.json();
+    if (!r.ok || !data.ok) throw new Error(data.message || data.error || "request failed");
+    return data;
+  }
+
   cmpSend?.addEventListener("click", async () => {
     const to = cmpTo.value.trim();
     if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return; }
-    if (!cmpBody.value.trim()) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Write something first."; return; }
     if (!confirm(`Send this email to ${to}?`)) return;
     cmpSend.disabled = true; cmpSave.disabled = true;
     cmpStatus.className = "compose-status";
     cmpStatus.textContent = "Sending…";
     try {
-      const r = await fetch("/api/gmail/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject: cmpSubject.value, body: cmpBody.value }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
+      const data = await postCompose("/api/gmail/send");
+      if (data === false) { cmpSend.disabled = false; cmpSave.disabled = false; return; }
       cmpStatus.className = "compose-status ok";
       cmpStatus.textContent = `Sent ✓`;
       showToast(`Sent to ${to}`, "ok");
@@ -873,21 +961,15 @@
   });
 
   cmpSave?.addEventListener("click", async () => {
-    const to = cmpTo.value.trim();
-    if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return; }
     cmpSend.disabled = true; cmpSave.disabled = true;
     cmpStatus.className = "compose-status"; cmpStatus.textContent = "Saving…";
     try {
-      const r = await fetch("/api/gmail/draft", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to, subject: cmpSubject.value, body: cmpBody.value }),
-      });
-      const data = await r.json();
-      if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
+      const data = await postCompose("/api/gmail/draft");
+      if (data === false) { cmpSend.disabled = false; cmpSave.disabled = false; return; }
       cmpStatus.className = "compose-status ok";
       cmpStatus.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail ↗</a>`;
       showToast("Saved as draft", "ok");
+      cmpSave.disabled = false; cmpSend.disabled = false;
     } catch (err) {
       cmpStatus.className = "compose-status error";
       cmpStatus.textContent = err.message || String(err);

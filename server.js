@@ -690,8 +690,8 @@ app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
 // is the actual send call. This is the trust line: human clicks Send;
 // Delta never auto-sends without that explicit click.
 app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
-  const { to, subject, body, threadId, inReplyTo } = req.body || {};
-  if (!to || !body) return res.status(400).json({ error: "to_and_body_required" });
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo } = req.body || {};
+  if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
     if (!creds) return res.status(400).json({ error: "no_google_creds" });
@@ -710,8 +710,10 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
 
     const raw = buildMultipartMessage({
       to,
+      cc, bcc,
       subject: subject || "(no subject)",
       bodyText: body,
+      bodyHtml,
       signatureText: sigText,
       signatureHtml: sigHtml,
       inReplyTo,
@@ -778,8 +780,8 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
 //   - text/html part (body in <p>s + the user's actual HTML signature)
 // Gmail then shows the proper formatted signature in the draft.
 app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
-  const { to, subject, body, threadId, inReplyTo } = req.body || {};
-  if (!to || !body) return res.status(400).json({ error: "to_and_body_required" });
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo } = req.body || {};
+  if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
     if (!creds) return res.status(400).json({ error: "no_google_creds" });
@@ -806,8 +808,10 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 
     const raw = buildMultipartMessage({
       to,
+      cc, bcc,
       subject: subject || "(no subject)",
       bodyText: body,
+      bodyHtml,
       signatureText: sigText,
       signatureHtml: sigHtml,
       inReplyTo,
@@ -837,30 +841,42 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 });
 
 // Builds a multipart/alternative RFC-2822 message, base64url-encoded for Gmail.
-// Includes the user's HTML signature in the html part + plain-text signature
-// in the text part. Signature is preceded by Gmail's standard "--" separator.
-function buildMultipartMessage({ to, subject, bodyText, signatureText, signatureHtml, inReplyTo }) {
+// Accepts EITHER:
+//   - bodyText (plain text — auto-escaped and wrapped into HTML), OR
+//   - bodyHtml (already-rich HTML from the rich-text compose editor)
+// Always emits BOTH a text/plain and a text/html part so any client renders OK.
+function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo }) {
   const boundary = "delta_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-  // Convert plain-text body to safe HTML for the html part.
-  const bodyHtml = String(bodyText || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .split(/\n{2,}/)
-    .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
-    .join("\n");
+  let textForPlain;
+  let htmlForBody;
+  if (bodyHtml && String(bodyHtml).trim()) {
+    // Rich HTML body from the compose editor — use as-is. Plain-text version
+    // generated from HTML so the text/plain part stays meaningful.
+    htmlForBody = String(bodyHtml);
+    textForPlain = mime.htmlToText(htmlForBody);
+  } else {
+    // Plain-text body (Delta drafts, replies) — escape + wrap into <p>s.
+    textForPlain = String(bodyText || "");
+    htmlForBody = textForPlain
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .split(/\n{2,}/)
+      .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+      .join("\n");
+  }
 
   // Plain-text part — body, blank line, "--", signature
   const textPart = [
-    bodyText,
+    textForPlain,
     signatureText ? `\r\n\r\n-- \r\n${signatureText}` : "",
   ].join("");
 
   // HTML part — body HTML + signature HTML (already in HTML form)
   const htmlPart =
     `<div style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222">` +
-    bodyHtml +
+    htmlForBody +
     (signatureHtml
       ? `<br><div class="gmail_signature" data-smartmail="gmail_signature">${signatureHtml}</div>`
       : "") +
@@ -868,6 +884,8 @@ function buildMultipartMessage({ to, subject, bodyText, signatureText, signature
 
   const headers = [
     `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    ...(bcc ? [`Bcc: ${bcc}`] : []),
     `Subject: ${subject}`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,

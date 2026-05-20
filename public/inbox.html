@@ -284,22 +284,57 @@
   </div>
 </div>
 
-<!-- COMPOSE MODAL — opens when "+ New email" is clicked -->
+<!-- COMPOSE MODAL — opens when "+ New email" is clicked.
+     Outlook-style: top action bar, rich-text formatting toolbar,
+     contenteditable body, footer with status. -->
 <div id="composeModal" class="compose-modal" hidden>
   <div class="compose-backdrop"></div>
   <div class="compose-card">
-    <header class="compose-head">
-      <div class="compose-title">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        <span>New email</span>
-      </div>
+
+    <!-- Top action bar (Outlook-style: Send / Discard / Attach / Signature / …) -->
+    <header class="compose-actionbar">
+      <button id="cmpSend" class="btn primary cmp-send-top">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        Send
+      </button>
+      <button id="cmpDiscard" class="cmp-icon-btn" title="Discard">
+        <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+        <span>Discard</span>
+      </button>
+      <button id="cmpAttach" class="cmp-icon-btn" title="Attach a file (coming soon)" disabled>
+        <svg viewBox="0 0 24 24"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg>
+        <span>Attach File</span>
+      </button>
+      <button id="cmpInsertSig" class="cmp-icon-btn" title="Insert signature inline">
+        <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span>Signature</span>
+      </button>
+      <div class="cmp-actionbar-spacer"></div>
+      <button id="cmpSave" class="cmp-icon-btn" title="Save as draft">
+        <svg viewBox="0 0 24 24"><path d="M19 12v7H5v-7H3v7c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2v-7h-2zm-6 .67l2.59-2.58L17 11.5l-5 5-5-5 1.41-1.41L11 12.67V3h2z" transform="rotate(180 12 12)"/></svg>
+        <span>Save draft</span>
+      </button>
       <button class="compose-close" id="composeClose" aria-label="Close">×</button>
     </header>
 
+    <!-- From / To / Cc / Bcc / Subject (Outlook layout) -->
     <div class="compose-fields">
+      <div class="compose-field">
+        <label>From</label>
+        <input type="text" id="cmpFrom" readonly>
+      </div>
       <div class="compose-field">
         <label>To</label>
         <input type="text" id="cmpTo" placeholder="recipient@example.com" autocomplete="off">
+        <button class="cmp-tiny-btn" id="cmpCcToggle" type="button">Cc · Bcc</button>
+      </div>
+      <div class="compose-field" id="cmpCcRow" hidden>
+        <label>Cc</label>
+        <input type="text" id="cmpCc" placeholder="cc@example.com" autocomplete="off">
+      </div>
+      <div class="compose-field" id="cmpBccRow" hidden>
+        <label>Bcc</label>
+        <input type="text" id="cmpBcc" placeholder="bcc@example.com" autocomplete="off">
       </div>
       <div class="compose-field">
         <label>Subject</label>
@@ -307,15 +342,62 @@
       </div>
     </div>
 
-    <textarea id="cmpBody" class="compose-body" placeholder="Write your message…"></textarea>
+    <!-- Rich-text formatting toolbar -->
+    <div class="compose-toolbar" id="composeToolbar">
+      <button type="button" data-cmd="undo" title="Undo (⌘Z)"><svg viewBox="0 0 24 24"><path d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/></svg></button>
+      <button type="button" data-cmd="redo" title="Redo (⌘⇧Z)"><svg viewBox="0 0 24 24"><path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z"/></svg></button>
+      <span class="ct-divider"></span>
+      <select class="ct-select" data-cmd="fontName" title="Font family">
+        <option value="">Aptos</option>
+        <option>Arial</option>
+        <option>Helvetica</option>
+        <option>Calibri</option>
+        <option>Times New Roman</option>
+        <option>Georgia</option>
+        <option>Courier New</option>
+        <option>Verdana</option>
+      </select>
+      <select class="ct-select ct-size" data-cmd="fontSize" title="Font size">
+        <option value="1">8</option>
+        <option value="2">10</option>
+        <option value="3" selected>12</option>
+        <option value="4">14</option>
+        <option value="5">18</option>
+        <option value="6">24</option>
+        <option value="7">36</option>
+      </select>
+      <span class="ct-divider"></span>
+      <label class="ct-color" title="Text color">
+        <span class="ct-color-letter">A</span>
+        <input type="color" data-cmd="foreColor" value="#282F39">
+      </label>
+      <label class="ct-color" title="Highlight color">
+        <span class="ct-color-letter" style="background:rgba(255,235,59,.6);padding:0 2px;border-radius:2px">A</span>
+        <input type="color" data-cmd="hiliteColor" value="#FFEB3B">
+      </label>
+      <span class="ct-divider"></span>
+      <button type="button" data-cmd="bold" title="Bold (⌘B)"><b>B</b></button>
+      <button type="button" data-cmd="italic" title="Italic (⌘I)"><i>I</i></button>
+      <button type="button" data-cmd="underline" title="Underline (⌘U)"><u>U</u></button>
+      <button type="button" data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+      <span class="ct-divider"></span>
+      <button type="button" data-cmd="insertUnorderedList" title="Bulleted list"><svg viewBox="0 0 24 24"><path d="M4 10.5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5 1.5-.67 1.5-1.5-.67-1.5-1.5-1.5zm0-6c-.83 0-1.5.67-1.5 1.5S3.17 7.5 4 7.5 5.5 6.83 5.5 6 4.83 4.5 4 4.5zm0 12c-.83 0-1.5.68-1.5 1.5s.68 1.5 1.5 1.5 1.5-.68 1.5-1.5-.67-1.5-1.5-1.5zM7 19h14v-2H7v2zm0-6h14v-2H7v2zm0-8v2h14V5H7z"/></svg></button>
+      <button type="button" data-cmd="insertOrderedList" title="Numbered list"><svg viewBox="0 0 24 24"><path d="M2 17h2v.5H3v1h1v.5H2v1h3v-4H2v1zm1-9h1V4H2v1h1v3zm-1 3h1.8L2 13.1v.9h3v-1H3.2L5 10.9V10H2v1zm5-6v2h14V5H7zm0 14h14v-2H7v2zm0-6h14v-2H7v2z"/></svg></button>
+      <button type="button" data-cmd="outdent" title="Decrease indent"><svg viewBox="0 0 24 24"><path d="M11 17h10v-2H11v2zm-8-5l4 4V8l-4 4zm0 9h18v-2H3v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg></button>
+      <button type="button" data-cmd="indent" title="Increase indent"><svg viewBox="0 0 24 24"><path d="M3 21h18v-2H3v2zM3 8v8l4-4-4-4zm8 9h10v-2H11v2zM3 3v2h18V3H3zm8 6h10V7H11v2zm0 4h10v-2H11v2z"/></svg></button>
+      <span class="ct-divider"></span>
+      <button type="button" data-cmd="createLink" title="Insert link"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>
+      <button type="button" data-cmd="formatBlock" data-value="blockquote" title="Blockquote"><svg viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3l-2 4zm8 0h3l2-4V7h-6v6h3l-2 4z"/></svg></button>
+      <button type="button" data-cmd="removeFormat" title="Clear formatting"><svg viewBox="0 0 24 24"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.55 5.27 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z"/></svg></button>
+    </div>
 
-    <div class="compose-actions">
-      <button id="cmpSend" class="btn primary">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
-        Send
-      </button>
-      <button id="cmpSave" class="btn">Save as draft</button>
-      <button id="cmpDiscard" class="btn">Discard</button>
+    <!-- Rich-text body -->
+    <div id="cmpBodyRich" class="compose-body-rich"
+         contenteditable="true"
+         data-placeholder="Write your message…"></div>
+
+    <!-- Footer (status + signature hint) -->
+    <div class="compose-footer">
       <span class="compose-sig-hint" id="cmpSigHint" style="display:none">✓ + your Transform Iran signature</span>
       <span id="cmpStatus" class="compose-status"></span>
     </div>

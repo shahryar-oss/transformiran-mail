@@ -743,35 +743,175 @@ button { font-family: inherit; cursor: pointer; }
   padding: 4px 0;
 }
 
-.compose-body {
+/* Top action bar (Outlook-style) */
+.compose-actionbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+}
+.cmp-send-top {
+  margin-right: 8px;
+}
+.cmp-send-top svg { width: 14px; height: 14px; fill: currentColor; vertical-align: text-bottom; margin-right: 4px; }
+.cmp-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: var(--navy-soft);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+.cmp-icon-btn:hover:not(:disabled) {
+  background: var(--cream);
+  color: var(--navy);
+  border-color: var(--line);
+}
+.cmp-icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+.cmp-icon-btn svg { width: 16px; height: 16px; fill: currentColor; flex-shrink: 0; }
+.cmp-actionbar-spacer { flex: 1; }
+
+.cmp-tiny-btn {
+  background: transparent;
+  border: none;
+  color: var(--navy-soft);
+  font-size: 11.5px;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.cmp-tiny-btn:hover { background: var(--cream-dark); color: var(--navy); }
+
+/* Rich-text formatting toolbar */
+.compose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.compose-toolbar button {
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--navy-soft);
+  font-family: inherit;
+  font-size: 13px;
+  padding: 0;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.compose-toolbar button:hover {
+  background: var(--paper);
+  color: var(--navy);
+  border-color: var(--line);
+}
+.compose-toolbar button svg { width: 16px; height: 16px; fill: currentColor; }
+.compose-toolbar button b,
+.compose-toolbar button i,
+.compose-toolbar button u,
+.compose-toolbar button s { font-size: 13.5px; }
+
+.ct-divider {
+  width: 1px; height: 20px;
+  background: var(--line);
+  margin: 0 4px;
+}
+.ct-select {
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--navy);
+  padding: 4px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  height: 30px;
+}
+.ct-select:hover { background: var(--paper); border-color: var(--line); }
+.ct-size { width: 56px; }
+
+.ct-color {
+  display: inline-grid;
+  place-items: center;
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  border: 1px solid transparent;
+  transition: background .12s, border-color .12s;
+}
+.ct-color:hover { background: var(--paper); border-color: var(--line); }
+.ct-color input[type="color"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.ct-color-letter {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--navy);
+  font-family: inherit;
+}
+
+/* Rich-text body */
+.compose-body-rich {
   flex: 1;
-  min-height: 280px;
+  min-height: 260px;
   width: 100%;
   border: none;
   outline: none;
   padding: 18px;
-  font-family: inherit;
+  font-family: Arial, sans-serif;
   font-size: 14px;
   line-height: 1.6;
   color: var(--navy);
-  resize: vertical;
+  overflow-y: auto;
   box-sizing: border-box;
+  position: relative;
 }
+.compose-body-rich:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+  display: block;
+}
+.compose-body-rich p { margin: 0 0 10px; }
+.compose-body-rich blockquote {
+  border-left: 3px solid var(--gold);
+  padding-left: 10px;
+  margin: 6px 0;
+  color: var(--navy-soft);
+  font-style: italic;
+}
+.compose-body-rich a { color: var(--gold-dark); }
 
-.compose-actions {
+/* Footer (status + sig hint) — was .compose-actions before */
+.compose-footer {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 18px;
+  padding: 8px 18px;
   background: var(--cream);
   border-top: 1px solid var(--line);
   flex-wrap: wrap;
-}
-.compose-actions .btn svg {
-  width: 14px; height: 14px;
-  fill: currentColor;
-  vertical-align: text-bottom;
-  margin-right: 4px;
+  min-height: 32px;
 }
 .compose-status {
   flex: 1;
