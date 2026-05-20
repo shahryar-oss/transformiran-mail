@@ -628,10 +628,34 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
               });
             });
           }
+
+          // Grab a Gmail nextPageToken so the client can continue paginating
+          // past the cached page. This is a metadata-light call (no body
+          // fetches) so it's fast — typically 100-200ms. Worth it to make
+          // infinite scroll actually work for older mail.
+          let cachedNextPageToken = null;
+          try {
+            const creds = await auth.loadGoogleCreds(req.user.id);
+            if (creds) {
+              const client = gmail.authedClientFromTokens(creds);
+              const g = google.gmail({ version: "v1", auth: client });
+              const listRes = await g.users.messages.list({
+                userId: "me",
+                maxResults: limit,
+                labelIds: ["INBOX"],
+              });
+              cachedNextPageToken = listRes.data.nextPageToken || null;
+            }
+          } catch (err) {
+            // Non-fatal — just means infinite scroll won't work for this
+            // request. Frontend gracefully shows end-of-list.
+            console.warn("[/api/messages] cache-path token fetch failed:", err.message);
+          }
+
           return res.json({
             messages: cached,
             count: cached.length,
-            nextPageToken: null,
+            nextPageToken: cachedNextPageToken,
             folder,
             cached: true,
             cachedAt: state?.last_sync_at || null,

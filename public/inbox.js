@@ -1577,37 +1577,53 @@
   // ---------- PAGINATION (Load more) --------------------------------
   function updateLoadMoreButton() {
     const row = document.getElementById("loadMoreRow");
-    if (!row) return;
-    row.hidden = !_nextPageToken;
-  }
-  async function loadMore() {
-    if (!_nextPageToken) return;
     const btn = document.getElementById("loadMoreBtn");
-    btn.disabled = true;
-    btn.textContent = "Loading…";
+    if (!row) return;
+    if (_loadingMore) {
+      row.hidden = false;
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Loading more…";
+      }
+      return;
+    }
+    if (!_nextPageToken) {
+      row.hidden = true;
+      return;
+    }
+    row.hidden = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Load more";
+    }
+  }
+  let _loadingMore = false;
+  async function loadMore() {
+    if (!_nextPageToken || _loadingMore) return;
+    _loadingMore = true;
+    updateLoadMoreButton();
     try {
       const result = await loadInbox({ pageToken: _nextPageToken });
       const newMessages = result.messages || [];
       _allMessages = _allMessages.concat(newMessages);
       _nextPageToken = result.nextPageToken;
       appendList(newMessages);
-      updateLoadMoreButton();
       if (_currentFolder === "inbox" && !_currentQuery) {
         classifyVisible(newMessages);
       }
     } catch (err) {
-      btn.textContent = "Load failed — retry";
+      const btn = document.getElementById("loadMoreBtn");
+      if (btn) btn.textContent = "Load failed — tap to retry";
     } finally {
-      setTimeout(() => {
-        btn.disabled = false;
-        if (!btn.textContent.includes("failed")) btn.textContent = "Load more";
-      }, 400);
+      _loadingMore = false;
+      updateLoadMoreButton();
     }
   }
   function appendList(messages) {
     const listEl2 = document.getElementById("mailList");
     if (!listEl2 || !messages.length) return;
-    // Reuse renderList but only add new rows
+    // Reuse renderList but only add new rows. Markup MUST stay in sync with
+    // renderList — keep hover actions, threadId data attr, all of it.
     const html = messages
       .map((m) => {
         const f = parseFrom(m.from);
@@ -1617,8 +1633,9 @@
         const snip = escapeHtml(m.snippet).slice(0, 140);
         const when = escapeHtml(timeAgo(m.internalDate));
         const unreadCls = m.unread ? "unread" : "";
+        const isStarred = Array.isArray(m.labelIds) && m.labelIds.includes("STARRED");
         return `
-          <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}">
+          <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}" data-thread-id="${escapeHtml(m.threadId || "")}">
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
@@ -1631,6 +1648,22 @@
                 <span class="mail-snippet">${snip}</span>
               </div>
             </div>
+            <div class="mail-row-actions" data-actions-for="${escapeHtml(m.id)}">
+              <button class="mra-btn" data-action="toggle-read" title="${m.unread ? "Mark read" : "Mark unread"}">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              </button>
+              <button class="mra-btn ${isStarred ? "starred" : ""}" data-action="toggle-star" title="${isStarred ? "Unstar" : "Star"}">
+                <svg viewBox="0 0 24 24" ${isStarred ? "" : 'fill="none" stroke="currentColor" stroke-width="2"'}>
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
+              <button class="mra-btn" data-action="archive" title="Archive">
+                <svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0 0 18 3H6a1.45 1.45 0 0 0-1.15.55L3.46 5.23A2 2 0 0 0 3 6.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5a2 2 0 0 0-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>
+              </button>
+              <button class="mra-btn delete" data-action="trash" title="Delete">
+                <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
           </div>`;
       })
       .join("");
@@ -1639,8 +1672,13 @@
     listEl2.querySelectorAll(".mail-row").forEach((row) => {
       if (row._wired) return;
       row._wired = true;
-      row.addEventListener("click", () => onSelect(row.dataset.id, _allMessages));
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".mail-row-actions")) return;
+        onSelect(row.dataset.id, _allMessages);
+      });
     });
+    // Re-wire hover quick-actions for the appended batch only
+    wireRowQuickActions(_allMessages);
   }
 
   // ---------- COUNTS -------------------------------------------------
@@ -1680,6 +1718,28 @@
   wireFolderLinks();
   wireSearch();
   document.getElementById("loadMoreBtn")?.addEventListener("click", loadMore);
+
+  // Infinite scroll — auto-fire loadMore when the user scrolls near the
+  // bottom of the inbox list. Cheap to do here because the list element
+  // has its own scrollbar; we just listen for its scroll event.
+  // The 'Load more' button stays as a visible fallback in case the
+  // user scrolls super fast or has JS issues.
+  const inboxListEl = document.getElementById("mailList");
+  if (inboxListEl) {
+    let scrollDebounce = null;
+    inboxListEl.addEventListener("scroll", () => {
+      if (scrollDebounce) return;
+      scrollDebounce = requestAnimationFrame(() => {
+        scrollDebounce = null;
+        if (!_nextPageToken || _loadingMore) return;
+        // Fire when we're within ~300px of the bottom.
+        const nearBottom = inboxListEl.scrollTop + inboxListEl.clientHeight
+                           >= inboxListEl.scrollHeight - 300;
+        if (nearBottom) loadMore();
+      });
+    });
+  }
+
   // Pull the user's Important contacts (auto-seeded with org defaults).
   loadImportantContacts();
 
