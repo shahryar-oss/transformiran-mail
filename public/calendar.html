@@ -514,6 +514,151 @@
   .cal-status.ok    { color: var(--good); font-weight: 600; }
   .cal-status.error { color: var(--bad); }
 
+  /* ---------------- QUICK-ADD POPOVER (double-click any date) ----------- */
+  /* Anchored near the click point. Compact 'first draft' of an event with a
+     'More options' link that promotes to the full Create modal. */
+  .cal-quick-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(40, 47, 57, .14);
+    z-index: 70;
+    display: none;
+  }
+  .cal-quick-backdrop.open { display: block; }
+  .cal-quick {
+    position: fixed;
+    width: 360px;
+    background: var(--paper);
+    border-radius: 14px;
+    box-shadow: 0 22px 50px rgba(40, 47, 57, .25);
+    z-index: 71;
+    display: none;
+    overflow: hidden;
+  }
+  .cal-quick.open { display: block; }
+  .cal-quick-head {
+    background: var(--navy);
+    color: white;
+    padding: 12px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+  }
+  .cal-quick-head-inner {
+    display: flex; flex-direction: column; min-width: 0;
+  }
+  .cal-quick-account-primary {
+    font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cal-quick-account-secondary {
+    font-size: 11px; opacity: .75;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cal-quick-expand {
+    background: transparent; border: none;
+    color: white; opacity: .85; cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+  .cal-quick-expand:hover { background: rgba(255,255,255,.12); }
+  .cal-quick-expand svg { width: 14px; height: 14px; fill: currentColor; }
+
+  .cal-quick-body {
+    padding: 6px 0;
+  }
+  .cal-quick-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+  }
+  .cal-quick-row:last-of-type { border-bottom: none; }
+  .cal-quick-icon {
+    width: 18px; height: 18px;
+    color: var(--muted);
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cal-quick-icon svg { width: 18px; height: 18px; fill: currentColor; }
+  .cal-quick-input,
+  .cal-quick-textarea {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--navy);
+    padding: 2px 0;
+    min-width: 0;
+  }
+  .cal-quick-input::placeholder,
+  .cal-quick-textarea::placeholder {
+    color: var(--muted);
+  }
+  .cal-quick-textarea {
+    min-height: 50px;
+    resize: vertical;
+    padding-top: 0;
+    font-size: 13px;
+  }
+  .cal-quick-allday {
+    display: flex; flex-direction: column; gap: 8px;
+    flex: 1;
+  }
+  .cal-quick-allday-row {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 14px; color: var(--navy);
+  }
+  .cal-quick-toggle {
+    --w: 36px; --h: 20px;
+    width: var(--w); height: var(--h);
+    background: var(--cream-dark);
+    border-radius: 999px;
+    position: relative;
+    cursor: pointer;
+    transition: background .15s;
+    flex-shrink: 0;
+  }
+  .cal-quick-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 16px; height: 16px;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,.2);
+    transition: transform .15s;
+  }
+  .cal-quick-toggle.on { background: var(--navy); }
+  .cal-quick-toggle.on::after { transform: translateX(16px); }
+  .cal-quick-date-input {
+    background: var(--paper);
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--navy);
+    padding: 4px 0;
+  }
+  .cal-quick-foot {
+    padding: 12px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-top: 1px solid var(--line);
+    background: var(--cream);
+  }
+  .cal-quick-more {
+    background: transparent;
+    border: none;
+    color: var(--gold-dark);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 4px 0;
+  }
+  .cal-quick-more:hover { text-decoration: underline; }
+  .cal-quick-foot-spacer { flex: 1; }
+
   /* Loading overlay for the month grid */
   .cal-loading {
     position: absolute;
@@ -663,6 +808,59 @@
     <span class="btn-spacer"></span>
     <button class="btn-secondary" id="calCreateCancel" type="button">Cancel</button>
     <button class="btn-primary" id="calCreateSave" type="button">Create event</button>
+  </div>
+</div>
+
+<!-- Quick-add popover: opens on double-click of any month-grid cell. -->
+<div class="cal-quick-backdrop" id="calQuickBackdrop"></div>
+<div class="cal-quick" id="calQuick" role="dialog" aria-modal="true">
+  <div class="cal-quick-head">
+    <div class="cal-quick-head-inner">
+      <div class="cal-quick-account-primary" id="calQuickAccountPrimary">your-account</div>
+      <div class="cal-quick-account-secondary" id="calQuickAccountSecondary"></div>
+    </div>
+    <button class="cal-quick-expand" id="calQuickExpand" type="button" title="More options">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16h14v2H5v-2zM3 8l9 6 9-6v2L12 16 3 10V8z"/></svg>
+    </button>
+  </div>
+  <div class="cal-quick-body">
+    <div class="cal-quick-row">
+      <span class="cal-quick-icon"><svg viewBox="0 0 24 24"><path d="M6 17.5h12v-1.5H6v1.5zm0-4h12V12H6v1.5zm0-4h12V8H6v1.5zm-3 11V5a1 1 0 0 1 1-1h16a1 1 0 0 1 1 1v15.5l-3.5-2.5L14 20l-2.5-2L9 20l-2.5-2L3 20.5z"/></svg></span>
+      <input class="cal-quick-input" id="calQuickTitle" type="text" placeholder="New Event">
+    </div>
+    <div class="cal-quick-row">
+      <span class="cal-quick-icon"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+      <input class="cal-quick-input" id="calQuickAttendees" type="text" placeholder="Invite people">
+    </div>
+    <div class="cal-quick-row">
+      <span class="cal-quick-icon"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg></span>
+      <div class="cal-quick-allday">
+        <div class="cal-quick-allday-row">
+          <span style="flex:1">All day</span>
+          <div class="cal-quick-toggle on" id="calQuickAllDay" role="switch" aria-checked="true"></div>
+        </div>
+        <div class="cal-quick-allday-row" id="calQuickDateWrap">
+          <input class="cal-quick-date-input" id="calQuickStart" type="date">
+          <span id="calQuickToWrap" style="display:none;color:var(--muted)">to</span>
+          <input class="cal-quick-date-input" id="calQuickEnd" type="date" style="display:none">
+        </div>
+      </div>
+    </div>
+    <div class="cal-quick-row">
+      <span class="cal-quick-icon"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg></span>
+      <input class="cal-quick-input" id="calQuickLocation" type="text" placeholder="Location">
+    </div>
+    <div class="cal-quick-row" style="align-items: flex-start; padding-top: 12px;">
+      <span class="cal-quick-icon"><svg viewBox="0 0 24 24"><path d="M3 5h18v2H3zm0 6h18v2H3zm0 6h12v2H3z"/></svg></span>
+      <textarea class="cal-quick-textarea" id="calQuickNotes" placeholder="Notes"></textarea>
+    </div>
+  </div>
+  <div class="cal-quick-foot">
+    <button class="cal-quick-more" id="calQuickMore" type="button">More options</button>
+    <span class="cal-quick-foot-spacer"></span>
+    <span class="cal-status" id="calQuickStatus"></span>
+    <button class="btn-secondary" id="calQuickDiscard" type="button">Discard</button>
+    <button class="btn-primary" id="calQuickSave" type="button">Save</button>
   </div>
 </div>
 

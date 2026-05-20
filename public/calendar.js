@@ -255,13 +255,20 @@
         openEvent(el.dataset.eid, el.dataset.cid);
       });
     });
-    // Clicking a cell selects that day in the mini-cal + agenda
+    // Clicking a cell selects that day in the mini-cal + agenda.
+    // Double-clicking opens the Outlook-style quick-add popover.
     grid.querySelectorAll(".cal-month-cell").forEach((cell) => {
       cell.addEventListener("click", () => {
         const [y, m, day] = cell.dataset.date.split("-").map(Number);
         state.selectedDate = new Date(y, m - 1, day);
         renderMini();
         renderAgenda();
+      });
+      cell.addEventListener("dblclick", (e) => {
+        // Don't trigger when double-clicking an event (the click bubbled).
+        if (e.target.closest(".cal-event")) return;
+        const [y, m, day] = cell.dataset.date.split("-").map(Number);
+        openQuickAdd(new Date(y, m - 1, day), e.clientX, e.clientY);
       });
     });
     grid.querySelectorAll(".cal-more").forEach((el) => {
@@ -568,11 +575,175 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  // ---------- QUICK-ADD popover (Outlook-style double-click) ----------
+  // State for the currently-open quick draft so 'More options' can hand
+  // its values off to the full create modal cleanly.
+  const quickState = { date: null };
+
+  function openQuickAdd(date, anchorX, anchorY) {
+    quickState.date = startOfDay(date);
+
+    // Account header — primary calendar = user's main address
+    const primary = state.calendars.find((c) => c.primary) || state.calendars[0];
+    $("calQuickAccountPrimary").textContent = primary?.summary || "Calendar";
+    $("calQuickAccountSecondary").textContent = primary?.id || "";
+
+    // Reset fields. All-day defaults ON (matches Outlook's quick-add).
+    $("calQuickTitle").value = "";
+    $("calQuickAttendees").value = "";
+    $("calQuickLocation").value = "";
+    $("calQuickNotes").value = "";
+    $("calQuickStatus").textContent = "";
+    $("calQuickStatus").className = "cal-status";
+
+    setQuickAllDay(true, date);
+
+    showPopover("calQuick", "calQuickBackdrop");
+
+    // Position near the click. Clamp to viewport.
+    requestAnimationFrame(() => {
+      const pop = $("calQuick");
+      const rect = pop.getBoundingClientRect();
+      let x = anchorX - rect.width / 2;
+      let y = anchorY - 20;
+      const margin = 12;
+      x = Math.max(margin, Math.min(window.innerWidth - rect.width - margin, x));
+      y = Math.max(margin, Math.min(window.innerHeight - rect.height - margin, y));
+      pop.style.left = `${x}px`;
+      pop.style.top  = `${y}px`;
+      pop.style.right = "auto";
+      pop.style.bottom = "auto";
+      pop.style.transform = "none";
+      setTimeout(() => $("calQuickTitle").focus(), 40);
+    });
+  }
+
+  function setQuickAllDay(on, anchorDate) {
+    const toggle = $("calQuickAllDay");
+    const startInp = $("calQuickStart");
+    const endInp   = $("calQuickEnd");
+    const endWrap  = $("calQuickToWrap");
+    if (on) {
+      toggle.classList.add("on");
+      toggle.setAttribute("aria-checked", "true");
+      startInp.type = "date";
+      endInp.type = "date";
+      startInp.value = ymd(anchorDate || quickState.date || new Date());
+      endInp.value   = startInp.value;
+      // For Outlook-style quick add, end stays hidden — single-day default.
+      endInp.style.display = "none";
+      endWrap.style.display = "none";
+    } else {
+      toggle.classList.remove("on");
+      toggle.setAttribute("aria-checked", "false");
+      startInp.type = "datetime-local";
+      endInp.type = "datetime-local";
+      // Default start = clicked-date at 9am, end = +1 hour.
+      const base = anchorDate || quickState.date || new Date();
+      const start = new Date(base); start.setHours(9, 0, 0, 0);
+      const end   = new Date(start.getTime() + 60 * 60 * 1000);
+      startInp.value = toLocalDatetime(start);
+      endInp.value   = toLocalDatetime(end);
+      endInp.style.display = "";
+      endWrap.style.display = "";
+    }
+  }
+
+  $("calQuickAllDay").addEventListener("click", (e) => {
+    const on = !e.currentTarget.classList.contains("on");
+    setQuickAllDay(on);
+  });
+
+  $("calQuickDiscard").addEventListener("click", () => {
+    hidePopover("calQuick", "calQuickBackdrop");
+  });
+  $("calQuickBackdrop").addEventListener("click", () => {
+    hidePopover("calQuick", "calQuickBackdrop");
+  });
+
+  $("calQuickSave").addEventListener("click", async () => {
+    const title = $("calQuickTitle").value.trim();
+    if (!title) {
+      $("calQuickStatus").textContent = "Add a title first.";
+      $("calQuickStatus").className = "cal-status error";
+      $("calQuickTitle").focus();
+      return;
+    }
+    const allDay = $("calQuickAllDay").classList.contains("on");
+    const startRaw = $("calQuickStart").value;
+    const endRaw   = $("calQuickEnd").value || startRaw;
+    const location = $("calQuickLocation").value.trim();
+    const notes    = $("calQuickNotes").value.trim();
+    const attendees = $("calQuickAttendees").value
+      .split(/[,;\s]+/).map((s) => s.trim()).filter((s) => s.includes("@"));
+
+    const saveBtn = $("calQuickSave");
+    saveBtn.disabled = true;
+    $("calQuickStatus").textContent = "Saving…";
+    $("calQuickStatus").className = "cal-status";
+
+    try {
+      const primary = state.calendars.find((c) => c.primary) || state.calendars[0];
+      const r = await fetch("/api/calendar/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          calendarId: primary?.id || "primary",
+          summary: title,
+          description: notes,
+          location,
+          allDay,
+          start: startRaw,
+          end: endRaw,
+          attendees: attendees.length ? attendees : undefined,
+        }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.message || body.error || `HTTP ${r.status}`);
+      }
+      $("calQuickStatus").textContent = "Created ✓";
+      $("calQuickStatus").className = "cal-status ok";
+      setTimeout(() => {
+        hidePopover("calQuick", "calQuickBackdrop");
+        loadEvents();
+      }, 450);
+    } catch (err) {
+      $("calQuickStatus").textContent = `Create failed: ${err.message || err}`;
+      $("calQuickStatus").className = "cal-status error";
+    } finally {
+      saveBtn.disabled = false;
+    }
+  });
+
+  // 'More options' — hand off whatever the user typed into the full modal.
+  function promoteQuickToFull() {
+    const allDay = $("calQuickAllDay").classList.contains("on");
+    const startRaw = $("calQuickStart").value;
+    const endRaw   = $("calQuickEnd").value || startRaw;
+
+    hidePopover("calQuick", "calQuickBackdrop");
+    openCreate();   // resets defaults — we override below
+
+    $("newTitle").value       = $("calQuickTitle").value;
+    $("newLocation").value    = $("calQuickLocation").value;
+    $("newAttendees").value   = $("calQuickAttendees").value;
+    $("newDescription").value = $("calQuickNotes").value;
+    $("newAllDay").checked    = allDay;
+    // Trigger the all-day input-type swap on the full modal.
+    $("newAllDay").dispatchEvent(new Event("change"));
+    if (startRaw) $("newStart").value = startRaw;
+    if (endRaw)   $("newEnd").value   = endRaw || startRaw;
+  }
+  $("calQuickMore").addEventListener("click", promoteQuickToFull);
+  $("calQuickExpand").addEventListener("click", promoteQuickToFull);
+
   // ---------- Esc closes any open popover ----------
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {
       hidePopover("calPopover", "calPopoverBackdrop");
       hidePopover("calCreate", "calCreateBackdrop");
+      hidePopover("calQuick", "calQuickBackdrop");
     }
   });
 
