@@ -312,6 +312,12 @@
       f.addEventListener("click", (e) => {
         e.preventDefault();
         const key = f.dataset.smart;
+        // Snoozed is its own data source — load via /api/inbox/snoozed
+        // rather than filtering classifications.
+        if (key === "snoozed") {
+          loadSnoozedFolder(f);
+          return;
+        }
         // Map smart folder → classification filter
         const filterMap = {
           marketing: "NEWSLETTER",
@@ -326,6 +332,44 @@
         }
       });
     });
+
+    // Snoozed folder loader — pulls from /api/inbox/snoozed (our DB) and
+    // renders into the list. Each row gets an extra "wakes …" badge.
+    async function loadSnoozedFolder(folderEl) {
+      try {
+        const r = await fetch("/api/inbox/snoozed");
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        _allMessages = (data.messages || []).map((m) => ({
+          id: m.id,
+          threadId: m.threadId,
+          from: m.from,
+          to: "",
+          cc: "",
+          subject: m.subject,
+          snippet: m.snippet,
+          date: m.date,
+          internalDate: m.internalDate || null,
+          labelIds: [],
+          unread: false,
+          _snoozeUntil: m.snoozeUntil,
+        }));
+        _currentFolder = "snoozed";
+        _currentQuery = "";
+        _nextPageToken = null;
+        _classificationMap = {};
+        document.querySelector(".folder.active")?.classList.remove("active");
+        folderEl.classList.add("active");
+        const titleEl = document.getElementById("listTitle");
+        if (titleEl) titleEl.textContent = "Snoozed";
+        renderList(_allMessages);
+        // Update the rail count badge.
+        const badge = document.getElementById("count-snoozed");
+        if (badge) badge.textContent = _allMessages.length > 0 ? _allMessages.length : "";
+      } catch (err) {
+        showToast("Couldn't load snoozed: " + (err.message || err), "error");
+      }
+    }
 
     // "Inbox" link in rail = clear filter
     document.querySelectorAll('.folder[href="#inbox"]').forEach((f) => {
@@ -471,6 +515,9 @@
         <span class="tb-divider"></span>
         <button class="tb-btn" data-tb="archive" title="Archive (E)">
           ${SVG.archive} <span>Archive</span>
+        </button>
+        <button class="tb-btn" data-tb="snooze" title="Snooze">
+          <svg viewBox="0 0 24 24"><path d="M22 5.72l-4.6-3.86-1.29 1.53 4.6 3.86L22 5.72zM7.88 3.39L6.6 1.86 2 5.71l1.29 1.53 4.59-3.85zM12.5 8H11v6l4.75 2.85.75-1.23-4-2.37V8zM12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9c4.97 0 9-4.03 9-9s-4.03-9-9-9zm0 16c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg> <span>Snooze</span>
         </button>
         <button class="tb-btn ${isStarred ? "active" : ""}" data-tb="star" title="${isStarred ? "Unstar" : "Star"} (S)">
           ${isStarred ? SVG.starFilled : SVG.star} <span>${isStarred ? "Starred" : "Star"}</span>
@@ -825,6 +872,9 @@
         onSuccess: () => removeFromList(msg.id, "Archived"),
       });
     }
+    if (action === "snooze") {
+      return openSnoozePopover(msg, btn);
+    }
     if (action === "trash") {
       btn.disabled = true;
       try {
@@ -839,6 +889,186 @@
         btn.disabled = false;
       }
     }
+  }
+
+  // ---------- SNOOZE — quick-pick popover ----------
+  // Six common options + Custom datetime. Sends POST /api/inbox/snooze and
+  // removes the row on success. Worker re-adds INBOX + UNREAD at wake time.
+  function openSnoozePopover(msg, anchorBtn) {
+    const existing = document.getElementById("snoozePopover");
+    if (existing) existing.remove();
+
+    const options = computeSnoozeOptions();
+    const pop = document.createElement("div");
+    pop.id = "snoozePopover";
+    pop.className = "snooze-popover";
+    pop.innerHTML = `
+      <div class="snz-head">Snooze until</div>
+      ${options.map((o, i) => `
+        <button class="snz-opt" data-iso="${o.iso}" type="button">
+          <span class="snz-opt-label">${escapeHtml(o.label)}</span>
+          <span class="snz-opt-when">${escapeHtml(o.when)}</span>
+        </button>
+      `).join("")}
+      <button class="snz-opt snz-custom" data-action="custom" type="button">
+        <span class="snz-opt-label">Pick a date / time…</span>
+      </button>
+    `;
+    document.body.appendChild(pop);
+
+    // Position near the anchor button. Fallback to center of screen.
+    if (anchorBtn) {
+      const rect = anchorBtn.getBoundingClientRect();
+      const popH = 320; // approx max height
+      let top = rect.bottom + 6;
+      if (top + popH > window.innerHeight) top = Math.max(8, rect.top - popH - 6);
+      pop.style.position = "fixed";
+      pop.style.top = top + "px";
+      pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 280)) + "px";
+    }
+
+    function close() { pop.remove(); document.removeEventListener("click", outsideClick, true); }
+    function outsideClick(e) {
+      if (!pop.contains(e.target) && e.target !== anchorBtn && !anchorBtn?.contains(e.target)) close();
+    }
+    setTimeout(() => document.addEventListener("click", outsideClick, true), 0);
+
+    pop.querySelectorAll(".snz-opt").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        if (btn.dataset.action === "custom") {
+          close();
+          openSnoozeCustomPicker(msg);
+          return;
+        }
+        const iso = btn.dataset.iso;
+        close();
+        await doSnooze(msg, iso, btn.querySelector(".snz-opt-when")?.textContent || "later");
+      });
+    });
+  }
+
+  // Free-form datetime picker for "Custom..."
+  function openSnoozeCustomPicker(msg) {
+    const existing = document.getElementById("snoozeCustomModal");
+    if (existing) existing.remove();
+    const modal = document.createElement("div");
+    modal.id = "snoozeCustomModal";
+    modal.className = "snooze-custom-modal";
+    const defaultDt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    defaultDt.setMinutes(0, 0, 0);
+    const pad = (n) => String(n).padStart(2, "0");
+    const local = `${defaultDt.getFullYear()}-${pad(defaultDt.getMonth()+1)}-${pad(defaultDt.getDate())}T${pad(defaultDt.getHours())}:${pad(defaultDt.getMinutes())}`;
+    modal.innerHTML = `
+      <div class="snz-custom-backdrop"></div>
+      <div class="snz-custom-card">
+        <div class="snz-custom-head">Snooze until</div>
+        <input id="snzCustomDt" type="datetime-local" class="snz-custom-input" value="${local}">
+        <div class="snz-custom-actions">
+          <button id="snzCustomCancel" type="button" class="btn-secondary">Cancel</button>
+          <button id="snzCustomSave" type="button" class="btn-primary">Snooze</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    const cleanup = () => modal.remove();
+    modal.querySelector(".snz-custom-backdrop").addEventListener("click", cleanup);
+    modal.querySelector("#snzCustomCancel").addEventListener("click", cleanup);
+    modal.querySelector("#snzCustomSave").addEventListener("click", async () => {
+      const v = modal.querySelector("#snzCustomDt").value;
+      if (!v) return;
+      const iso = new Date(v).toISOString();
+      if (new Date(iso).getTime() <= Date.now() + 30_000) {
+        alert("Pick a time at least a minute in the future.");
+        return;
+      }
+      cleanup();
+      await doSnooze(msg, iso, `until ${new Date(iso).toLocaleString()}`);
+    });
+  }
+
+  async function doSnooze(msg, iso, whenLabel) {
+    try {
+      const r = await fetch("/api/inbox/snooze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messageId: msg.id,
+          threadId: msg.threadId || null,
+          snoozeUntil: iso,
+          stub: {
+            from: msg.from || "",
+            subject: msg.subject || "",
+            snippet: msg.snippet || "",
+            date: msg.date || "",
+            internalDate: msg.internalDate || null,
+          },
+        }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) throw new Error(data.message || data.error || "snooze failed");
+      removeFromList(msg.id, `Snoozed ${whenLabel}`);
+      showToast(`Snoozed ${whenLabel}`, "ok");
+    } catch (err) {
+      showToast(`Snooze failed: ${err.message || err}`, "error");
+    }
+  }
+
+  // Returns six relative snooze options: later today / tomorrow morning /
+  // tomorrow evening / next monday / in 2 days / in 1 week.
+  function computeSnoozeOptions() {
+    const now = new Date();
+    const opts = [];
+
+    // Later today — 3 hours from now, but at minimum 5pm same-day,
+    // skipped entirely if it's already past 9pm.
+    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    later.setSeconds(0, 0);
+    if (later.getDate() === now.getDate() && later.getHours() < 22) {
+      opts.push({ label: "Later today", when: formatWhen(later), iso: later.toISOString() });
+    }
+
+    // Tomorrow 8am
+    const tomMorn = new Date(now);
+    tomMorn.setDate(tomMorn.getDate() + 1);
+    tomMorn.setHours(8, 0, 0, 0);
+    opts.push({ label: "Tomorrow morning", when: formatWhen(tomMorn), iso: tomMorn.toISOString() });
+
+    // Tomorrow 6pm
+    const tomEve = new Date(now);
+    tomEve.setDate(tomEve.getDate() + 1);
+    tomEve.setHours(18, 0, 0, 0);
+    opts.push({ label: "Tomorrow evening", when: formatWhen(tomEve), iso: tomEve.toISOString() });
+
+    // In 2 days, 8am
+    const inTwoDays = new Date(now);
+    inTwoDays.setDate(inTwoDays.getDate() + 2);
+    inTwoDays.setHours(8, 0, 0, 0);
+    opts.push({ label: "In 2 days", when: formatWhen(inTwoDays), iso: inTwoDays.toISOString() });
+
+    // Next Monday 8am
+    const nextMon = new Date(now);
+    const daysUntilMonday = (1 + 7 - nextMon.getDay()) % 7 || 7;
+    nextMon.setDate(nextMon.getDate() + daysUntilMonday);
+    nextMon.setHours(8, 0, 0, 0);
+    opts.push({ label: "Next week", when: formatWhen(nextMon), iso: nextMon.toISOString() });
+
+    // In 1 week
+    const inAWeek = new Date(now);
+    inAWeek.setDate(inAWeek.getDate() + 7);
+    inAWeek.setHours(8, 0, 0, 0);
+    opts.push({ label: "In a week", when: formatWhen(inAWeek), iso: inAWeek.toISOString() });
+
+    return opts;
+  }
+
+  function formatWhen(d) {
+    return d.toLocaleString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
 
   async function modifyLabels(id, btn, { add, remove, onSuccess }) {

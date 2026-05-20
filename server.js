@@ -19,6 +19,7 @@ const memoryExtractor = require("./lib/memory_extractor");
 const inboxCache = require("./lib/inbox_cache");
 const calendarLib = require("./lib/calendar");
 const contactsLib = require("./lib/contacts");
+const snooze = require("./lib/snooze");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -1087,6 +1088,52 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Snooze a message/thread until a future time. Removes INBOX label so it
+// disappears from the inbox view, then a background worker re-adds it at
+// the wake time.
+app.post("/api/inbox/snooze", auth.requireAuth, async (req, res) => {
+  const { messageId, threadId, snoozeUntil, stub } = req.body || {};
+  if (!messageId) return res.status(400).json({ error: "messageId_required" });
+  if (!snoozeUntil) return res.status(400).json({ error: "snoozeUntil_required" });
+  try {
+    const row = await snooze.snoozeThread(req.user.id, {
+      messageId,
+      threadId,
+      snoozeUntil,
+      stub: stub || {},
+    });
+    res.json({ ok: true, snoozeUntil: row.snooze_until, id: Number(row.id) });
+  } catch (err) {
+    console.error("[/api/inbox/snooze] failed:", err);
+    res.status(500).json({ error: err.message, message: err.message });
+  }
+});
+
+// List currently-snoozed messages (the "Snoozed" smart folder).
+app.get("/api/inbox/snoozed", auth.requireAuth, async (req, res) => {
+  try {
+    const messages = await snooze.listSnoozed(req.user.id);
+    res.json({ messages, count: messages.length });
+  } catch (err) {
+    console.error("[/api/inbox/snoozed] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+// Un-snooze — wake the message now (re-add INBOX + UNREAD).
+app.delete("/api/inbox/snooze/:messageId", auth.requireAuth, async (req, res) => {
+  const messageId = req.params.messageId;
+  if (!messageId) return res.status(400).json({ error: "messageId_required" });
+  try {
+    const result = await snooze.unsnooze(req.user.id, messageId);
+    if (!result) return res.status(404).json({ error: "not_found" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/inbox/snooze/:id] unsnooze failed:", err);
+    res.status(500).json({ error: "unsnooze_failed", message: err.message });
+  }
+});
+
 // Stream a Gmail attachment back to the browser. Gmail's API returns
 // base64-encoded bytes; we decode + set the right Content-Type + filename
 // headers so the browser saves it cleanly.
@@ -1939,6 +1986,7 @@ dbReady
     console.log("[boot] db ready");
     startBackfillWorker();
     startInboxCacheWorker();
+    startSnoozeWakeWorker();
     try {
       await memoryExtractor.ensureSchema();
       startMemoryExtractorWorker();
@@ -2011,6 +2059,28 @@ function startInboxCacheWorker() {
   setTimeout(cycle, 5_000);
   setInterval(cycle, 30_000);
   console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness)");
+}
+
+// ====================================================================
+// SNOOZE WAKE WORKER — every 60s, find snoozes whose time has come,
+// re-add INBOX + UNREAD labels in Gmail, and mark the row woken.
+// ====================================================================
+function startSnoozeWakeWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      await snooze.wakeDue({ limit: 50 });
+    } catch (err) {
+      console.error("[snooze-wake-worker] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 10_000);
+  setInterval(cycle, 60_000);
+  console.log("[boot] snooze wake worker scheduled (cycle 60s)");
 }
 
 // ====================================================================
