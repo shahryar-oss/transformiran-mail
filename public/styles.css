@@ -217,6 +217,25 @@ button { font-family: inherit; cursor: pointer; }
 .folder:hover { background: var(--cream-dark); }
 .folder.active { background: var(--cream-dark); color: var(--gold-dark); font-weight: 600; }
 .folder.muted { color: var(--navy-soft); font-weight: 500; }
+
+/* VIP folders — each VIP gets a colored dot to make the row recognizable
+   at a glance. Spans Inbox + Archive + Sent so the user can see the full
+   conversation history with that person. */
+.folder.vip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--navy);
+}
+.folder.vip .vip-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.folder.vip:hover { background: var(--cream-dark); }
+.folder.vip.active { background: var(--cream-dark); color: var(--navy); font-weight: 600; }
 .folder.folder-tool {
   display: flex;
   align-items: center;

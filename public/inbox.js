@@ -318,21 +318,27 @@
     }
   });
 
-  // Hide rows that just flipped to DONE — they don't belong in the inbox
-  // (the user replied to them, knowingly or via the live sync). The actual
-  // Gmail archive will follow if user wants to fully archive.
+  // Hide rows that just flipped to DONE via a Gmail-side reply (live sync
+  // detected a SENT label). Threads marked Done because the user added the
+  // email to To Do stay visible in inbox — they wanted to track it, not
+  // hide it. We differentiate by the reason text stamped on the
+  // classification row.
   function autoArchiveDoneRows() {
     let removed = 0;
     document.querySelectorAll(".mail-row").forEach((row) => {
       const id = row.dataset.id;
       const cls = _classificationMap[id];
-      if (cls && cls.category === "DONE" && !row.classList.contains("filtered-out")) {
-        row.style.transition = "opacity .3s, transform .3s";
-        row.style.opacity = "0";
-        row.style.transform = "translateX(40px)";
-        setTimeout(() => row.remove(), 300);
-        removed++;
-      }
+      if (!cls || cls.category !== "DONE") return;
+      if (row.classList.contains("filtered-out")) return;
+      const reason = String(cls.reason || "").toLowerCase();
+      // Only auto-archive when this DONE came from a real reply / live-sync.
+      // Task-completion DONEs stay visible.
+      if (!reason.includes("repl") && !reason.includes("live sync")) return;
+      row.style.transition = "opacity .3s, transform .3s";
+      row.style.opacity = "0";
+      row.style.transform = "translateX(40px)";
+      setTimeout(() => row.remove(), 300);
+      removed++;
     });
     if (removed) {
       showToast(`${removed} ${removed === 1 ? "thread" : "threads"} marked done (replied)`, "ok");
@@ -1259,6 +1265,24 @@
       f.addEventListener("click", (e) => {
         e.preventDefault();
         setFolder(f.dataset.folder);
+      });
+    });
+    // VIP folders — each one runs a Gmail query for from/to/cc:<email>,
+    // spanning Inbox + Archive + Sent. The full history with that person.
+    document.querySelectorAll(".folder[data-vip]").forEach((f) => {
+      f.addEventListener("click", (e) => {
+        e.preventDefault();
+        const email = f.dataset.vip;
+        const name = f.dataset.vipName || email;
+        // newer_than:1y caps the result set so this stays fast on a large
+        // mailbox; deepen later if the user wants more history per VIP.
+        const q = `(from:${email} OR to:${email} OR cc:${email}) newer_than:1y`;
+        // 'vip' isn't a system folder — the server falls back to 'inbox'
+        // semantics, but the q parameter overrides so we get full-mailbox
+        // results. setFolder won't activate any system folder pill since
+        // no .folder[data-folder=vip] exists; we add .active ourselves.
+        setFolder("vip", { query: q, title: name });
+        f.classList.add("active");
       });
     });
   }
