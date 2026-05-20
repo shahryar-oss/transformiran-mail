@@ -178,6 +178,32 @@
     </div>
   </section>
 
+  <!-- RIGHT PANEL — calendar mini-month + agenda. Delta panel slides over
+       this when invoked. Toggle via the show/hide button in its header. -->
+  <aside class="right-panel" id="rightPanel">
+    <header class="rp-head">
+      <span class="rp-head-title">Calendar</span>
+      <div class="rp-head-actions">
+        <a href="/calendar" class="rp-icon-btn" title="Open full calendar">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h7v7h-2V6.41l-9.83 9.83-1.41-1.41L17.59 5H14V3zM5 5h6v2H5v12h12v-6h2v8H3V5h2z"/></svg>
+        </a>
+        <button class="rp-icon-btn" id="rpCollapseBtn" type="button" title="Hide calendar panel">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="rp-mini">
+      <div class="rp-mini-head">
+        <button class="rp-mini-nav" id="rpMiniPrev" title="Previous month">‹</button>
+        <span id="rpMiniLabel">Month</span>
+        <button class="rp-mini-nav" id="rpMiniNext" title="Next month">›</button>
+      </div>
+      <div class="rp-mini-grid" id="rpMiniGrid"></div>
+    </div>
+    <div class="rp-agenda" id="rpAgenda">
+      <div class="rp-agenda-loading">Loading…</div>
+    </div>
+  </aside>
 </div>
 
 <!-- DELTA FAB — bottom-right floating button. Matches dashboard ka-fab pattern. -->
@@ -436,6 +462,7 @@
 </div>
 
 <script src="/inbox.js"></script>
+<script src="/inbox-rightpanel.js"></script>
 <script src="/assistant.js"></script>
 </body>
 </html>

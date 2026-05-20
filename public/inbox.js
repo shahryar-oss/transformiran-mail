@@ -137,8 +137,9 @@
         const snip = escapeHtml(m.snippet).slice(0, 140);
         const when = escapeHtml(timeAgo(m.internalDate));
         const unreadCls = m.unread ? "unread" : "";
+        const isStarred = Array.isArray(m.labelIds) && m.labelIds.includes("STARRED");
         return `
-          <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}">
+          <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}" data-thread-id="${escapeHtml(m.threadId || "")}">
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
@@ -151,12 +152,100 @@
                 <span class="mail-snippet">${snip}</span>
               </div>
             </div>
+            <div class="mail-row-actions" data-actions-for="${escapeHtml(m.id)}">
+              <button class="mra-btn" data-action="toggle-read" title="${m.unread ? "Mark read" : "Mark unread"}">
+                <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              </button>
+              <button class="mra-btn ${isStarred ? "starred" : ""}" data-action="toggle-star" title="${isStarred ? "Unstar" : "Star"}">
+                <svg viewBox="0 0 24 24" ${isStarred ? "" : 'fill="none" stroke="currentColor" stroke-width="2"'}>
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+              </button>
+              <button class="mra-btn" data-action="archive" title="Archive">
+                <svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0 0 18 3H6a1.45 1.45 0 0 0-1.15.55L3.46 5.23A2 2 0 0 0 3 6.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5a2 2 0 0 0-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg>
+              </button>
+              <button class="mra-btn delete" data-action="trash" title="Delete">
+                <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              </button>
+            </div>
           </div>`;
       })
       .join("");
 
     listEl.querySelectorAll(".mail-row").forEach((row) => {
-      row.addEventListener("click", () => onSelect(row.dataset.id, messages));
+      row.addEventListener("click", (e) => {
+        // Don't open the email when clicking a quick-action button.
+        if (e.target.closest(".mail-row-actions")) return;
+        onSelect(row.dataset.id, messages);
+      });
+    });
+    wireRowQuickActions(messages);
+  }
+
+  // Quick-actions that appear on .mail-row hover (Outlook-style).
+  // Mark read/unread, star, archive, delete. Click stops propagation so the
+  // row's own click handler doesn't open the email.
+  function wireRowQuickActions(messages) {
+    listEl.querySelectorAll(".mail-row-actions .mra-btn").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        if (btn.disabled) return;
+        const row = btn.closest(".mail-row");
+        const id = row?.dataset.id;
+        if (!id) return;
+        const action = btn.dataset.action;
+        btn.disabled = true;
+        try {
+          if (action === "toggle-read") {
+            const isUnread = row.classList.contains("unread");
+            await fetch(`/api/gmail/message/${encodeURIComponent(id)}/labels`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                isUnread ? { remove: ["UNREAD"] } : { add: ["UNREAD"] }
+              ),
+            });
+            row.classList.toggle("unread");
+            btn.title = isUnread ? "Mark unread" : "Mark read";
+          } else if (action === "toggle-star") {
+            const wasStarred = btn.classList.contains("starred");
+            await fetch(`/api/gmail/message/${encodeURIComponent(id)}/labels`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(
+                wasStarred ? { remove: ["STARRED"] } : { add: ["STARRED"] }
+              ),
+            });
+            btn.classList.toggle("starred");
+            // Repaint star icon (filled vs outline)
+            btn.querySelector("svg")?.setAttribute("fill", btn.classList.contains("starred") ? "currentColor" : "none");
+            if (btn.classList.contains("starred")) {
+              btn.querySelector("svg")?.removeAttribute("stroke");
+              btn.querySelector("svg")?.removeAttribute("stroke-width");
+            } else {
+              btn.querySelector("svg")?.setAttribute("stroke", "currentColor");
+              btn.querySelector("svg")?.setAttribute("stroke-width", "2");
+            }
+            btn.title = btn.classList.contains("starred") ? "Unstar" : "Star";
+          } else if (action === "archive") {
+            await fetch(`/api/gmail/message/${encodeURIComponent(id)}/labels`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ remove: ["INBOX"] }),
+            });
+            removeFromList(id, "Archived");
+          } else if (action === "trash") {
+            await fetch(`/api/gmail/message/${encodeURIComponent(id)}/trash`, { method: "POST" });
+            removeFromList(id, "Deleted");
+          }
+        } catch (err) {
+          console.warn(`[mail-row-action ${action}]`, err);
+          showToast(`${action} failed: ${err.message || err}`, "error");
+        } finally {
+          btn.disabled = false;
+        }
+      });
     });
   }
 

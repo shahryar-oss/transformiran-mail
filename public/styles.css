@@ -132,11 +132,15 @@ button { font-family: inherit; cursor: pointer; }
    ============================================================ */
 .app {
   display: grid;
-  grid-template-columns: 240px 360px 1fr;
+  grid-template-columns: 240px 360px 1fr 320px;
   height: 100vh;
   overflow: hidden; /* container never scrolls — children manage their own */
   background: var(--paper);
 }
+.app.right-panel-hidden {
+  grid-template-columns: 240px 360px 1fr 0;
+}
+.app.right-panel-hidden .right-panel { display: none; }
 
 /* LEFT RAIL — frozen WHEN content fits, scrolls only if labels grow.
    overflow-y:auto = no scrollbar when content is short (looks frozen),
@@ -530,8 +534,54 @@ button { font-family: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--line);
   cursor: pointer;
   transition: background .12s ease;
+  position: relative;
 }
 .mail-row:hover { background: var(--cream); }
+
+/* Outlook-style hover quick-actions — shown only when hovering the row. */
+.mail-row-actions {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px;
+  box-shadow: 0 2px 8px rgba(40, 47, 57, .12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+.mail-row:hover .mail-row-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.mail-row.selected .mail-row-actions {
+  background: var(--cream);
+}
+.mra-btn {
+  background: transparent;
+  border: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--navy-soft);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, color .12s;
+}
+.mra-btn:hover { background: var(--cream-dark); color: var(--navy); }
+.mra-btn:disabled { opacity: .4; cursor: not-allowed; }
+.mra-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.mra-btn.starred { color: var(--gold-dark); }
+.mra-btn.delete:hover { color: var(--bad); background: rgba(196, 69, 69, .1); }
 .mail-row.selected { background: var(--cream-dark); }
 .mail-row.unread .mail-sender,
 .mail-row.unread .mail-subject {
@@ -654,6 +704,182 @@ button { font-family: inherit; cursor: pointer; }
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
 }
+
+/* ====================================================================
+   RIGHT PANEL — calendar (mini-month + agenda). Delta panel slides
+   in over this when opened. Toggleable via header button.
+   ==================================================================== */
+.right-panel {
+  background: var(--cream);
+  border-left: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.rp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--cream);
+}
+.rp-head-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gold-dark);
+}
+.rp-head-actions { display: flex; gap: 4px; align-items: center; }
+.rp-icon-btn {
+  background: transparent;
+  border: none;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rp-icon-btn:hover { background: var(--paper); color: var(--navy); }
+.rp-icon-btn svg { width: 14px; height: 14px; fill: currentColor; }
+
+/* Mini-month inside right panel */
+.rp-mini {
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--paper);
+}
+.rp-mini-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px;
+  font-size: 12.5px; font-weight: 700; color: var(--navy);
+}
+.rp-mini-nav {
+  background: transparent; border: none; padding: 2px 6px;
+  color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1;
+  border-radius: 4px;
+}
+.rp-mini-nav:hover { background: var(--cream); color: var(--navy); }
+.rp-mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  font-size: 11px;
+  text-align: center;
+}
+.rp-mini-dow {
+  color: var(--muted);
+  font-weight: 600;
+  padding: 2px 0;
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+.rp-mini-day {
+  padding: 4px 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: var(--navy);
+  transition: background .12s;
+  aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+}
+.rp-mini-day:hover { background: var(--cream-dark); }
+.rp-mini-day.muted { color: var(--muted); opacity: .5; }
+.rp-mini-day.today {
+  background: var(--gold);
+  color: white; font-weight: 700;
+}
+.rp-mini-day.has-events::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--gold-dark);
+}
+.rp-mini-day.today.has-events::after { background: white; }
+
+/* Agenda list */
+.rp-agenda {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px 16px;
+}
+.rp-agenda::-webkit-scrollbar { width: 6px; }
+.rp-agenda::-webkit-scrollbar-thumb { background: rgba(40,47,57,.15); border-radius: 3px; }
+.rp-day {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0 10px;
+}
+.rp-day:last-child { border-bottom: none; }
+.rp-day-label {
+  font-size: 11.5px; font-weight: 700;
+  color: var(--navy);
+  margin-bottom: 4px;
+}
+.rp-day-label.today { color: var(--gold-dark); }
+.rp-event {
+  display: flex; gap: 8px;
+  padding: 5px 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  align-items: flex-start;
+}
+.rp-event:hover { background: var(--paper); }
+.rp-event-bar {
+  width: 3px;
+  border-radius: 2px;
+  align-self: stretch;
+  flex-shrink: 0;
+}
+.rp-event-body { flex: 1; min-width: 0; }
+.rp-event-title {
+  font-size: 12.5px;
+  color: var(--navy);
+  font-weight: 500;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rp-event-time {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.rp-agenda-empty {
+  font-size: 12px; color: var(--muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+.rp-agenda-loading {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 8px 0;
+}
+
+/* Toggle button shown on the email reader top — re-opens the panel
+   when hidden, hides when shown. */
+.right-panel-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.right-panel-toggle:hover { color: var(--navy); border-color: var(--gold); }
+.right-panel-toggle svg { width: 12px; height: 12px; fill: currentColor; }
 .reader-empty {
   display: flex;
   height: 100%;
