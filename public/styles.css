@@ -220,7 +220,11 @@ button { font-family: inherit; cursor: pointer; }
 .folder-count { color: var(--muted); font-size: 12px; }
 .folder.active .folder-count { color: var(--gold-dark); font-weight: 700; }
 .folder-count:empty { display: none; }
-.folder-count.has-unread {
+/* Unread badge — red pill ALWAYS gets white text, regardless of folder state.
+   Higher specificity (.folder.active selector + .has-unread) ensures we beat
+   the active-folder color rule above. */
+.folder-count.has-unread,
+.folder.active .folder-count.has-unread {
   background: var(--red);
   color: white;
   padding: 1px 7px;
