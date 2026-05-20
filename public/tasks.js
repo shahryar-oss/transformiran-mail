@@ -30,11 +30,24 @@
   let _selected = null; // selected task id
 
   // ----- LISTS + COUNTS -----
+  // Postgres BIGINT comes back as strings — normalize to numbers so
+  // === comparisons (find(l => l.id === view)) work everywhere.
+  function normalizeList(l) {
+    return { ...l, id: Number(l.id), open_count: Number(l.open_count || 0) };
+  }
+  function normalizeTask(t) {
+    return {
+      ...t,
+      id: Number(t.id),
+      list_id: t.list_id != null ? Number(t.list_id) : null,
+    };
+  }
+
   async function loadLists() {
     const r = await fetch("/api/tasks/lists");
     if (!r.ok) return;
     const data = await r.json();
-    _lists = data.lists || [];
+    _lists = (data.lists || []).map(normalizeList);
     renderLists();
     renderCounts(data.counts || {});
   }
@@ -110,7 +123,7 @@
     const r = await fetch(`/api/tasks?view=${encodeURIComponent(view)}&includeCompleted=${include}`);
     if (!r.ok) return;
     const data = await r.json();
-    _tasks = data.tasks || [];
+    _tasks = (data.tasks || []).map(normalizeTask);
     renderTasks();
   }
 
@@ -434,7 +447,7 @@
     if (r.ok) {
       const data = await r.json();
       await loadLists();
-      switchView(data.id);
+      switchView(Number(data.id));  // Postgres BIGINT → string; coerce.
     }
   });
 
