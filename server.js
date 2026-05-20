@@ -458,6 +458,8 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
 });
 
 // Fetch a single message in full, including parsed body.
+// Also fetches inline images (signature logos, embedded screenshots) and
+// rewrites cid: references in the HTML to data: URIs so they render.
 app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
   const id = req.params.id;
   if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
@@ -472,7 +474,47 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
     const m = r.data;
     const headers = mime.headersToMap(m.payload?.headers || []);
     const body = mime.pickBody(m.payload);
-    const safeHtml = mime.sanitizeHtml(body.html);
+    let safeHtml = mime.sanitizeHtml(body.html);
+
+    // Resolve inline images (cid: references → data: URIs).
+    if (body.inlineImages && body.inlineImages.length && safeHtml) {
+      const fetches = await Promise.all(
+        body.inlineImages.map(async (img) => {
+          try {
+            let bytes;
+            if (img.inlineData) {
+              // Already raw bytes from a base64-decoded data part.
+              bytes = Buffer.from(img.inlineData, "binary");
+            } else if (img.attachmentId) {
+              const a = await g.users.messages.attachments.get({
+                userId: "me",
+                messageId: id,
+                id: img.attachmentId,
+              });
+              const b64 = (a.data.data || "")
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+              bytes = Buffer.from(b64, "base64");
+            }
+            if (!bytes) return null;
+            const dataUri = `data:${img.mimeType};base64,${bytes.toString("base64")}`;
+            return { contentId: img.contentId, dataUri };
+          } catch (err) {
+            console.warn("[inline-image fetch] failed:", err.message);
+            return null;
+          }
+        })
+      );
+      for (const img of fetches.filter(Boolean)) {
+        if (!img.contentId) continue;
+        // Match both cid:<id> and cid:<id> (case-insensitive); content IDs may
+        // include angle-bracket-stripped form. Escape regex special chars.
+        const cidEscaped = img.contentId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const re = new RegExp(`cid:${cidEscaped}`, "gi");
+        safeHtml = safeHtml.replace(re, img.dataUri);
+      }
+    }
+
     res.json({
       id: m.id,
       threadId: m.threadId,
@@ -494,6 +536,7 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
         text: body.text || mime.htmlToText(body.html || ""),
       },
       attachments: body.attachments || [],
+      inlineImageCount: (body.inlineImages || []).length,
       unread: (m.labelIds || []).includes("UNREAD"),
     });
   } catch (err) {
