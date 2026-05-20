@@ -256,6 +256,13 @@
   let _classificationMap = {};
   let _activeFilter = "all";
 
+  // Delta-search filter mode — when the user clicks an email reference
+  // from a Delta search_inbox result, the inbox temporarily shows ONLY
+  // those results (with a banner offering "Clear" to restore).
+  let _deltaSearchActive = false;
+  let _deltaSearchSnapshot = null;   // saved _allMessages from before
+  let _deltaSearchQuery = "";
+
   function setFilter(filterKey) {
     _activeFilter = filterKey;
     document.querySelectorAll(".qf-pill").forEach((p) => {
@@ -1385,6 +1392,14 @@
 
   // ---------- FOLDER NAVIGATION --------------------------------------
   function setFolder(folder, opts = {}) {
+    // Switching folders / VIPs / search always exits delta-search mode.
+    if (_deltaSearchActive) {
+      _deltaSearchActive = false;
+      _deltaSearchSnapshot = null;
+      _deltaSearchQuery = "";
+      const banner = document.getElementById("deltaSearchBanner");
+      if (banner) banner.hidden = true;
+    }
     _currentFolder = folder;
     _currentQuery = opts.query || "";
     _nextPageToken = null;
@@ -1742,6 +1757,89 @@
 
   // Pull the user's Important contacts (auto-seeded with org defaults).
   loadImportantContacts();
+
+  // ---------- DELTA SEARCH FILTER MODE ----------
+  // Called from assistant.js when the user clicks an email reference that
+  // came from a recent search_inbox tool result. Replaces the inbox list
+  // with the search results until the user clears.
+  window.activateDeltaSearchFilter = function(searchData, focusId) {
+    if (!searchData || !Array.isArray(searchData.results) || !searchData.results.length) {
+      // No results to show — just fall through to single-email open.
+      if (focusId && typeof window.openMailById === "function") {
+        window.openMailById(focusId);
+      }
+      return;
+    }
+
+    // Normalize Delta's stub shape into our mail-row shape.
+    const stubs = searchData.results.map((r) => ({
+      id: r.id,
+      threadId: r.threadId || "",
+      from: r.from || "",
+      to: "",
+      cc: "",
+      subject: r.subject || "(no subject)",
+      snippet: r.snippet || "",
+      date: r.date || "",
+      internalDate: r.date ? String(new Date(r.date).getTime()) : null,
+      labelIds: [],
+      unread: false,
+    }));
+
+    if (!_deltaSearchActive) {
+      _deltaSearchSnapshot = _allMessages;     // save current view
+    }
+    _deltaSearchActive = true;
+    _deltaSearchQuery = searchData.query || "";
+    _allMessages = stubs;
+    _nextPageToken = null;                    // disable infinite-scroll fetch
+
+    // Banner
+    const banner = document.getElementById("deltaSearchBanner");
+    const qEl = document.getElementById("dsbQuery");
+    const cEl = document.getElementById("dsbCount");
+    if (banner) banner.hidden = false;
+    if (qEl) qEl.textContent = `"${searchData.query || ""}"`;
+    if (cEl) cEl.textContent = `· ${stubs.length} result${stubs.length === 1 ? "" : "s"}`;
+
+    renderList(_allMessages);
+    updateLoadMoreButton();
+
+    // Open the clicked email
+    if (focusId) {
+      const row = document.querySelector(`.mail-row[data-id="${CSS.escape(focusId)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("just-opened");
+        setTimeout(() => row.classList.remove("just-opened"), 1500);
+      }
+      onSelect(focusId, _allMessages);
+    }
+
+    // Classify any of the search results we haven't seen — paints tags.
+    if (_currentFolder === "inbox") {
+      classifyVisible(_allMessages);
+    }
+  };
+
+  function clearDeltaSearch() {
+    if (!_deltaSearchActive) return;
+    _deltaSearchActive = false;
+    _deltaSearchQuery = "";
+    const banner = document.getElementById("deltaSearchBanner");
+    if (banner) banner.hidden = true;
+
+    // Restore the previous list if we had one cached, otherwise reload.
+    if (_deltaSearchSnapshot && _deltaSearchSnapshot.length) {
+      _allMessages = _deltaSearchSnapshot;
+      _deltaSearchSnapshot = null;
+      renderList(_allMessages);
+    } else {
+      _deltaSearchSnapshot = null;
+      refreshInbox();
+    }
+  }
+  document.getElementById("dsbClearBtn")?.addEventListener("click", clearDeltaSearch);
 
   async function main() {
     try {
