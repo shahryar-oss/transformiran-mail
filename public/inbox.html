@@ -38,31 +38,43 @@
     <nav class="folders">
       <div class="folders-group">
         <a class="folder active" href="#inbox" data-folder="inbox">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19 3H4.99c-1.11 0-1.98.89-1.98 2L3 19c0 1.1.88 2 1.99 2H19c1.1 0 2-.9 2-2V5c0-1.11-.9-2-2-2zm0 12h-4c0 1.66-1.35 3-3 3s-3-1.34-3-3H4.99V5H19v10z"/></svg></span>
           <span class="folder-name">Inbox</span>
           <span class="folder-count" id="count-inbox"></span>
         </a>
         <a class="folder" href="#starred" data-folder="starred">
+          <span class="folder-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
           <span class="folder-name">Starred</span>
         </a>
         <a class="folder" href="#sent" data-folder="sent">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></span>
           <span class="folder-name">Sent</span>
         </a>
         <a class="folder" href="#drafts" data-folder="drafts">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></span>
           <span class="folder-name">Drafts</span>
           <span class="folder-count" id="count-drafts"></span>
         </a>
         <a class="folder" href="#archive" data-folder="archive">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M20.54 5.23l-1.39-1.68A1.45 1.45 0 0 0 18 3H6a1.45 1.45 0 0 0-1.15.55L3.46 5.23A2 2 0 0 0 3 6.5V19a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.5a2 2 0 0 0-.46-1.27zM12 17.5L6.5 12H10v-2h4v2h3.5L12 17.5zM5.12 5l.81-1h12l.94 1H5.12z"/></svg></span>
           <span class="folder-name">Archive</span>
         </a>
         <a class="folder" href="#trash" data-folder="trash">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></span>
           <span class="folder-name">Trash</span>
         </a>
       </div>
 
       <div class="folders-group-label">Smart folders</div>
       <div class="folders-group">
-        <a class="folder muted" href="#marketing" data-smart="marketing">Marketing</a>
-        <a class="folder muted" href="#done" data-smart="done">Done</a>
+        <a class="folder" href="#marketing" data-smart="marketing">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M18 11.18V13.82A4.001 4.001 0 0 1 18 21h0v-3l-12-4v-4l12-4v-3a4.001 4.001 0 0 1 0 7.82V11.18z"/></svg></span>
+          <span class="folder-name">Marketing</span>
+        </a>
+        <a class="folder" href="#done" data-smart="done">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
+          <span class="folder-name">Done</span>
+        </a>
       </div>
 
       <div class="folders-group-label important-label">
@@ -75,29 +87,41 @@
 
       <div class="folders-group-label">Folders</div>
       <div class="folders-group">
-        <a class="folder muted" href="#donors">Donors</a>
-        <a class="folder muted" href="#finance">Finance</a>
-        <a class="folder muted" href="#hr">HR</a>
-        <a class="folder muted" href="#iran">Iran ops</a>
+        <a class="folder" href="#donors">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
+          <span class="folder-name">Donors</span>
+        </a>
+        <a class="folder" href="#finance">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
+          <span class="folder-name">Finance</span>
+        </a>
+        <a class="folder" href="#hr">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
+          <span class="folder-name">HR</span>
+        </a>
+        <a class="folder" href="#iran">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
+          <span class="folder-name">Iran ops</span>
+        </a>
       </div>
 
       <div class="folders-group-label">Tools</div>
       <div class="folders-group">
-        <a class="folder folder-tool" href="/calendar">
-          <span class="ftool-i"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg></span>
-          <span>Calendar</span>
+        <a class="folder" href="/calendar">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg></span>
+          <span class="folder-name">Calendar</span>
         </a>
-        <a class="folder folder-tool" href="/tasks">
-          <span class="ftool-i"><svg viewBox="0 0 24 24"><path d="M19 5v14H5V5h14m0-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-4 12.5l-1.41-1.41-2.59 2.58-2.58-2.58L7 16.5l4 4 4-4z"/></svg></span>
-          <span>To Do</span>
+        <a class="folder" href="/tasks">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zm-2.79-9.79l-1.42-1.42-5.79 5.8-2.21-2.22-1.42 1.42L9 14.4l8.21-8.19z"/></svg></span>
+          <span class="folder-name">To Do</span>
         </a>
-        <a class="folder folder-tool" href="/contacts">
-          <span class="ftool-i"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
-          <span>Contacts</span>
+        <a class="folder" href="/contacts">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
+          <span class="folder-name">Contacts</span>
         </a>
-        <a class="folder folder-tool" href="/settings">
-          <span class="ftool-i"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span>
-          <span>Settings</span>
+        <a class="folder" href="/settings">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg></span>
+          <span class="folder-name">Settings</span>
         </a>
       </div>
     </nav>

@@ -210,13 +210,35 @@ button { font-family: inherit; cursor: pointer; }
 
 .folder {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 7px 10px;
   border-radius: var(--radius);
   text-decoration: none;
   color: var(--navy);
   font-weight: 500;
+}
+.folder-i {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  color: var(--navy-soft);
+  flex-shrink: 0;
+}
+.folder-i svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+.folder.active .folder-i { color: var(--gold-dark); }
+.folder-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .folder:hover { background: var(--cream-dark); }
 .folder.active { background: var(--cream-dark); color: var(--gold-dark); font-weight: 600; }
