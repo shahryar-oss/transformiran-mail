@@ -13,6 +13,7 @@ const assistant = require("./lib/assistant");
 const classifier = require("./lib/classifier");
 const memory = require("./lib/memory");
 const backfill = require("./lib/backfill");
+const tasks = require("./lib/tasks");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -115,6 +116,152 @@ app.get("/", (req, res) => {
 app.get("/settings", (req, res) => {
   if (!req.user) return res.redirect("/");
   res.sendFile(path.join(__dirname, "public", "settings.html"));
+});
+
+// Tasks page — Microsoft To Do-style task manager
+app.get("/tasks", (req, res) => {
+  if (!req.user) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public", "tasks.html"));
+});
+
+// ====================================================================
+// Tasks API
+// ====================================================================
+app.get("/api/tasks/lists", auth.requireAuth, async (req, res) => {
+  try {
+    const lists = await tasks.listLists(req.user.id);
+    const counts = await tasks.smartListCounts(req.user.id);
+    res.json({ lists, counts });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/tasks/lists", auth.requireAuth, async (req, res) => {
+  try {
+    const list = await tasks.createList(req.user.id, req.body || {});
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: "create_failed", message: err.message });
+  }
+});
+
+app.patch("/api/tasks/lists/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const list = await tasks.updateList(req.user.id, id, req.body || {});
+    if (!list) return res.status(404).json({ error: "not_found" });
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/tasks/lists/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await tasks.deleteList(req.user.id, id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// Tasks within a view (smart list or custom list)
+// GET /api/tasks?view=my-day|important|planned|completed|all|tasks  OR view=<list_id_number>
+app.get("/api/tasks", auth.requireAuth, async (req, res) => {
+  let view = req.query.view || "tasks";
+  if (/^\d+$/.test(view)) view = Number(view);
+  const includeCompleted = req.query.includeCompleted === "true";
+  try {
+    const rows = await tasks.listTasksForView(req.user.id, view, { includeCompleted });
+    res.json({ tasks: rows, view });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/tasks", auth.requireAuth, async (req, res) => {
+  try {
+    const task = await tasks.createTask(req.user.id, req.body || {});
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ error: "create_failed", message: err.message });
+  }
+});
+
+app.patch("/api/tasks/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const task = await tasks.updateTask(req.user.id, id, req.body || {});
+    if (!task) return res.status(404).json({ error: "not_found" });
+    res.json(task);
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/tasks/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await tasks.deleteTask(req.user.id, id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// Steps (sub-tasks) for a task
+app.get("/api/tasks/:id/steps", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const steps = await tasks.listSteps(req.user.id, id);
+    res.json({ steps });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/tasks/:id/steps", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  const { title } = req.body || {};
+  if (!title || !title.trim()) return res.status(400).json({ error: "title_required" });
+  try {
+    const step = await tasks.createStep(req.user.id, id, title);
+    res.json(step);
+  } catch (err) {
+    res.status(500).json({ error: "create_failed", message: err.message });
+  }
+});
+
+app.patch("/api/tasks/:taskId/steps/:stepId", auth.requireAuth, async (req, res) => {
+  const taskId = Number(req.params.taskId);
+  const stepId = Number(req.params.stepId);
+  if (!Number.isFinite(taskId) || !Number.isFinite(stepId)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const step = await tasks.updateStep(req.user.id, taskId, stepId, req.body || {});
+    res.json(step || { ok: false });
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/tasks/:taskId/steps/:stepId", auth.requireAuth, async (req, res) => {
+  const taskId = Number(req.params.taskId);
+  const stepId = Number(req.params.stepId);
+  if (!Number.isFinite(taskId) || !Number.isFinite(stepId)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await tasks.deleteStep(req.user.id, taskId, stepId);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
 });
 
 // Static (after the / route so we control the landing/inbox swap).
