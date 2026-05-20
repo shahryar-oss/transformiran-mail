@@ -168,6 +168,36 @@
     document.querySelectorAll(".qf-pill").forEach((p) => {
       p.addEventListener("click", () => setFilter(p.dataset.filter));
     });
+
+    // Smart-folder links in left rail map to category filters.
+    document.querySelectorAll(".folder[data-smart]").forEach((f) => {
+      f.addEventListener("click", (e) => {
+        e.preventDefault();
+        const key = f.dataset.smart;
+        // Map smart folder → classification filter
+        const filterMap = {
+          marketing: "NEWSLETTER",
+          done:      "DONE",
+        };
+        const cat = filterMap[key];
+        if (cat) {
+          setFilter(cat);
+          document.querySelector(".folder.active")?.classList.remove("active");
+          f.classList.add("active");
+          f.classList.remove("muted");
+        }
+      });
+    });
+
+    // "Inbox" link in rail = clear filter
+    document.querySelectorAll('.folder[href="#inbox"]').forEach((f) => {
+      f.addEventListener("click", (e) => {
+        e.preventDefault();
+        setFilter("all");
+        document.querySelector(".folder.active")?.classList.remove("active");
+        f.classList.add("active");
+      });
+    });
   }
 
   // ----- AI classification overlay (Phase 2c.1) -------------------------
@@ -180,6 +210,7 @@
     NEWSLETTER:   "Newsletter",
     INTERNAL:     "Internal",
     AUTO:         "Auto",
+    DONE:         "Done",
   };
 
   function paintClassifications(map) {
@@ -711,12 +742,17 @@
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
         statusEl.className = "draft-status ok";
-        statusEl.textContent = "Sent ✓";
+        statusEl.textContent = data.archived ? "Sent + archived ✓" : "Sent ✓";
         sendBtn.textContent = "Sent";
         toInput.disabled = true; subjInput.disabled = true; bodyTa.disabled = true;
         regenBtn.disabled = true;
-        showToast(`Sent to ${to}`, "ok");
-        setTimeout(() => composer.remove(), 1500);
+        showToast(data.archived ? `Sent to ${to} · archived` : `Sent to ${to}`, "ok");
+        if (data.archived) {
+          // The original thread is gone from inbox now. Remove the row + clear reader.
+          setTimeout(() => removeFromList(msg.id, "Replied + archived"), 1200);
+        } else {
+          setTimeout(() => composer.remove(), 1500);
+        }
       } catch (err) {
         statusEl.className = "draft-status error";
         statusEl.textContent = err.message || String(err);

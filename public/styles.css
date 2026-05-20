@@ -444,6 +444,8 @@ button { font-family: inherit; cursor: pointer; }
 .mail-tag.tag-newsletter   { background: rgba(138, 133, 118, .12); color: var(--muted); }
 .mail-tag.tag-fyi          { background: rgba(138, 133, 118, .12); color: var(--muted); }
 .mail-tag.tag-auto         { background: rgba(138, 133, 118, .10); color: var(--muted); }
+.mail-tag.tag-done         { background: var(--good); color: white; }
+.mail-tag.tag-done::before { content: "✓ "; }
 
 .list-empty {
   flex: 1;

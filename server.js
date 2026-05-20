@@ -725,11 +725,44 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       },
     });
 
+    // After-send hygiene: if this was a REPLY (we have a threadId from the
+    // original message), auto-archive the thread + mark all messages in it
+    // as DONE so the row shows a green ✓ chip and disappears from inbox.
+    // Standard Gmail "Send and Archive" pattern.
+    let archivedThreadId = null;
+    let markedDone = 0;
+    if (threadId) {
+      try {
+        // Archive the entire thread (remove INBOX label from all messages in it).
+        const tRes = await g.users.threads.modify({
+          userId: "me",
+          id: threadId,
+          requestBody: { removeLabelIds: ["INBOX"] },
+        });
+        archivedThreadId = threadId;
+        // Mark the messages in the thread as DONE in our classification table.
+        const messageIds = (tRes.data.messages || []).map((m) => m.id);
+        if (messageIds.length) {
+          markedDone = await classifier.markMessagesDone(
+            req.user.id,
+            messageIds,
+            "Replied + archived"
+          );
+        }
+      } catch (err) {
+        console.warn("[/api/gmail/send] auto-archive failed:", err.message);
+        // Send still succeeded — archive failure is non-fatal.
+      }
+    }
+
     res.json({
       ok: true,
       sentMessageId: sendRes.data.id,
       threadId: sendRes.data.threadId,
       signatureUsed: !!sigHtml,
+      archived: !!archivedThreadId,
+      archivedThreadId,
+      markedDone,
     });
   } catch (err) {
     console.error("[/api/gmail/send] failed:", err);
