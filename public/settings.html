@@ -139,7 +139,24 @@
     color: var(--muted);
     font-size: 11px;
     margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
+  .mem-source-pill {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .35px;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .mem-source-pill.src-manual       { background: var(--cream);                 color: var(--navy-soft); }
+  .mem-source-pill.src-chat         { background: rgba(91, 124, 163, .15);      color: #3F5670; }
+  .mem-source-pill.src-auto-chat    { background: rgba(178, 142, 68, .15);      color: var(--gold-dark); }
+  .mem-source-pill.src-auto-nightly { background: rgba(178, 142, 68, .22);      color: var(--gold-dark); }
+  .mem-source-date { color: var(--muted); }
   .mem-actions {
     display: flex;
     gap: 4px;
@@ -492,12 +509,28 @@
   }
 
   function renderItem(m) {
+    // Source pill — visually distinguishes who saved this memory.
+    // manual         = you typed it on this page
+    // chat           = you explicitly told Delta "remember X"
+    // auto-chat      = Delta picked it up proactively during a chat turn
+    // auto-nightly   = Delta found it via the nightly extraction pass
+    const sourceMap = {
+      "manual":       { label: "Manual",       cls: "src-manual" },
+      "chat":         { label: "Told to Delta", cls: "src-chat" },
+      "auto-chat":    { label: "Auto (chat)",   cls: "src-auto-chat" },
+      "auto-nightly": { label: "Auto (nightly)", cls: "src-auto-nightly" },
+    };
+    const sourceKey = m.source || "manual";
+    const src = sourceMap[sourceKey] || { label: sourceKey, cls: "src-manual" };
     return `
       <div class="mem-item" data-id="${m.id}">
         ${m.category ? `<div class="mem-category">${escapeHtml(m.category)}</div>` : `<div class="mem-category" style="visibility:hidden">·</div>`}
         <div style="flex:1">
           <div class="mem-fact" contenteditable="false" data-fact-id="${m.id}">${escapeHtml(m.fact)}</div>
-          <div class="mem-source">added ${new Date(m.created_at).toLocaleDateString()} · source: ${escapeHtml(m.source || "manual")}</div>
+          <div class="mem-source">
+            <span class="mem-source-pill ${src.cls}">${escapeHtml(src.label)}</span>
+            <span class="mem-source-date">added ${new Date(m.created_at).toLocaleDateString()}</span>
+          </div>
         </div>
         <div class="mem-actions">
           <button class="mem-act edit" title="Edit" data-edit="${m.id}">

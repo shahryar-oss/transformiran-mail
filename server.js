@@ -15,6 +15,7 @@ const memory = require("./lib/memory");
 const backfill = require("./lib/backfill");
 const tasks = require("./lib/tasks");
 const importantContacts = require("./lib/important_contacts");
+const memoryExtractor = require("./lib/memory_extractor");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -1636,9 +1637,15 @@ app.listen(PORT, () => {
 });
 
 dbReady
-  .then(() => {
+  .then(async () => {
     console.log("[boot] db ready");
     startBackfillWorker();
+    try {
+      await memoryExtractor.ensureSchema();
+      startMemoryExtractorWorker();
+    } catch (err) {
+      console.warn("[boot] memory extractor schema/worker failed (non-fatal):", err.message);
+    }
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
@@ -1675,4 +1682,37 @@ function startBackfillWorker() {
   setTimeout(cycle, 10_000);
   setInterval(cycle, 20_000);
   console.log("[boot] backfill worker scheduled (cycle 20s)");
+}
+
+// ====================================================================
+// MEMORY EXTRACTOR — nightly per-user pass that mines recent activity
+// for durable observations. Internally each user is rate-limited to one
+// run per 20h, so a cycle that fires every 60 minutes is harmless.
+// ====================================================================
+function startMemoryExtractorWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const due = await memoryExtractor.listDueUsers();
+      for (const user of due) {
+        try {
+          await memoryExtractor.runForUser(user);
+        } catch (err) {
+          console.error(`[memory-extractor] user ${user.id} run failed:`, err);
+        }
+      }
+    } catch (err) {
+      console.error("[memory-extractor] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  // First check 2 minutes after boot (let other things settle), then hourly.
+  // The 20h rate limit inside runForUser ensures users only get a real
+  // extraction pass once a day.
+  setTimeout(cycle, 2 * 60 * 1000);
+  setInterval(cycle, 60 * 60 * 1000);
+  console.log("[boot] memory extractor scheduled (cycle 60m, per-user 20h cap)");
 }

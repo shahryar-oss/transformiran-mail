@@ -2644,6 +2644,97 @@ body.delta-panel-open .delta-fab { display: none; }
   box-shadow: 0 4px 12px rgba(233, 42, 46, .18);
 }
 
+/* Inline 'Delta remembered' card — appears when Delta proactively saves a
+   memory. Gives the user one-click Undo + a link to manage in Settings.
+   Cream + gold styling per brand. Smaller / quieter than the task card
+   since it's lower-stakes ambient feedback. */
+.memory-saved-card {
+  background: var(--cream);
+  border: 1px solid var(--gold);
+  border-left: 3px solid var(--gold);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 6px 0;
+  align-self: stretch;
+  max-width: 100%;
+  font-size: 12.5px;
+  color: var(--navy);
+  transition: opacity .4s;
+}
+.memory-saved-card.undone { opacity: 0.55; }
+.ms-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.ms-icon {
+  display: inline-flex;
+  color: var(--gold-dark);
+}
+.ms-icon svg { width: 14px; height: 14px; fill: currentColor; }
+.ms-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gold-dark);
+}
+.ms-source {
+  margin-left: auto;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--muted);
+  background: var(--paper);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+.ms-subject {
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 3px;
+}
+.ms-category {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ms-fact {
+  color: var(--navy-soft);
+  margin-bottom: 8px;
+  line-height: 1.4;
+}
+.ms-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+}
+.ms-undo {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11.5px;
+  transition: color .12s, border-color .12s;
+}
+.ms-undo:hover:not(:disabled) { color: var(--bad); border-color: var(--bad); }
+.ms-undo:disabled { opacity: .5; cursor: not-allowed; }
+.ms-edit {
+  color: var(--gold-dark);
+  text-decoration: none;
+  font-size: 11.5px;
+}
+.ms-edit:hover { text-decoration: underline; }
+.ms-status { font-size: 11px; color: var(--muted); margin-left: auto; }
+.ms-status.ok { color: var(--good); font-weight: 600; }
+.ms-status.error { color: var(--bad); }
+
 /* Inline task-created card in chat (create_task tool result) */
 .chat-task-card {
   background: var(--paper);
