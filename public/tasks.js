@@ -11,6 +11,17 @@
       .replace(/"/g, "&quot;");
   }
 
+  // Inline SVG icons — monochrome, currentColor, no emoji per brand rules.
+  const ICONS = {
+    sun:      `<svg viewBox="0 0 24 24"><path d="M12 7c-2.76 0-5 2.24-5 5s2.24 5 5 5 5-2.24 5-5-2.24-5-5-5zM2 13l2 .14V11l-2 .14V13zm18 0l2-.14V11l-2 .14V13zM11 2v2.14h2V2h-2zm0 18v2h2v-2h-2zM5.99 4.58l-1.41 1.41 1.42 1.42 1.41-1.41-1.42-1.42zm12.02 12.02l-1.41 1.41 1.42 1.42 1.41-1.41-1.42-1.42zm1.42-13.43l-1.41-1.42-1.42 1.42 1.41 1.42 1.42-1.42zM4.57 18l-1.41-1.42-1.42 1.42 1.42 1.41 1.41-1.41z"/></svg>`,
+    calendar: `<svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg>`,
+    clock:    `<svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`,
+    envelope: `<svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`,
+    chevron:  `<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>`,
+    dot:      `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>`,
+    trash:    `<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
+  };
+
   // ----- STATE -----
   let _view = "my-day";
   let _viewTitle = "My Day";
@@ -56,7 +67,7 @@
         const isActive = _view === list.id;
         html += `
           <div class="rail-item ${isActive ? "active" : ""}" data-view="${list.id}">
-            <span class="icon" style="color:${list.color || "#B28E44"}">▸</span>
+            <span class="icon" style="color:${list.color || "#B28E44"}">${ICONS.dot}</span>
             <span>${escapeHtml(list.name)}</span>
             <span class="count">${list.open_count > 0 ? list.open_count : ""}</span>
           </div>`;
@@ -106,9 +117,13 @@
   function renderTasks() {
     const target = $("taskList");
     if (!_tasks.length) {
+      const emptyIcon = _view === "my-day" ? ICONS.sun
+                      : _view === "important" ? `<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
+                      : _view === "planned" ? ICONS.calendar
+                      : `<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>`;
       target.innerHTML = `
         <div class="list-empty-state">
-          <div class="icon">${_view === "my-day" ? "☀" : "✓"}</div>
+          <div class="empty-svg">${emptyIcon}</div>
           <div class="title">${_view === "my-day" ? "Focus on your day" : "Nothing here yet"}</div>
           <div class="sub">${
             _view === "my-day" ? "Add tasks from this list to focus on today." :
@@ -150,9 +165,9 @@
           <div class="task-title">${escapeHtml(t.title)}</div>
           <div class="task-meta">
             ${t.list_id ? `<span>${escapeHtml(listName(t.list_id))}</span>` : ""}
-            ${dueText ? `<span class="due ${isOverdue ? "overdue" : ""}">📅 ${escapeHtml(dueText)}</span>` : ""}
-            ${t.in_my_day && _view !== "my-day" ? `<span class="my-day-tag">☀ My Day</span>` : ""}
-            ${t.source_message_id ? `<a class="src-link" href="/#${escapeHtml(t.source_message_id)}" onclick="event.stopPropagation()">📧 from email</a>` : ""}
+            ${dueText ? `<span class="due ${isOverdue ? "overdue" : ""}"><span class="meta-i">${ICONS.calendar}</span>${escapeHtml(dueText)}</span>` : ""}
+            ${t.in_my_day && _view !== "my-day" ? `<span class="my-day-tag"><span class="meta-i">${ICONS.sun}</span>My Day</span>` : ""}
+            ${t.source_message_id ? `<a class="src-link" href="/#${escapeHtml(t.source_message_id)}" onclick="event.stopPropagation()"><span class="meta-i">${ICONS.envelope}</span>from email</a>` : ""}
           </div>
         </div>
         <button class="task-star ${t.important ? "starred" : ""}" title="${t.important ? "Unstar" : "Star"}">
@@ -288,15 +303,15 @@
 
       <div class="detail-section">
         <div class="detail-row ${t.in_my_day ? "" : "empty"}" id="row-myday">
-          <span class="icon">☀</span>
+          <span class="icon">${ICONS.sun}</span>
           <span class="value">${t.in_my_day ? "Added to My Day" : "Add to My Day"}</span>
         </div>
         <div class="detail-row ${t.due_at ? "" : "empty"}">
-          <span class="icon">📅</span>
+          <span class="icon">${ICONS.calendar}</span>
           <input type="datetime-local" id="dueInput" value="${dueForInput}" placeholder="Add due date">
         </div>
         <div class="detail-row ${t.reminder_at ? "" : "empty"}">
-          <span class="icon">⏰</span>
+          <span class="icon">${ICONS.clock}</span>
           <input type="datetime-local" id="reminderInput" value="${reminderForInput}" placeholder="Add reminder">
         </div>
       </div>
@@ -322,7 +337,7 @@
       <div class="detail-foot">
         <span>Created ${new Date(t.created_at).toLocaleString()}</span>
         <div class="detail-foot-spacer"></div>
-        ${t.source_message_id ? `<a class="src-link" href="/" style="color:var(--gold-dark);text-decoration:none;font-weight:600;font-size:11.5px">📧 from email →</a>` : ""}
+        ${t.source_message_id ? `<a class="src-link" href="/" style="color:var(--gold-dark);text-decoration:none;font-weight:600;font-size:11.5px;display:inline-flex;align-items:center;gap:4px"><span class="meta-i" style="display:inline-grid;place-items:center"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></span> from email →</a>` : ""}
         <button class="detail-delete" id="detailDelete" title="Delete task">
           <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         </button>
