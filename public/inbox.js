@@ -34,6 +34,27 @@
     return { name: "", email: String(raw || "").trim() };
   }
 
+  // Format a comma-separated recipient string (To: or Cc:) into pretty
+  // "Name <email>" chips. Truncates after 3 names with a "+N more" link.
+  function formatRecipients(raw) {
+    if (!raw) return "";
+    const parts = String(raw)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map(parseFrom);
+    if (!parts.length) return escapeHtml(raw);
+    const visible = parts.slice(0, 3);
+    const overflow = parts.length - visible.length;
+    return visible
+      .map((p) =>
+        p.name
+          ? `<strong>${escapeHtml(p.name)}</strong> <span class="rh-email">&lt;${escapeHtml(p.email)}&gt;</span>`
+          : `<strong>${escapeHtml(p.email)}</strong>`
+      )
+      .join(", ") + (overflow > 0 ? ` <span class="rh-more">+${overflow} more</span>` : "");
+  }
+
   function initialOf({ name, email }) {
     const src = (name || email || "·").trim();
     return src.charAt(0).toUpperCase();
@@ -339,12 +360,24 @@
 
       <div class="reader-head">
         <div class="reader-subject">${escapeHtml(stub.subject)}</div>
-        <div class="reader-from">
-          <strong>${escapeHtml(f.name || f.email)}</strong>
-          ${f.name ? `<span class="reader-email">&lt;${escapeHtml(f.email)}&gt;</span>` : ""}
-        </div>
-        <div class="reader-meta">
-          ${escapeHtml(stub.date || "")}
+        <div class="reader-headers">
+          <div class="rh-row">
+            <span class="rh-label">From</span>
+            <span class="rh-value"><strong>${escapeHtml(f.name || f.email)}</strong>${f.name ? ` <span class="rh-email">&lt;${escapeHtml(f.email)}&gt;</span>` : ""}</span>
+          </div>
+          ${stub.to ? `
+          <div class="rh-row">
+            <span class="rh-label">To</span>
+            <span class="rh-value" id="readerToValue">${formatRecipients(stub.to)}</span>
+          </div>` : ""}
+          <div class="rh-row" id="readerCcRow" hidden>
+            <span class="rh-label">Cc</span>
+            <span class="rh-value" id="readerCcValue"></span>
+          </div>
+          <div class="rh-row rh-date">
+            <span class="rh-label">Date</span>
+            <span class="rh-value">${escapeHtml(stub.date || "")}</span>
+          </div>
         </div>
         <div class="reader-actions">
           <button class="btn delta-btn primary" data-action="draft-reply">
@@ -382,6 +415,20 @@
       const r = await fetch(`/api/gmail/message/${encodeURIComponent(id)}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
+
+      // Update To with full data (more accurate than the stub).
+      const toValue = document.getElementById("readerToValue");
+      if (toValue && data.headers?.to) {
+        toValue.innerHTML = formatRecipients(data.headers.to);
+      }
+      // Show Cc row if present.
+      const ccRow = document.getElementById("readerCcRow");
+      const ccValue = document.getElementById("readerCcValue");
+      if (data.headers?.cc && ccRow && ccValue) {
+        ccValue.innerHTML = formatRecipients(data.headers.cc);
+        ccRow.hidden = false;
+      }
+
       renderBody(bodyEl, data);
     } catch (err) {
       bodyEl.innerHTML = `
