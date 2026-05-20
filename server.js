@@ -328,6 +328,123 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Bulk action across many threads — used by the cleanup wizard.
+// Body: { threadIds: ["..."], action: "mark_done"|"archive"|"trash"|"unsubscribe" }
+app.post("/api/inbox/bulk-action", auth.requireAuth, async (req, res) => {
+  const { threadIds, action } = req.body || {};
+  if (!Array.isArray(threadIds) || !threadIds.length) {
+    return res.status(400).json({ error: "threadIds_required" });
+  }
+  if (threadIds.length > 100) {
+    return res.status(400).json({ error: "too_many", max: 100 });
+  }
+  if (!["mark_done", "archive", "trash", "unsubscribe"].includes(action)) {
+    return res.status(400).json({ error: "bad_action" });
+  }
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    const results = {
+      action,
+      requested: threadIds.length,
+      succeeded: 0,
+      failed: 0,
+      doneMessageIds: [],
+      unsubscribeUrls: [], // for unsubscribe action
+    };
+
+    // Run actions in parallel batches of 5 to stay under Gmail rate limits.
+    const CHUNK = 5;
+    for (let i = 0; i < threadIds.length; i += CHUNK) {
+      const slice = threadIds.slice(i, i + CHUNK);
+      await Promise.all(
+        slice.map(async (tid) => {
+          try {
+            if (action === "mark_done" || action === "archive") {
+              const tRes = await g.users.threads.modify({
+                userId: "me",
+                id: tid,
+                requestBody: { removeLabelIds: ["INBOX"] },
+              });
+              if (action === "mark_done") {
+                const msgIds = (tRes.data.messages || []).map((m) => m.id);
+                results.doneMessageIds.push(...msgIds);
+              }
+            } else if (action === "trash") {
+              await g.users.threads.trash({ userId: "me", id: tid });
+            } else if (action === "unsubscribe") {
+              // Try to extract List-Unsubscribe from the most recent message.
+              const thread = await g.users.threads.get({
+                userId: "me",
+                id: tid,
+                format: "metadata",
+                metadataHeaders: ["List-Unsubscribe", "List-Unsubscribe-Post", "From"],
+              });
+              const msgs = thread.data.messages || [];
+              const newest = msgs[msgs.length - 1];
+              const headers = mime.headersToMap(newest?.payload?.headers || []);
+              const luRaw = headers["list-unsubscribe"];
+              const luPost = headers["list-unsubscribe-post"];
+              let url = null;
+              if (luRaw) {
+                // Format: <https://example.com/unsub>, <mailto:unsub@example.com>
+                const matches = luRaw.match(/<([^>]+)>/g) || [];
+                for (const m of matches) {
+                  const u = m.slice(1, -1);
+                  if (u.startsWith("http")) { url = u; break; }
+                }
+                if (!url && matches.length) {
+                  // mailto: fallback — return so the client can mailto:
+                  url = matches[0].slice(1, -1);
+                }
+              }
+              // If sender supports one-click POST unsubscribe, do it server-side.
+              if (url && url.startsWith("http") && luPost && /One-Click/i.test(luPost)) {
+                try {
+                  await fetch(url, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" });
+                } catch (_) {}
+              } else if (url) {
+                results.unsubscribeUrls.push({ threadId: tid, url, from: headers.from || "" });
+              }
+              // Always archive after unsubscribing.
+              await g.users.threads.modify({
+                userId: "me",
+                id: tid,
+                requestBody: { removeLabelIds: ["INBOX"] },
+              });
+            }
+            results.succeeded++;
+          } catch (err) {
+            console.warn(`[bulk-action ${action} ${tid}] failed:`, err.message);
+            results.failed++;
+          }
+        })
+      );
+    }
+
+    // For mark_done, also stamp the classification table.
+    if (results.doneMessageIds.length) {
+      try {
+        await classifier.markMessagesDone(
+          req.user.id,
+          results.doneMessageIds,
+          "Bulk cleanup"
+        );
+      } catch (err) {
+        console.warn("[bulk-action] markMessagesDone failed:", err.message);
+      }
+    }
+
+    res.json({ ok: true, ...results });
+  } catch (err) {
+    console.error("[/api/inbox/bulk-action] failed:", err);
+    res.status(500).json({ error: "bulk_action_failed", message: err.message });
+  }
+});
+
 // Counts for the folder rail badges — unread inbox + total drafts.
 app.get("/api/counts", auth.requireAuth, async (req, res) => {
   try {
