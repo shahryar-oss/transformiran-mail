@@ -629,6 +629,7 @@ app.post("/api/inbox/add-to-todo", auth.requireAuth, async (req, res) => {
     }
 
     const created = [];
+    const deduped = [];
     const failed = [];
     for (const it of items) {
       try {
@@ -643,7 +644,9 @@ app.post("/api/inbox/add-to-todo", auth.requireAuth, async (req, res) => {
           source_message_id: it.messageId || null,
           source_thread_id: it.threadId || null,
         });
-        created.push({ taskId: Number(row.id), messageId: it.messageId });
+        const entry = { taskId: Number(row.id), messageId: it.messageId };
+        if (row.deduped) deduped.push(entry);
+        else created.push(entry);
       } catch (err) {
         console.warn("[add-to-todo] create failed:", err.message);
         failed.push({ messageId: it.messageId, error: err.message });
@@ -653,10 +656,12 @@ app.post("/api/inbox/add-to-todo", auth.requireAuth, async (req, res) => {
     res.json({
       ok: true,
       created: created.length,
+      deduped: deduped.length,
       failed: failed.length,
       listId,
       listName: resolvedName,
       tasks: created,
+      dedupedTasks: deduped,
       failures: failed,
     });
   } catch (err) {

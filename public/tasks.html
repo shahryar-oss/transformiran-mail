@@ -331,6 +331,99 @@
     color: var(--muted); font-weight: 700;
     padding: 8px 18px 4px;
   }
+
+  /* Source-email context inside the task detail pane.
+     Lazy-loaded when a task with source_message_id is opened. */
+  .detail-email {
+    margin: 0 18px 12px;
+    padding: 12px 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    border-radius: 10px;
+  }
+  .detail-email-loading,
+  .detail-email-error {
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+    padding: 4px 0;
+  }
+  .detail-email-error { color: var(--bad); font-style: normal; }
+  .detail-email-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+  .detail-email-from {
+    font-weight: 700;
+    font-size: 12.5px;
+    color: var(--navy);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .detail-email-date {
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .detail-email-subject {
+    font-size: 12.5px;
+    color: var(--navy);
+    font-weight: 600;
+    margin-bottom: 8px;
+    line-height: 1.35;
+  }
+  .detail-email-attachments {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .detail-email-att {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 10px 3px 8px;
+    font-size: 11px;
+    color: var(--navy);
+    max-width: 100%;
+  }
+  .detail-email-att svg {
+    width: 11px; height: 11px;
+    fill: var(--gold-dark);
+    flex-shrink: 0;
+  }
+  .detail-email-att .att-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+  }
+  .detail-email-att .att-size {
+    color: var(--muted);
+    font-size: 10px;
+    flex-shrink: 0;
+  }
+  .detail-email-body {
+    font-size: 12.5px;
+    color: var(--navy-soft);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    max-height: 240px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+  .detail-email-body::-webkit-scrollbar { width: 4px; }
+  .detail-email-body::-webkit-scrollbar-thumb { background: rgba(40,47,57,.15); border-radius: 2px; }
 </style>
 </head>
 <body>

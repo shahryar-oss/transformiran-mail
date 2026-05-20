@@ -347,6 +347,12 @@
         <textarea id="notesInput" placeholder="Add notes…">${escapeHtml(t.notes || "")}</textarea>
       </div>
 
+      ${t.source_message_id ? `
+      <div class="section-label">From email</div>
+      <div class="detail-email" id="detailEmail" data-msg-id="${escapeHtml(t.source_message_id)}">
+        <div class="detail-email-loading">Loading email…</div>
+      </div>` : ""}
+
       <div class="detail-foot">
         <span>Created ${new Date(t.created_at).toLocaleString()}</span>
         <div class="detail-foot-spacer"></div>
@@ -420,6 +426,75 @@
         renderDetail();
       }
     });
+
+    // Lazy-load the source email context — sender, subject, date, body
+    // preview, attachments. Avoids the user having to jump back to /inbox
+    // to recall what the task is about.
+    if (t.source_message_id) {
+      loadEmailContext(t.source_message_id);
+    }
+  }
+
+  // 60-second per-id cache so re-selecting the same task doesn't re-fetch.
+  const _emailCtxCache = new Map();
+
+  async function loadEmailContext(messageId) {
+    const target = document.getElementById("detailEmail");
+    if (!target) return;
+
+    const cached = _emailCtxCache.get(messageId);
+    if (cached && (Date.now() - cached.at) < 60_000) {
+      renderEmailContext(target, cached.data);
+      return;
+    }
+
+    try {
+      const r = await fetch(`/api/gmail/message/${encodeURIComponent(messageId)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      _emailCtxCache.set(messageId, { at: Date.now(), data });
+      renderEmailContext(target, data);
+    } catch (err) {
+      target.innerHTML = `<div class="detail-email-error">Couldn't load email (${escapeHtml(err.message || String(err))})</div>`;
+    }
+  }
+
+  function renderEmailContext(target, data) {
+    const h = data.headers || {};
+    const fromName = (h.from || "").replace(/<[^>]*>/g, "").trim().replace(/^"|"$/g, "") || h.from || "(unknown)";
+    const dateLabel = h.date ? new Date(h.date).toLocaleString() : "";
+    const bodyText = (data.body?.text || "").trim();
+    const preview = bodyText.length > 800 ? bodyText.slice(0, 800) + "…" : bodyText;
+    const attachments = Array.isArray(data.attachments) ? data.attachments : [];
+
+    const attBlock = attachments.length
+      ? `<div class="detail-email-attachments">
+           ${attachments.map((a) => `
+             <span class="detail-email-att" title="${escapeHtml(a.filename || "attachment")} (${fmtBytes(a.size || 0)})">
+               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg>
+               <span class="att-name">${escapeHtml(a.filename || "attachment")}</span>
+               <span class="att-size">${fmtBytes(a.size || 0)}</span>
+             </span>
+           `).join("")}
+         </div>`
+      : "";
+
+    target.innerHTML = `
+      <div class="detail-email-head">
+        <div class="detail-email-from">${escapeHtml(fromName)}</div>
+        <div class="detail-email-date">${escapeHtml(dateLabel)}</div>
+      </div>
+      <div class="detail-email-subject">${escapeHtml(h.subject || "(no subject)")}</div>
+      ${attBlock}
+      <div class="detail-email-body">${escapeHtml(preview) || "<em>(empty body)</em>"}</div>
+    `;
+  }
+
+  function fmtBytes(n) {
+    if (!n) return "";
+    if (n < 1024) return n + " B";
+    if (n < 1024 * 1024) return (n / 1024).toFixed(0) + " KB";
+    return (n / (1024 * 1024)).toFixed(1) + " MB";
   }
 
   async function patchTask(id, patch) {
