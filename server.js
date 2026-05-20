@@ -1208,7 +1208,7 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
 
 // Delta draft a reply — generate a reply body for the open email.
 app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
-  const { openMessageId, instructions } = req.body || {};
+  const { openMessageId, instructions, mode } = req.body || {};
   if (!openMessageId) {
     return res.status(400).json({ error: "openMessageId_required" });
   }
@@ -1217,6 +1217,7 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       user: req.user,
       openMessageId,
       instructions: instructions || "",
+      mode: mode === "reply-all" ? "reply-all" : "reply",
     });
     // Tell client whether the signature will be appended on save.
     let signatureAvailable = false;
@@ -1231,8 +1232,10 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
 
     res.json({
       to: result.to,
+      cc: result.cc || "",
       subject: result.subject,
       body: result.body,
+      mode: result.mode,
       threadId: result.threadId,
       inReplyTo: result.inReplyTo,
       styleExamples: result.styleExamples,

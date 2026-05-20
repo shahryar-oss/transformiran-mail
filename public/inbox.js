@@ -598,7 +598,7 @@
   async function onToolbarAction(action, msg, btn) {
     if (action === "reply" || action === "reply-all") {
       // Use the existing draft composer — Delta will draft, user edits.
-      return openDraftComposer(msg);
+      return openDraftComposer(msg, { mode: action });
     }
     if (action === "forward") {
       // Forward — open composer with empty 'To' and original quoted (Phase 2c.3)
@@ -706,9 +706,14 @@
   // Inserts a compose card at the top of the reader body, shows a loading
   // spinner while Delta drafts, then lets the user edit and save to Gmail
   // Drafts. The user always sends from Gmail itself.
-  async function openDraftComposer(msg) {
+  async function openDraftComposer(msg, opts = {}) {
     const bodyEl = document.getElementById("readerBody");
     if (!bodyEl) return;
+
+    // mode: 'reply' (default) | 'reply-all' — propagates to the server so
+    // the To/Cc fields get the right recipients. The user can still edit
+    // any field manually after the draft lands.
+    const mode = opts.mode === "reply-all" ? "reply-all" : "reply";
 
     // If a composer is already open for this message, just focus it.
     if (document.getElementById("draftComposer")) {
@@ -723,14 +728,27 @@
       <div class="draft-head">
         <div class="draft-title">
           <img class="k-logo" src="/delta-logo.png" alt="Delta" />
-          <span>Delta is drafting a reply…</span>
+          <span>${mode === "reply-all" ? "Delta is drafting a reply-all…" : "Delta is drafting a reply…"}</span>
         </div>
         <button class="draft-close" aria-label="Discard draft" title="Discard">×</button>
       </div>
       <div class="draft-confidence" style="display:none"></div>
       <div class="draft-fields">
-        <div class="draft-field"><label>To</label><input class="draft-to" type="text" disabled></div>
-        <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text" disabled></div>
+        <div class="draft-field">
+          <label>To</label>
+          <input class="draft-to" type="text" placeholder="recipient@example.com">
+          <button type="button" class="draft-cc-toggle" data-target="cc" title="Add Cc">Cc</button>
+          <button type="button" class="draft-cc-toggle" data-target="bcc" title="Add Bcc">Bcc</button>
+        </div>
+        <div class="draft-field draft-cc-row" hidden>
+          <label>Cc</label>
+          <input class="draft-cc" type="text" placeholder="cc@example.com, cc2@example.com">
+        </div>
+        <div class="draft-field draft-bcc-row" hidden>
+          <label>Bcc</label>
+          <input class="draft-bcc" type="text" placeholder="bcc@example.com">
+        </div>
+        <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text"></div>
       </div>
       <div class="draft-tones">
         <span class="draft-tones-label">Tone:</span>
@@ -766,7 +784,21 @@
     bodyEl.prepend(composer);
 
     const toInput = composer.querySelector(".draft-to");
+    const ccInput = composer.querySelector(".draft-cc");
+    const bccInput = composer.querySelector(".draft-bcc");
+    const ccRow = composer.querySelector(".draft-cc-row");
+    const bccRow = composer.querySelector(".draft-bcc-row");
     const subjInput = composer.querySelector(".draft-subject");
+
+    // Cc / Bcc toggles — clicking shows/hides the row.
+    composer.querySelectorAll(".draft-cc-toggle").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const target = btn.dataset.target;
+        const row = target === "cc" ? ccRow : bccRow;
+        row.hidden = !row.hidden;
+        if (!row.hidden) row.querySelector("input")?.focus();
+      });
+    });
     const bodyTa = composer.querySelector(".draft-body");
     const instr = composer.querySelector(".draft-extra-instructions");
     const regenBtn = composer.querySelector(".draft-regen");
@@ -798,12 +830,17 @@
           body: JSON.stringify({
             openMessageId: msg.id,
             instructions: extraInstructions || "",
+            mode,
           }),
         });
         const data = await r.json();
         if (!r.ok) throw new Error(data.message || data.error || "draft failed");
         currentDraft = data;
         toInput.value = data.to || "";
+        if (data.cc) {
+          ccInput.value = data.cc;
+          ccRow.hidden = false;
+        }
         subjInput.value = data.subject || "";
         bodyTa.value = data.body || "";
         titleEl.textContent = "Draft ready — edit before saving";
@@ -887,6 +924,8 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to,
+            cc: ccInput.value.trim() || undefined,
+            bcc: bccInput.value.trim() || undefined,
             subject: subjInput.value,
             body: bodyTa.value,
             threadId: currentDraft.threadId,
@@ -899,6 +938,7 @@
         statusEl.textContent = data.archived ? "Sent + archived ✓" : "Sent ✓";
         sendBtn.textContent = "Sent";
         toInput.disabled = true; subjInput.disabled = true; bodyTa.disabled = true;
+        ccInput.disabled = true; bccInput.disabled = true;
         regenBtn.disabled = true;
         showToast(data.archived ? `Sent to ${to} · archived` : `Sent to ${to}`, "ok");
         if (data.archived) {
@@ -926,6 +966,8 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: toInput.value,
+            cc: ccInput.value.trim() || undefined,
+            bcc: bccInput.value.trim() || undefined,
             subject: subjInput.value,
             body: bodyTa.value,
             threadId: currentDraft.threadId,
@@ -1593,20 +1635,13 @@
   // already in the visible inbox list, just click its row. If not (e.g. an
   // older email surfaced from /tasks), fetch a stub from the server, prepend
   // it to the list, and open it.
-  async function openMessageFromUrlIfPresent() {
-    const params = new URLSearchParams(window.location.search);
-    const msgId = params.get("msg");
-    if (!msgId) return;
-
-    // Clean the URL bar so a refresh doesn't keep reopening + the back button
-    // returns to a normal /inbox state.
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.delete("msg");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
-    } catch (_) {}
-
-    // Already in the visible list?
+  // Opens a Gmail message by id from anywhere in the app (Delta chat refs,
+  // task source-email links, ?msg= URL param). If the message is already in
+  // the visible inbox snapshot, scrolls + clicks the row. Otherwise fetches
+  // a stub via /api/gmail/message/:id, prepends it to the list, then opens.
+  // Exposed on window so the assistant panel can reach it without coupling.
+  async function openMailById(msgId) {
+    if (!msgId) return false;
     const existing = _allMessages.find((m) => m.id === msgId);
     if (existing) {
       const row = document.querySelector(`.mail-row[data-id="${CSS.escape(msgId)}"]`);
@@ -1616,10 +1651,8 @@
         setTimeout(() => row.classList.remove("just-opened"), 1500);
       }
       onSelect(msgId, _allMessages);
-      return;
+      return true;
     }
-
-    // Not in the list — fetch a stub from the server and inject it.
     try {
       const r = await fetch(`/api/gmail/message/${encodeURIComponent(msgId)}`);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -1647,6 +1680,30 @@
         row.classList.add("just-opened");
         setTimeout(() => row.classList.remove("just-opened"), 1500);
       }
+      return true;
+    } catch (err) {
+      showToast(`Couldn't open that email: ${err.message || err}`, "error");
+      return false;
+    }
+  }
+  // Expose for Delta chat panel + any cross-module callers.
+  window.openMailById = openMailById;
+
+  async function openMessageFromUrlIfPresent() {
+    const params = new URLSearchParams(window.location.search);
+    const msgId = params.get("msg");
+    if (!msgId) return;
+
+    // Clean the URL bar so a refresh doesn't keep reopening + the back button
+    // returns to a normal /inbox state.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("msg");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+    } catch (_) {}
+
+    try {
+      await openMailById(msgId);
     } catch (err) {
       showToast(`Couldn't open that email: ${err.message || err}`, "error");
     }

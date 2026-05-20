@@ -1271,6 +1271,20 @@ button { font-family: inherit; cursor: pointer; }
   font-family: inherit;
   padding: 4px 0;
 }
+/* Cc / Bcc toggle pills on the To row of the draft composer. */
+.draft-cc-toggle {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color .12s, border-color .12s;
+}
+.draft-cc-toggle:hover { color: var(--navy); border-color: var(--gold); }
 
 .draft-instructions {
   display: flex;
