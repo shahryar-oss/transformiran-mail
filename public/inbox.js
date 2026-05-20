@@ -392,6 +392,9 @@
           <button class="btn delta-btn" data-action="explain">
             <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Ask about this
           </button>
+          <button class="btn delta-btn" data-action="add-todo" title="Extract action items into your To Do">
+            <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Add to To Do
+          </button>
         </div>
       </div>
       <div class="reader-body" id="readerBody">
@@ -520,14 +523,23 @@
       summarize: `Summarize this email in 3 bullets.`,
       translate: `Translate this email into English (or to whichever language I usually reply in if it's already in English).`,
       explain:   `What is this email actually asking for? What should I do about it?`,
+      "add-todo": `Extract every action item from this email and create a separate To Do task for each one. Use create_task with source_message_id set to the open email's id so each task links back. Set due_at if a deadline is mentioned, in_my_day=true for anything due today, and important=true if the sender is a key person (Lana, Lazarus, Pia, Maggie). Don't draft a reply — just create the tasks. After all tools run, respond with one short line: "Added N tasks." (no bullets, no recap).`,
     };
+    const autoSendActions = new Set(["add-todo"]);
     const prompt = promptByAction[action] || `Help me with this email.`;
     if (fab && fab.click) fab.click();
     setTimeout(() => {
-      const target = document.getElementById("deltaInputChat")?.offsetParent !== null
-                   ? document.getElementById("deltaInputChat")
-                   : document.getElementById("deltaInputWelcome");
-      if (target) { target.value = prompt; target.focus(); }
+      const chatInput = document.getElementById("deltaInputChat");
+      const welcomeInput = document.getElementById("deltaInputWelcome");
+      const target = chatInput?.offsetParent !== null ? chatInput : welcomeInput;
+      if (!target) return;
+      target.value = prompt;
+      target.focus();
+      if (autoSendActions.has(action)) {
+        // Click the matching Send button to fire the prompt immediately.
+        const sendBtnId = target.id === "deltaInputChat" ? "deltaSendChat" : "deltaSendWelcome";
+        document.getElementById(sendBtnId)?.click();
+      }
     }, 60);
   }
 
@@ -1381,6 +1393,10 @@
       loadCounts();
       // Kick off classification in the background — tags fill in as they arrive.
       classifyVisible(_allMessages);
+
+      // Deep-link: /?msg=<gmailId> opens that message in the reader.
+      // Used by /tasks "Open source email" links and other cross-page jumps.
+      await openMessageFromUrlIfPresent();
     } catch (err) {
       listEl.innerHTML = `
         <div class="list-empty">
@@ -1388,6 +1404,69 @@
           <div class="empty-title">Couldn't load Gmail</div>
           <div class="empty-sub">${escapeHtml(String(err.message || err))}</div>
         </div>`;
+    }
+  }
+
+  // Reads ?msg=<id> from the URL and opens that message. If the message is
+  // already in the visible inbox list, just click its row. If not (e.g. an
+  // older email surfaced from /tasks), fetch a stub from the server, prepend
+  // it to the list, and open it.
+  async function openMessageFromUrlIfPresent() {
+    const params = new URLSearchParams(window.location.search);
+    const msgId = params.get("msg");
+    if (!msgId) return;
+
+    // Clean the URL bar so a refresh doesn't keep reopening + the back button
+    // returns to a normal /inbox state.
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("msg");
+      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+    } catch (_) {}
+
+    // Already in the visible list?
+    const existing = _allMessages.find((m) => m.id === msgId);
+    if (existing) {
+      const row = document.querySelector(`.mail-row[data-id="${CSS.escape(msgId)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("just-opened");
+        setTimeout(() => row.classList.remove("just-opened"), 1500);
+      }
+      onSelect(msgId, _allMessages);
+      return;
+    }
+
+    // Not in the list — fetch a stub from the server and inject it.
+    try {
+      const r = await fetch(`/api/gmail/message/${encodeURIComponent(msgId)}`);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const data = await r.json();
+      const h = data.headers || {};
+      const stub = {
+        id: msgId,
+        threadId: data.threadId || null,
+        from: h.from || "",
+        to: h.to || "",
+        cc: h.cc || "",
+        subject: h.subject || "(no subject)",
+        date: h.date || "",
+        snippet: data.snippet || "",
+        internalDate: data.internalDate || null,
+        labelIds: data.labelIds || [],
+        unread: (data.labelIds || []).includes("UNREAD"),
+      };
+      _allMessages = [stub, ..._allMessages];
+      renderList(_allMessages);
+      onSelect(msgId, _allMessages);
+      const row = document.querySelector(`.mail-row[data-id="${CSS.escape(msgId)}"]`);
+      if (row) {
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("just-opened");
+        setTimeout(() => row.classList.remove("just-opened"), 1500);
+      }
+    } catch (err) {
+      showToast(`Couldn't open that email: ${err.message || err}`, "error");
     }
   }
 

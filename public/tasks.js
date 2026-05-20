@@ -180,7 +180,7 @@
             ${t.list_id ? `<span>${escapeHtml(listName(t.list_id))}</span>` : ""}
             ${dueText ? `<span class="due ${isOverdue ? "overdue" : ""}"><span class="meta-i">${ICONS.calendar}</span>${escapeHtml(dueText)}</span>` : ""}
             ${t.in_my_day && _view !== "my-day" ? `<span class="my-day-tag"><span class="meta-i">${ICONS.sun}</span>My Day</span>` : ""}
-            ${t.source_message_id ? `<a class="src-link" href="/#${escapeHtml(t.source_message_id)}" onclick="event.stopPropagation()"><span class="meta-i">${ICONS.envelope}</span>from email</a>` : ""}
+            ${t.source_message_id ? `<a class="src-link" href="/?msg=${encodeURIComponent(t.source_message_id)}" title="Open source email" onclick="event.stopPropagation()"><span class="meta-i">${ICONS.envelope}</span>from email</a>` : ""}
           </div>
         </div>
         <button class="task-star ${t.important ? "starred" : ""}" title="${t.important ? "Unstar" : "Star"}">
@@ -350,7 +350,7 @@
       <div class="detail-foot">
         <span>Created ${new Date(t.created_at).toLocaleString()}</span>
         <div class="detail-foot-spacer"></div>
-        ${t.source_message_id ? `<a class="src-link" href="/" style="color:var(--gold-dark);text-decoration:none;font-weight:600;font-size:11.5px;display:inline-flex;align-items:center;gap:4px"><span class="meta-i" style="display:inline-grid;place-items:center"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></span> from email →</a>` : ""}
+        ${t.source_message_id ? `<a class="src-link" href="/?msg=${encodeURIComponent(t.source_message_id)}" title="Open source email" style="color:var(--gold-dark);text-decoration:none;font-weight:600;font-size:11.5px;display:inline-flex;align-items:center;gap:4px"><span class="meta-i" style="display:inline-grid;place-items:center"><svg viewBox="0 0 24 24" style="width:12px;height:12px;fill:currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></span> from email →</a>` : ""}
         <button class="detail-delete" id="detailDelete" title="Delete task">
           <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         </button>
