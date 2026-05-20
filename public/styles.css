@@ -662,6 +662,10 @@ button { font-family: inherit; cursor: pointer; }
   display: grid;
   place-items: center;
 }
+/* Respect the [hidden] attribute — CSS display:grid above otherwise wins
+   over the browser's default 'hidden→display:none', leaving the modal
+   visible on page load until JS removes the attribute. */
+.compose-modal[hidden] { display: none; }
 .compose-backdrop {
   position: absolute;
   inset: 0;
