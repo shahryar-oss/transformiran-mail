@@ -60,8 +60,28 @@
     return r.json();
   }
 
-  async function loadInbox() {
-    const r = await fetch("/api/gmail/recent?limit=30");
+  // Folder + pagination state
+  let _currentFolder = "inbox";
+  let _currentQuery = "";
+  let _nextPageToken = null;
+
+  const FOLDER_TITLES = {
+    inbox:   "Inbox",
+    starred: "Starred",
+    sent:    "Sent",
+    drafts:  "Drafts",
+    archive: "Archive",
+    trash:   "Trash",
+  };
+
+  async function loadInbox(opts = {}) {
+    const folder = opts.folder || _currentFolder;
+    const q = opts.q !== undefined ? opts.q : _currentQuery;
+    const pageToken = opts.pageToken || null;
+    const params = new URLSearchParams({ folder, limit: "30" });
+    if (q) params.set("q", q);
+    if (pageToken) params.set("pageToken", pageToken);
+    const r = await fetch(`/api/messages?${params}`);
     if (!r.ok) {
       const body = await r.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${r.status}`);
@@ -1103,13 +1123,18 @@
     const btn = document.getElementById("refreshInboxBtn");
     btn?.classList.add("spinning");
     try {
-      const { messages } = await loadInbox();
-      _allMessages = messages;
+      const result = await loadInbox();
+      _allMessages = result.messages || [];
+      _nextPageToken = result.nextPageToken;
       _classificationMap = {};   // wipe stale state
-      renderList(messages);
+      renderList(_allMessages);
       wireFilterPills();
       updateFilterCounts();
-      await classifyVisible(messages);
+      updateLoadMoreButton();
+      // Only classify the inbox folder — Sent/Drafts/etc. don't need it.
+      if (_currentFolder === "inbox" && !_currentQuery) {
+        await classifyVisible(_allMessages);
+      }
     } catch (err) {
       console.warn("[refresh] failed:", err);
     } finally {
@@ -1118,14 +1143,172 @@
     }
   }
 
+  // ---------- FOLDER NAVIGATION --------------------------------------
+  function setFolder(folder, opts = {}) {
+    _currentFolder = folder;
+    _currentQuery = opts.query || "";
+    _nextPageToken = null;
+    _classificationMap = {};
+
+    // Update title
+    const title = opts.title || FOLDER_TITLES[folder] || folder;
+    const titleEl = document.getElementById("listTitle");
+    if (titleEl) titleEl.textContent = _currentQuery
+      ? `Search: "${_currentQuery}"`
+      : title;
+
+    // Update active state in rail
+    document.querySelectorAll(".folder.active").forEach((f) => f.classList.remove("active"));
+    document.querySelector(`.folder[data-folder="${folder}"]`)?.classList.add("active");
+
+    // Clear smart-folder filter pill state (don't carry across folders)
+    _activeFilter = "all";
+    document.querySelectorAll(".qf-pill").forEach((p) =>
+      p.classList.toggle("active", p.dataset.filter === "all")
+    );
+
+    // Clear current view and reload
+    const listEl2 = document.getElementById("mailList");
+    if (listEl2) listEl2.innerHTML = `<div class="list-empty"><div class="empty-icon">✉︎</div><div class="empty-title">Loading ${title}…</div></div>`;
+    refreshInbox();
+  }
+
+  function wireFolderLinks() {
+    document.querySelectorAll(".folder[data-folder]").forEach((f) => {
+      f.addEventListener("click", (e) => {
+        e.preventDefault();
+        setFolder(f.dataset.folder);
+      });
+    });
+  }
+
+  // ---------- SEARCH -------------------------------------------------
+  function wireSearch() {
+    const input = document.getElementById("searchInput");
+    if (!input) return;
+    input.disabled = false;
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        const q = input.value.trim();
+        if (q) {
+          setFolder("inbox", { query: q, title: `Search: "${q}"` });
+        } else {
+          setFolder("inbox");
+        }
+      } else if (e.key === "Escape") {
+        input.value = "";
+        if (_currentQuery) setFolder("inbox");
+      }
+    });
+  }
+
+  // ---------- PAGINATION (Load more) --------------------------------
+  function updateLoadMoreButton() {
+    const row = document.getElementById("loadMoreRow");
+    if (!row) return;
+    row.hidden = !_nextPageToken;
+  }
+  async function loadMore() {
+    if (!_nextPageToken) return;
+    const btn = document.getElementById("loadMoreBtn");
+    btn.disabled = true;
+    btn.textContent = "Loading…";
+    try {
+      const result = await loadInbox({ pageToken: _nextPageToken });
+      const newMessages = result.messages || [];
+      _allMessages = _allMessages.concat(newMessages);
+      _nextPageToken = result.nextPageToken;
+      appendList(newMessages);
+      updateLoadMoreButton();
+      if (_currentFolder === "inbox" && !_currentQuery) {
+        classifyVisible(newMessages);
+      }
+    } catch (err) {
+      btn.textContent = "Load failed — retry";
+    } finally {
+      setTimeout(() => {
+        btn.disabled = false;
+        if (!btn.textContent.includes("failed")) btn.textContent = "Load more";
+      }, 400);
+    }
+  }
+  function appendList(messages) {
+    const listEl2 = document.getElementById("mailList");
+    if (!listEl2 || !messages.length) return;
+    // Reuse renderList but only add new rows
+    const html = messages
+      .map((m) => {
+        const f = parseFrom(m.from);
+        const initial = initialOf(f);
+        const senderLabel = escapeHtml(f.name || f.email);
+        const subj = escapeHtml(m.subject);
+        const snip = escapeHtml(m.snippet).slice(0, 140);
+        const when = escapeHtml(timeAgo(m.internalDate));
+        const unreadCls = m.unread ? "unread" : "";
+        return `
+          <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}">
+            <div class="mail-avatar">${escapeHtml(initial)}</div>
+            <div class="mail-body">
+              <div class="mail-row-top">
+                <div class="mail-sender">${senderLabel}</div>
+                <div class="mail-time">${when}</div>
+              </div>
+              <div class="mail-subject">${subj}</div>
+              <div class="mail-row-meta">
+                <span class="mail-tag-slot" data-tag-for="${escapeHtml(m.id)}"></span>
+                <span class="mail-snippet">${snip}</span>
+              </div>
+            </div>
+          </div>`;
+      })
+      .join("");
+    listEl2.insertAdjacentHTML("beforeend", html);
+    // Re-wire click handlers for the new rows
+    listEl2.querySelectorAll(".mail-row").forEach((row) => {
+      if (row._wired) return;
+      row._wired = true;
+      row.addEventListener("click", () => onSelect(row.dataset.id, _allMessages));
+    });
+  }
+
+  // ---------- COUNTS -------------------------------------------------
+  async function loadCounts() {
+    try {
+      const r = await fetch("/api/counts");
+      if (!r.ok) return;
+      const data = await r.json();
+      const inboxCount = document.getElementById("count-inbox");
+      const draftsCount = document.getElementById("count-drafts");
+      if (inboxCount) {
+        if (data.inboxUnread > 0) {
+          inboxCount.textContent = data.inboxUnread;
+          inboxCount.classList.add("has-unread");
+        } else {
+          inboxCount.textContent = "";
+          inboxCount.classList.remove("has-unread");
+        }
+      }
+      if (draftsCount) {
+        draftsCount.textContent = data.drafts > 0 ? data.drafts : "";
+      }
+    } catch (_) {}
+  }
+
   // Wire the manual refresh button + auto-refresh on tab focus.
   document.getElementById("refreshInboxBtn")?.addEventListener("click", refreshInbox);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       // Tab came back into focus — re-sync silently.
       refreshInbox();
+      loadCounts();
     }
   });
+
+  // Folder links + search + load more
+  wireFolderLinks();
+  wireSearch();
+  document.getElementById("loadMoreBtn")?.addEventListener("click", loadMore);
 
   async function main() {
     try {
@@ -1141,13 +1324,16 @@
     backfillTimer = setInterval(pollBackfill, 5000);
 
     try {
-      const { messages } = await loadInbox();
-      _allMessages = messages;
-      renderList(messages);
+      const result = await loadInbox();
+      _allMessages = result.messages || [];
+      _nextPageToken = result.nextPageToken;
+      renderList(_allMessages);
       wireFilterPills();
       updateFilterCounts();
+      updateLoadMoreButton();
+      loadCounts();
       // Kick off classification in the background — tags fill in as they arrive.
-      classifyVisible(messages);
+      classifyVisible(_allMessages);
     } catch (err) {
       listEl.innerHTML = `
         <div class="list-empty">

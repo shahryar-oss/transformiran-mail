@@ -201,6 +201,158 @@ function getRoleFor(email) {
   return "staff";
 }
 
+// Unified messages list — handles all folders + search via one endpoint.
+//   ?folder=inbox|sent|drafts|archive|starred|trash
+//   ?q=<gmail search query>  (overrides folder)
+//   ?limit=30
+//   ?pageToken=<next-page-token from previous response>
+app.get("/api/messages", auth.requireAuth, async (req, res) => {
+  const folder = String(req.query.folder || "inbox").toLowerCase();
+  const q = String(req.query.q || "").trim();
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 30));
+  const pageToken = req.query.pageToken || null;
+
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    // Drafts uses a different API and returns wrapped data.
+    if (folder === "drafts" && !q) {
+      const list = await g.users.drafts.list({
+        userId: "me",
+        maxResults: limit,
+        pageToken: pageToken || undefined,
+      });
+      const draftStubs = list.data.drafts || [];
+      const fetches = draftStubs.map((d) =>
+        g.users.drafts
+          .get({ userId: "me", id: d.id, format: "metadata" })
+          .then((r) => ({ draftId: d.id, message: r.data.message }))
+          .catch(() => null)
+      );
+      const items = (await Promise.all(fetches)).filter(Boolean);
+      const messages = items.map(({ draftId, message }) => {
+        const headers = Object.fromEntries(
+          (message.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value])
+        );
+        return {
+          id: message.id,
+          threadId: message.threadId,
+          draftId,
+          snippet: message.snippet || "",
+          from: headers.from || "",
+          to: headers.to || "",
+          subject: headers.subject || "(no subject)",
+          date: headers.date || "",
+          internalDate: message.internalDate,
+          labelIds: message.labelIds || [],
+          unread: false,
+        };
+      });
+      return res.json({
+        messages,
+        count: messages.length,
+        nextPageToken: list.data.nextPageToken || null,
+        folder,
+      });
+    }
+
+    // Everything else uses messages.list with the appropriate query.
+    let query = q;
+    if (!q) {
+      switch (folder) {
+        case "sent":     query = "in:sent"; break;
+        case "starred":  query = "in:starred"; break;
+        case "trash":    query = "in:trash"; break;
+        case "archive":  query = "-in:inbox -in:sent -in:drafts -in:trash -in:spam"; break;
+        case "inbox":
+        default:         query = "in:inbox"; break;
+      }
+    }
+
+    const list = await g.users.messages.list({
+      userId: "me",
+      maxResults: limit,
+      pageToken: pageToken || undefined,
+      q: query,
+    });
+    const ids = (list.data.messages || []).map((m) => m.id);
+    if (ids.length === 0) {
+      return res.json({ messages: [], count: 0, nextPageToken: null, folder, query });
+    }
+
+    const fetches = ids.map((id) =>
+      g.users.messages
+        .get({
+          userId: "me",
+          id,
+          format: "metadata",
+          metadataHeaders: ["From", "To", "Subject", "Date"],
+        })
+        .then((r) => r.data)
+        .catch((err) => ({ id, _error: err.message }))
+    );
+    const detailed = await Promise.all(fetches);
+
+    const messages = detailed.map((m) => {
+      if (m._error) return { id: m.id, error: m._error };
+      const headers = Object.fromEntries(
+        (m.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value])
+      );
+      return {
+        id: m.id,
+        threadId: m.threadId,
+        snippet: m.snippet || "",
+        from: headers.from || "",
+        to: headers.to || "",
+        subject: headers.subject || "(no subject)",
+        date: headers.date || "",
+        internalDate: m.internalDate,
+        labelIds: m.labelIds || [],
+        unread: (m.labelIds || []).includes("UNREAD"),
+      };
+    });
+
+    res.json({
+      messages,
+      count: messages.length,
+      nextPageToken: list.data.nextPageToken || null,
+      folder,
+      query,
+    });
+  } catch (err) {
+    console.error("[/api/messages] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+// Counts for the folder rail badges — unread inbox + total drafts.
+app.get("/api/counts", auth.requireAuth, async (req, res) => {
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    // Use labels.get for fast totals (no fetch).
+    const [inboxLabel, draftsLabel] = await Promise.all([
+      g.users.labels.get({ userId: "me", id: "INBOX" }).catch(() => null),
+      g.users.labels.get({ userId: "me", id: "DRAFT" }).catch(() => null),
+    ]);
+
+    res.json({
+      inbox: inboxLabel?.data.messagesTotal || 0,
+      inboxUnread: inboxLabel?.data.messagesUnread || 0,
+      drafts: draftsLabel?.data.messagesTotal || 0,
+    });
+  } catch (err) {
+    console.error("[/api/counts] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
 app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 25));
   try {

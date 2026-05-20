@@ -37,26 +37,25 @@
 
     <nav class="folders">
       <div class="folders-group">
-        <a class="folder active" href="#inbox">
+        <a class="folder active" href="#inbox" data-folder="inbox">
           <span class="folder-name">Inbox</span>
-          <span class="folder-count">—</span>
+          <span class="folder-count" id="count-inbox"></span>
         </a>
-        <a class="folder" href="#todo">
-          <span class="folder-name">To-do</span>
-          <span class="folder-count">—</span>
+        <a class="folder" href="#starred" data-folder="starred">
+          <span class="folder-name">Starred</span>
         </a>
-        <a class="folder" href="#reply-needed">
-          <span class="folder-name">Reply needed</span>
-          <span class="folder-count">—</span>
-        </a>
-        <a class="folder" href="#sent">
+        <a class="folder" href="#sent" data-folder="sent">
           <span class="folder-name">Sent</span>
         </a>
-        <a class="folder" href="#drafts">
+        <a class="folder" href="#drafts" data-folder="drafts">
           <span class="folder-name">Drafts</span>
+          <span class="folder-count" id="count-drafts"></span>
         </a>
-        <a class="folder" href="#archive">
+        <a class="folder" href="#archive" data-folder="archive">
           <span class="folder-name">Archive</span>
+        </a>
+        <a class="folder" href="#trash" data-folder="trash">
+          <span class="folder-name">Trash</span>
         </a>
       </div>
 
@@ -96,13 +95,13 @@
   <section class="list">
     <header class="list-header">
       <div class="list-title-row">
-        <div class="list-title">Inbox</div>
-        <button class="refresh-btn" id="refreshInboxBtn" title="Refresh inbox + check Gmail for new state">
+        <div class="list-title" id="listTitle">Inbox</div>
+        <button class="refresh-btn" id="refreshInboxBtn" title="Refresh + check Gmail for new state">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
         </button>
       </div>
       <div class="list-search">
-        <input type="text" placeholder="Search mail…" disabled>
+        <input type="text" id="searchInput" placeholder="Search mail… (e.g. from:lana, subject:budget)">
       </div>
       <!-- Quick filter pills — instantly filter the inbox by AI classification -->
       <div class="quick-filters" id="quickFilters">
@@ -143,6 +142,9 @@
         <div class="empty-title">Loading your inbox…</div>
         <div class="empty-sub">Pulling the most recent messages from Gmail.</div>
       </div>
+    </div>
+    <div class="load-more-row" id="loadMoreRow" hidden>
+      <button id="loadMoreBtn" class="load-more-btn">Load more</button>
     </div>
   </section>
 
