@@ -232,6 +232,7 @@
   async function classifyVisible(messages) {
     const payload = messages.slice(0, 50).map((m) => ({
       id: m.id,
+      threadId: m.threadId || "",
       from: m.from || "",
       subject: m.subject || "",
       snippet: m.snippet || "",
@@ -245,8 +246,33 @@
       if (!r.ok) return;
       const data = await r.json();
       paintClassifications(data.classifications || {});
+      // After painting, drop replied threads out of the inbox view.
+      if (data.liveSyncCount > 0) {
+        autoArchiveDoneRows();
+      }
     } catch (err) {
       console.warn("[classify] failed:", err);
+    }
+  }
+
+  // Hide rows that just flipped to DONE — they don't belong in the inbox
+  // (the user replied to them, knowingly or via the live sync). The actual
+  // Gmail archive will follow if user wants to fully archive.
+  function autoArchiveDoneRows() {
+    let removed = 0;
+    document.querySelectorAll(".mail-row").forEach((row) => {
+      const id = row.dataset.id;
+      const cls = _classificationMap[id];
+      if (cls && cls.category === "DONE" && !row.classList.contains("filtered-out")) {
+        row.style.transition = "opacity .3s, transform .3s";
+        row.style.opacity = "0";
+        row.style.transform = "translateX(40px)";
+        setTimeout(() => row.remove(), 300);
+        removed++;
+      }
+    });
+    if (removed) {
+      showToast(`${removed} ${removed === 1 ? "thread" : "threads"} marked done (replied)`, "ok");
     }
   }
 
@@ -1066,6 +1092,39 @@
   bfbDismiss?.addEventListener("click", () => {
     banner.hidden = true;
     bannerSticky = true;
+  });
+
+  // Re-fetch inbox + re-classify (picks up new mail + DONE status from
+  // Gmail-side replies). Called by the refresh button + tab focus.
+  let refreshing = false;
+  async function refreshInbox() {
+    if (refreshing) return;
+    refreshing = true;
+    const btn = document.getElementById("refreshInboxBtn");
+    btn?.classList.add("spinning");
+    try {
+      const { messages } = await loadInbox();
+      _allMessages = messages;
+      _classificationMap = {};   // wipe stale state
+      renderList(messages);
+      wireFilterPills();
+      updateFilterCounts();
+      await classifyVisible(messages);
+    } catch (err) {
+      console.warn("[refresh] failed:", err);
+    } finally {
+      setTimeout(() => btn?.classList.remove("spinning"), 850);
+      refreshing = false;
+    }
+  }
+
+  // Wire the manual refresh button + auto-refresh on tab focus.
+  document.getElementById("refreshInboxBtn")?.addEventListener("click", refreshInbox);
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      // Tab came back into focus — re-sync silently.
+      refreshInbox();
+    }
   });
 
   async function main() {

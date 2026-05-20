@@ -439,7 +439,12 @@ app.delete("/api/memory/:id", auth.requireAuth, async (req, res) => {
 });
 
 // Classify a batch of inbox messages. Returns existing-cached + newly-classified.
-// Body: { messages: [{ id, from, subject, snippet }, ...] }
+// Body: { messages: [{ id, threadId, from, subject, snippet }, ...] }
+//
+// BEFORE classifying, checks each unique thread for SENT messages from the
+// user. If the user has replied to a thread, all of its inbox messages get
+// auto-marked DONE — no AI call needed. This keeps the live state in sync
+// with Gmail, including replies sent from the Gmail web/mobile UI directly.
 app.post("/api/classify", auth.requireAuth, async (req, res) => {
   const { messages } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -448,9 +453,82 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
   if (messages.length > 100) {
     return res.status(400).json({ error: "too_many", max: 100 });
   }
+
   try {
-    const result = await classifier.classifyForUser(req.user.id, messages);
-    res.json({ classifications: result, count: Object.keys(result).length });
+    // ---- 1. Detect threads the user has already replied to. ----
+    const threadIds = [
+      ...new Set(messages.map((m) => m.threadId).filter(Boolean)),
+    ];
+    let repliedThreadIds = new Set();
+    let liveSyncCount = 0;
+    if (threadIds.length) {
+      try {
+        const creds = await auth.loadGoogleCreds(req.user.id);
+        if (creds) {
+          const oauthClient = gmail.authedClientFromTokens(creds);
+          const g = google.gmail({ version: "v1", auth: oauthClient });
+          const states = await Promise.all(
+            threadIds.slice(0, 50).map((id) =>
+              g.users.threads
+                .get({ userId: "me", id, format: "minimal" })
+                .then((r) => {
+                  const msgs = r.data.messages || [];
+                  // User has replied if any message in thread has SENT label
+                  // AND the LAST message in the thread is from the user.
+                  const lastMsg = msgs[msgs.length - 1];
+                  const userIsLastSender =
+                    lastMsg && (lastMsg.labelIds || []).includes("SENT");
+                  return { id, userReplied: !!userIsLastSender };
+                })
+                .catch(() => null)
+            )
+          );
+          for (const s of states) {
+            if (s && s.userReplied) repliedThreadIds.add(s.id);
+          }
+        }
+      } catch (err) {
+        console.warn("[classify] thread-state check failed:", err.message);
+      }
+    }
+
+    // Messages whose thread has been replied to → mark DONE immediately.
+    const doneMessageIds = messages
+      .filter((m) => m.threadId && repliedThreadIds.has(m.threadId))
+      .map((m) => m.id);
+    if (doneMessageIds.length) {
+      try {
+        await classifier.markMessagesDone(
+          req.user.id,
+          doneMessageIds,
+          "Replied — live sync"
+        );
+        liveSyncCount = doneMessageIds.length;
+      } catch (err) {
+        console.warn("[classify] markMessagesDone failed:", err.message);
+      }
+    }
+
+    // ---- 2. Classify the rest (and pick up any already-cached). ----
+    const remaining = messages.filter((m) => !doneMessageIds.includes(m.id));
+    const aiClassifications = await classifier.classifyForUser(req.user.id, remaining);
+
+    // Merge: build the full response including DONE entries.
+    const full = { ...aiClassifications };
+    for (const id of doneMessageIds) {
+      full[id] = {
+        id,
+        category: "DONE",
+        urgency: "low",
+        reason: "Replied — live sync",
+      };
+    }
+
+    res.json({
+      classifications: full,
+      count: Object.keys(full).length,
+      liveSyncCount,
+    });
   } catch (err) {
     console.error("[/api/classify] failed:", err);
     res.status(500).json({ error: "classify_failed", message: err.message });

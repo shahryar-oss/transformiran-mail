@@ -258,7 +258,21 @@ button { font-family: inherit; cursor: pointer; }
   flex-shrink: 0;     /* header never collapses */
   background: var(--paper);
 }
-.list-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.list-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.list-title { font-size: 18px; font-weight: 700; }
+.refresh-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--navy-soft);
+  width: 30px; height: 30px;
+  border-radius: 6px;
+  display: inline-grid; place-items: center;
+  cursor: pointer;
+  transition: background .12s, color .12s, transform .25s;
+}
+.refresh-btn:hover { background: var(--cream-dark); color: var(--navy); }
+.refresh-btn.spinning { transform: rotate(360deg); transition: transform .8s; color: var(--gold-dark); }
+.refresh-btn svg { width: 16px; height: 16px; fill: currentColor; }
 .list-search input {
   width: 100%;
   padding: 8px 10px;
