@@ -642,6 +642,58 @@ app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
   }
 });
 
+// SEND a real email through Gmail. Same multipart/alternative builder as
+// drafts. User clicks Send inside Delta Mail — Gmail's users.messages.send
+// is the actual send call. This is the trust line: human clicks Send;
+// Delta never auto-sends without that explicit click.
+app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
+  const { to, subject, body, threadId, inReplyTo } = req.body || {};
+  if (!to || !body) return res.status(400).json({ error: "to_and_body_required" });
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    // Same signature handling as the draft endpoint — honor signature_mode.
+    const sig = await gmail.getCachedSignature(req.user.id, client);
+    const mode = req.user.signature_mode || "always";
+    const useSig =
+      mode === "never" ? false :
+      mode === "first" ? !inReplyTo :
+      true;
+    const sigHtml = useSig && sig?.html ? sig.html : "";
+    const sigText = useSig && sig ? gmail.signatureToPlainText(sig.html) : "";
+
+    const raw = buildMultipartMessage({
+      to,
+      subject: subject || "(no subject)",
+      bodyText: body,
+      signatureText: sigText,
+      signatureHtml: sigHtml,
+      inReplyTo,
+    });
+
+    const sendRes = await g.users.messages.send({
+      userId: "me",
+      requestBody: {
+        raw,
+        ...(threadId ? { threadId } : {}),
+      },
+    });
+
+    res.json({
+      ok: true,
+      sentMessageId: sendRes.data.id,
+      threadId: sendRes.data.threadId,
+      signatureUsed: !!sigHtml,
+    });
+  } catch (err) {
+    console.error("[/api/gmail/send] failed:", err);
+    res.status(500).json({ error: "send_failed", message: err.message });
+  }
+});
+
 // Create a real Gmail draft in the user's Drafts folder.
 // User reviews + sends from Gmail itself; we never send on their behalf.
 //

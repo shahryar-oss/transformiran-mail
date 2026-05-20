@@ -568,7 +568,11 @@
         <textarea class="draft-body" placeholder="Delta's draft will appear here…" disabled></textarea>
       </div>
       <div class="draft-actions">
-        <button class="draft-save btn primary" disabled>Save to Gmail Drafts</button>
+        <button class="draft-send btn primary draft-btn-send" disabled>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+          Send
+        </button>
+        <button class="draft-save btn" disabled>Save as draft</button>
         <button class="draft-cancel btn">Cancel</button>
         <span class="draft-sig-hint" style="display:none">+ your Transform Iran signature</span>
         <span class="draft-status"></span>
@@ -581,6 +585,7 @@
     const bodyTa = composer.querySelector(".draft-body");
     const instr = composer.querySelector(".draft-extra-instructions");
     const regenBtn = composer.querySelector(".draft-regen");
+    const sendBtn = composer.querySelector(".draft-send");
     const saveBtn = composer.querySelector(".draft-save");
     const cancelBtn = composer.querySelector(".draft-cancel");
     const closeBtn = composer.querySelector(".draft-close");
@@ -649,6 +654,7 @@
       } finally {
         regenBtn.disabled = false;
         saveBtn.disabled = false;
+        sendBtn.disabled = false;
         bodyTa.disabled = false;
         instr.value = "";
       }
@@ -675,6 +681,48 @@
         };
         generate(phrasing[tone] || tone);
       });
+    });
+
+    sendBtn.addEventListener("click", async () => {
+      if (!currentDraft) return;
+      const to = toInput.value.trim();
+      if (!to) {
+        statusEl.className = "draft-status error";
+        statusEl.textContent = "Add a recipient first.";
+        return;
+      }
+      if (!confirm(`Send this reply to ${to}?`)) return;
+      sendBtn.disabled = true;
+      saveBtn.disabled = true;
+      statusEl.className = "draft-status";
+      statusEl.textContent = "Sending…";
+      try {
+        const r = await fetch("/api/gmail/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to,
+            subject: subjInput.value,
+            body: bodyTa.value,
+            threadId: currentDraft.threadId,
+            inReplyTo: currentDraft.inReplyTo,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
+        statusEl.className = "draft-status ok";
+        statusEl.textContent = "Sent ✓";
+        sendBtn.textContent = "Sent";
+        toInput.disabled = true; subjInput.disabled = true; bodyTa.disabled = true;
+        regenBtn.disabled = true;
+        showToast(`Sent to ${to}`, "ok");
+        setTimeout(() => composer.remove(), 1500);
+      } catch (err) {
+        statusEl.className = "draft-status error";
+        statusEl.textContent = err.message || String(err);
+        sendBtn.disabled = false;
+        saveBtn.disabled = false;
+      }
     });
 
     saveBtn.addEventListener("click", async () => {
@@ -714,6 +762,107 @@
     // Kick off the initial draft.
     generate("");
   }
+
+  // ---------- COMPOSE MODAL (new email from scratch) -------------------
+  const composeBtn = document.getElementById("composeBtn");
+  const composeModal = document.getElementById("composeModal");
+  const cmpTo = document.getElementById("cmpTo");
+  const cmpSubject = document.getElementById("cmpSubject");
+  const cmpBody = document.getElementById("cmpBody");
+  const cmpSend = document.getElementById("cmpSend");
+  const cmpSave = document.getElementById("cmpSave");
+  const cmpDiscard = document.getElementById("cmpDiscard");
+  const cmpClose = document.getElementById("composeClose");
+  const cmpStatus = document.getElementById("cmpStatus");
+  const cmpSigHint = document.getElementById("cmpSigHint");
+  const cmpBackdrop = composeModal?.querySelector(".compose-backdrop");
+
+  function openCompose() {
+    if (!composeModal) return;
+    composeModal.hidden = false;
+    cmpStatus.className = "compose-status";
+    cmpStatus.textContent = "";
+    setTimeout(() => cmpTo.focus(), 50);
+    // Check signature availability — show hint if user has one configured.
+    fetch("/api/compose/settings").then((r) => r.ok ? r.json() : null).then((s) => {
+      if (s && s.primarySignature && (s.signatureMode || "always") !== "never") {
+        cmpSigHint.style.display = "";
+      } else {
+        cmpSigHint.style.display = "none";
+      }
+    }).catch(() => {});
+  }
+  function closeCompose(force = false) {
+    if (!composeModal) return;
+    const dirty = cmpTo.value || cmpSubject.value || cmpBody.value;
+    if (dirty && !force && !confirm("Discard this draft?")) return;
+    composeModal.hidden = true;
+    cmpTo.value = ""; cmpSubject.value = ""; cmpBody.value = "";
+    cmpStatus.textContent = "";
+    cmpSend.disabled = false; cmpSave.disabled = false;
+    cmpSend.textContent = "Send";
+    cmpSend.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg> Send`;
+  }
+
+  composeBtn?.addEventListener("click", openCompose);
+  cmpClose?.addEventListener("click", () => closeCompose());
+  cmpDiscard?.addEventListener("click", () => closeCompose(true));
+  cmpBackdrop?.addEventListener("click", () => closeCompose());
+
+  cmpSend?.addEventListener("click", async () => {
+    const to = cmpTo.value.trim();
+    if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return; }
+    if (!cmpBody.value.trim()) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Write something first."; return; }
+    if (!confirm(`Send this email to ${to}?`)) return;
+    cmpSend.disabled = true; cmpSave.disabled = true;
+    cmpStatus.className = "compose-status";
+    cmpStatus.textContent = "Sending…";
+    try {
+      const r = await fetch("/api/gmail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject: cmpSubject.value, body: cmpBody.value }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
+      cmpStatus.className = "compose-status ok";
+      cmpStatus.textContent = `Sent ✓`;
+      showToast(`Sent to ${to}`, "ok");
+      setTimeout(() => closeCompose(true), 1200);
+    } catch (err) {
+      cmpStatus.className = "compose-status error";
+      cmpStatus.textContent = err.message || String(err);
+      cmpSend.disabled = false; cmpSave.disabled = false;
+    }
+  });
+
+  cmpSave?.addEventListener("click", async () => {
+    const to = cmpTo.value.trim();
+    if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return; }
+    cmpSend.disabled = true; cmpSave.disabled = true;
+    cmpStatus.className = "compose-status"; cmpStatus.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/gmail/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject: cmpSubject.value, body: cmpBody.value }),
+      });
+      const data = await r.json();
+      if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
+      cmpStatus.className = "compose-status ok";
+      cmpStatus.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail ↗</a>`;
+      showToast("Saved as draft", "ok");
+    } catch (err) {
+      cmpStatus.className = "compose-status error";
+      cmpStatus.textContent = err.message || String(err);
+      cmpSend.disabled = false; cmpSave.disabled = false;
+    }
+  });
+
+  // Esc to close
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && composeModal && !composeModal.hidden) closeCompose();
+  });
 
   // ---------- BACKFILL BANNER -----------------------------------------
   const banner = document.getElementById("backfillBanner");

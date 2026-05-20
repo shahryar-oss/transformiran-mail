@@ -31,7 +31,7 @@
       <span class="brand-text">Delta Mail</span>
     </div>
 
-    <button class="compose-btn" disabled title="Coming in Phase 2">
+    <button class="compose-btn" id="composeBtn" title="Write a new email">
       + New email
     </button>
 
@@ -274,6 +274,44 @@
           <span>Opus · deeper reasoning</span>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- COMPOSE MODAL — opens when "+ New email" is clicked -->
+<div id="composeModal" class="compose-modal" hidden>
+  <div class="compose-backdrop"></div>
+  <div class="compose-card">
+    <header class="compose-head">
+      <div class="compose-title">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span>New email</span>
+      </div>
+      <button class="compose-close" id="composeClose" aria-label="Close">×</button>
+    </header>
+
+    <div class="compose-fields">
+      <div class="compose-field">
+        <label>To</label>
+        <input type="text" id="cmpTo" placeholder="recipient@example.com" autocomplete="off">
+      </div>
+      <div class="compose-field">
+        <label>Subject</label>
+        <input type="text" id="cmpSubject" placeholder="Subject">
+      </div>
+    </div>
+
+    <textarea id="cmpBody" class="compose-body" placeholder="Write your message…"></textarea>
+
+    <div class="compose-actions">
+      <button id="cmpSend" class="btn primary">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+        Send
+      </button>
+      <button id="cmpSave" class="btn">Save as draft</button>
+      <button id="cmpDiscard" class="btn">Discard</button>
+      <span class="compose-sig-hint" id="cmpSigHint" style="display:none">✓ + your Transform Iran signature</span>
+      <span id="cmpStatus" class="compose-status"></span>
     </div>
   </div>
 </div>
