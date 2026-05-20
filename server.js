@@ -17,6 +17,7 @@ const tasks = require("./lib/tasks");
 const importantContacts = require("./lib/important_contacts");
 const memoryExtractor = require("./lib/memory_extractor");
 const inboxCache = require("./lib/inbox_cache");
+const calendarLib = require("./lib/calendar");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -125,6 +126,12 @@ app.get("/settings", (req, res) => {
 app.get("/tasks", (req, res) => {
   if (!req.user) return res.redirect("/");
   res.sendFile(path.join(__dirname, "public", "tasks.html"));
+});
+
+// Calendar page — Google Calendar integration (Outlook-style month grid)
+app.get("/calendar", (req, res) => {
+  if (!req.user) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public", "calendar.html"));
 });
 
 // ====================================================================
@@ -284,6 +291,66 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
     humanEA: getHumanEAFor(req.user.email),
     role: getRoleFor(req.user.email),
   });
+});
+
+// ====================================================================
+// Calendar API — Google Calendar via the calendar.events OAuth scope.
+// ====================================================================
+app.get("/api/calendar/calendars", auth.requireAuth, async (req, res) => {
+  try {
+    const calendars = await calendarLib.listCalendars(req.user.id);
+    res.json({ calendars });
+  } catch (err) {
+    console.error("[/api/calendar/calendars] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.get("/api/calendar/events", auth.requireAuth, async (req, res) => {
+  const { start, end, calendarIds } = req.query;
+  if (!start || !end) return res.status(400).json({ error: "start_and_end_required" });
+  try {
+    const ids = calendarIds ? String(calendarIds).split(",").map((s) => s.trim()).filter(Boolean) : null;
+    const events = await calendarLib.listEvents(req.user.id, { start, end, calendarIds: ids });
+    res.json({ events, count: events.length });
+  } catch (err) {
+    console.error("[/api/calendar/events] list failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/calendar/events", auth.requireAuth, async (req, res) => {
+  try {
+    const event = await calendarLib.createEvent(req.user.id, req.body || {});
+    res.json(event);
+  } catch (err) {
+    console.error("[/api/calendar/events] create failed:", err);
+    res.status(500).json({ error: "create_failed", message: err.message });
+  }
+});
+
+app.patch("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
+  const eventId = req.params.id;
+  const { calendarId, ...patch } = req.body || {};
+  try {
+    const event = await calendarLib.updateEvent(req.user.id, { calendarId, eventId, patch });
+    res.json(event);
+  } catch (err) {
+    console.error("[/api/calendar/events/:id] update failed:", err);
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
+  const eventId = req.params.id;
+  const calendarId = req.query.calendarId || "primary";
+  try {
+    await calendarLib.deleteEvent(req.user.id, { calendarId, eventId });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/calendar/events/:id] delete failed:", err);
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
 });
 
 // ====================================================================

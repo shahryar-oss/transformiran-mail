@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Calendar — Delta Mail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" type="image/png" href="/delta-logo.png">
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .cal-app {
+    display: grid;
+    grid-template-columns: 260px 1fr 320px;
+    height: 100vh;
+    background: var(--paper);
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* ---------------- LEFT RAIL ---------------- */
+  .cal-rail {
+    background: var(--cream);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .cal-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--gold-dark); text-decoration: none;
+    font-weight: 600;
+  }
+  .cal-back:hover { color: var(--red); }
+  .cal-back svg { width: 14px; height: 14px; fill: currentColor; }
+
+  .cal-new {
+    background: var(--red); color: white; border: none;
+    border-radius: 999px; padding: 9px 16px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(233, 42, 46, .2);
+    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .cal-new:hover { background: var(--red-dark); }
+  .cal-new svg { width: 13px; height: 13px; fill: currentColor; }
+
+  /* Mini-month picker */
+  .cal-mini {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .cal-mini-head {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 8px;
+    font-size: 12.5px; font-weight: 700; color: var(--navy);
+  }
+  .cal-mini-nav {
+    background: transparent; border: none; padding: 2px 4px;
+    color: var(--muted); cursor: pointer; font-size: 14px; line-height: 1;
+  }
+  .cal-mini-nav:hover { color: var(--navy); }
+  .cal-mini-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    font-size: 11px;
+    text-align: center;
+  }
+  .cal-mini-dow {
+    color: var(--muted);
+    font-weight: 600;
+    padding: 2px 0;
+    text-transform: uppercase;
+    letter-spacing: .3px;
+  }
+  .cal-mini-day {
+    padding: 4px 0;
+    border-radius: 50%;
+    cursor: pointer;
+    color: var(--navy);
+    transition: background .12s;
+    aspect-ratio: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .cal-mini-day:hover { background: var(--cream-dark); }
+  .cal-mini-day.muted { color: var(--muted); opacity: .55; }
+  .cal-mini-day.today {
+    background: var(--gold);
+    color: white; font-weight: 700;
+  }
+  .cal-mini-day.selected {
+    border: 1.5px solid var(--gold);
+  }
+
+  /* Calendar list (per-Google-calendar toggle) */
+  .cal-list-head {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+    padding: 0 4px 6px;
+  }
+  .cal-list { display: flex; flex-direction: column; gap: 2px; }
+  .cal-list-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12.5px;
+    color: var(--navy);
+    user-select: none;
+  }
+  .cal-list-row:hover { background: var(--cream-dark); }
+  .cal-list-dot {
+    width: 10px; height: 10px; border-radius: 3px;
+    flex-shrink: 0;
+    border: 1.5px solid currentColor;
+    box-sizing: border-box;
+  }
+  .cal-list-row.on .cal-list-dot { background: currentColor; }
+  .cal-list-row.off { color: var(--muted); }
+  .cal-list-row.off .cal-list-dot { background: transparent; }
+  .cal-list-name {
+    flex: 1;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cal-list-row.primary .cal-list-name::after {
+    content: ' (primary)';
+    font-size: 10.5px; color: var(--muted); font-style: italic;
+  }
+
+  /* ---------------- CENTER (month grid) ---------------- */
+  .cal-main {
+    display: flex; flex-direction: column;
+    min-width: 0;
+    background: var(--paper);
+  }
+  .cal-toolbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .cal-today-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 12.5px; font-weight: 600;
+    color: var(--navy);
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cal-today-btn:hover { border-color: var(--gold); }
+
+  .cal-nav-btn {
+    background: transparent; border: none;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    color: var(--muted); cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .cal-nav-btn:hover { background: var(--cream); color: var(--navy); }
+  .cal-nav-btn svg { width: 16px; height: 16px; fill: currentColor; }
+
+  .cal-title {
+    font-size: 19px; font-weight: 700; color: var(--navy);
+    margin: 0;
+  }
+  .cal-toolbar-spacer { flex: 1; }
+  .cal-view-toggle {
+    display: inline-flex; align-items: center; gap: 0;
+    background: var(--cream); border: 1px solid var(--line);
+    border-radius: 8px; padding: 2px;
+  }
+  .cal-view-btn {
+    background: transparent; border: none;
+    padding: 5px 12px;
+    font-size: 12px; font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 6px;
+    font-family: inherit;
+  }
+  .cal-view-btn.active { background: var(--paper); color: var(--navy); }
+
+  /* Month grid */
+  .cal-month {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    flex: 1; min-height: 0;
+    overflow: hidden;
+  }
+  .cal-month-dow {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-bottom: 1px solid var(--line);
+    background: var(--cream);
+  }
+  .cal-month-dow span {
+    padding: 8px 12px;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px;
+    color: var(--muted);
+  }
+  .cal-month-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 1fr;
+    flex: 1; min-height: 0;
+    overflow-y: auto;
+  }
+  .cal-month-cell {
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    min-height: 110px;
+    padding: 4px;
+    background: var(--paper);
+    position: relative;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .cal-month-cell:nth-child(7n) { border-right: none; }
+  .cal-month-cell.muted { background: rgba(40, 47, 57, .025); }
+  .cal-month-cell.muted .cal-day-num { color: var(--muted); }
+  .cal-day-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--navy);
+    padding: 4px 6px 2px;
+    align-self: flex-start;
+  }
+  .cal-month-cell.today .cal-day-num {
+    background: var(--gold);
+    color: white;
+    border-radius: 999px;
+    width: 22px; height: 22px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+    font-weight: 700;
+  }
+  .cal-events {
+    display: flex; flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    padding: 0 2px 4px;
+    min-height: 0;
+  }
+  .cal-event {
+    display: flex; align-items: center; gap: 4px;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--cream);
+    color: var(--navy);
+    cursor: pointer;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    border-left: 3px solid currentColor;
+  }
+  .cal-event:hover {
+    filter: brightness(.95);
+  }
+  .cal-event-time {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: inherit;
+    opacity: .8;
+    flex-shrink: 0;
+  }
+  .cal-event-title {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: var(--navy);
+    font-weight: 500;
+  }
+  .cal-event.all-day {
+    background: currentColor;
+  }
+  .cal-event.all-day .cal-event-title {
+    color: white;
+    font-weight: 600;
+  }
+  .cal-event.all-day .cal-event-time { display: none; }
+  .cal-more {
+    font-size: 10.5px;
+    color: var(--muted);
+    padding: 2px 6px;
+    cursor: pointer;
+  }
+  .cal-more:hover { color: var(--navy); text-decoration: underline; }
+
+  /* ---------------- RIGHT AGENDA ---------------- */
+  .cal-agenda {
+    border-left: 1px solid var(--line);
+    background: var(--paper);
+    padding: 18px 14px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .cal-agenda-head {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+  }
+  .cal-agenda-day {
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 10px;
+  }
+  .cal-agenda-day:last-child { border-bottom: none; }
+  .cal-agenda-date {
+    font-size: 12px; font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 6px;
+  }
+  .cal-agenda-date.today { color: var(--gold-dark); }
+  .cal-agenda-event {
+    display: flex; gap: 8px;
+    padding: 6px 4px;
+    border-radius: 6px;
+    cursor: pointer;
+  }
+  .cal-agenda-event:hover { background: var(--cream); }
+  .cal-agenda-bar {
+    width: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+  .cal-agenda-body { flex: 1; min-width: 0; }
+  .cal-agenda-title {
+    font-size: 12.5px;
+    color: var(--navy);
+    font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cal-agenda-time {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 1px;
+  }
+  .cal-agenda-empty {
+    font-size: 12px; color: var(--muted);
+    font-style: italic;
+    padding: 4px;
+  }
+
+  /* ---------------- EVENT DETAIL POPOVER ---------------- */
+  .cal-popover-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(40, 47, 57, .35);
+    z-index: 80;
+    display: none;
+  }
+  .cal-popover-backdrop.open { display: block; }
+  .cal-popover {
+    position: fixed; inset: 50% 50% auto auto;
+    transform: translate(50%, -50%);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(520px, 92vw);
+    max-height: 86vh;
+    background: var(--paper);
+    border-radius: 14px;
+    box-shadow: 0 24px 60px rgba(40, 47, 57, .25);
+    z-index: 81;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .cal-popover.open { display: flex; }
+  .cal-popover-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--cream);
+    display: flex; align-items: flex-start; gap: 10px;
+  }
+  .cal-popover-bar {
+    width: 4px; border-radius: 2px;
+    flex-shrink: 0;
+    align-self: stretch;
+    margin: 4px 0;
+  }
+  .cal-popover-title {
+    flex: 1; font-size: 18px; font-weight: 700; color: var(--navy);
+    line-height: 1.3;
+  }
+  .cal-popover-close {
+    background: transparent; border: none;
+    color: var(--muted); cursor: pointer;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    font-size: 18px; line-height: 1;
+  }
+  .cal-popover-close:hover { background: var(--paper); color: var(--navy); }
+  .cal-popover-body {
+    padding: 14px 18px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .cal-popover-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 13px;
+    color: var(--navy);
+  }
+  .cal-popover-row svg {
+    width: 16px; height: 16px;
+    fill: var(--muted);
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .cal-popover-row a {
+    color: var(--gold-dark);
+    text-decoration: none;
+  }
+  .cal-popover-row a:hover { text-decoration: underline; }
+  .cal-popover-attendees {
+    display: flex; flex-direction: column; gap: 4px;
+    flex: 1;
+  }
+  .cal-popover-attendee {
+    font-size: 12.5px;
+    color: var(--navy-soft);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .cal-popover-attendee-status {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .cal-popover-attendee-status.accepted   { background: var(--good); }
+  .cal-popover-attendee-status.tentative  { background: var(--gold); }
+  .cal-popover-attendee-status.declined   { background: var(--bad); }
+  .cal-popover-attendee-status.needsAction{ background: var(--muted); }
+  .cal-popover-foot {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    background: var(--cream);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .cal-popover-foot .btn-spacer { flex: 1; }
+
+  /* ---------------- CREATE FORM ---------------- */
+  .cal-form {
+    padding: 14px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto;
+  }
+  .cal-form-row {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .cal-form-row.inline {
+    flex-direction: row; align-items: center; gap: 10px;
+  }
+  .cal-form-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px;
+    color: var(--muted);
+  }
+  .cal-form-input,
+  .cal-form-textarea,
+  .cal-form-select {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--navy);
+  }
+  .cal-form-input:focus,
+  .cal-form-textarea:focus,
+  .cal-form-select:focus {
+    outline: none; border-color: var(--gold);
+  }
+  .cal-form-textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+  .cal-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  /* Generic action buttons */
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--navy); cursor: pointer;
+  }
+  .btn-secondary:hover { background: var(--cream); border-color: var(--gold); }
+  .btn-primary {
+    background: var(--red); color: white;
+    border: none; padding: 7px 16px; border-radius: 999px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(233, 42, 46, .22);
+  }
+  .btn-primary:hover { background: var(--red-dark); }
+  .btn-primary:disabled, .btn-secondary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-danger {
+    background: transparent; color: var(--bad);
+    border: 1px solid transparent;
+    padding: 6px 10px; border-radius: 6px;
+    font-family: inherit; font-size: 12px; font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-danger:hover { background: rgba(196, 69, 69, .08); border-color: rgba(196, 69, 69, .2); }
+
+  .cal-status {
+    font-size: 11.5px;
+    color: var(--muted);
+  }
+  .cal-status.ok    { color: var(--good); font-weight: 600; }
+  .cal-status.error { color: var(--bad); }
+
+  /* Loading overlay for the month grid */
+  .cal-loading {
+    position: absolute;
+    inset: 0;
+    background: rgba(247, 243, 233, .75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 30;
+    font-size: 12px;
+    color: var(--gold-dark);
+    font-weight: 600;
+  }
+  .cal-loading.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="cal-app" id="calApp">
+
+  <!-- LEFT RAIL -->
+  <aside class="cal-rail">
+    <a class="cal-back" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      Inbox
+    </a>
+
+    <button class="cal-new" id="calNewBtn" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+      New event
+    </button>
+
+    <div class="cal-mini" id="calMini">
+      <div class="cal-mini-head">
+        <button class="cal-mini-nav" id="calMiniPrev" title="Previous month">‹</button>
+        <span id="calMiniLabel">Month</span>
+        <button class="cal-mini-nav" id="calMiniNext" title="Next month">›</button>
+      </div>
+      <div class="cal-mini-grid" id="calMiniGrid"></div>
+    </div>
+
+    <div>
+      <div class="cal-list-head">My Calendars</div>
+      <div class="cal-list" id="calList">
+        <div class="cal-agenda-empty">Loading…</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CENTER — MONTH GRID -->
+  <section class="cal-main">
+    <header class="cal-toolbar">
+      <button class="cal-today-btn" id="calTodayBtn" type="button">Today</button>
+      <button class="cal-nav-btn" id="calPrevBtn" type="button" title="Previous month">
+        <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      </button>
+      <button class="cal-nav-btn" id="calNextBtn" type="button" title="Next month">
+        <svg viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/></svg>
+      </button>
+      <h1 class="cal-title" id="calTitle">Month YYYY</h1>
+      <div class="cal-toolbar-spacer"></div>
+      <div class="cal-view-toggle">
+        <button class="cal-view-btn active" data-view="month">Month</button>
+      </div>
+    </header>
+
+    <div class="cal-month" style="position:relative">
+      <div class="cal-month-dow">
+        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+      </div>
+      <div class="cal-month-grid" id="calGrid"></div>
+      <div class="cal-loading hidden" id="calLoading">Loading events…</div>
+    </div>
+  </section>
+
+  <!-- RIGHT — UPCOMING AGENDA -->
+  <aside class="cal-agenda">
+    <div class="cal-agenda-head">Today & upcoming</div>
+    <div id="calAgenda">
+      <div class="cal-agenda-empty">Loading…</div>
+    </div>
+  </aside>
+</div>
+
+<!-- Event detail popover -->
+<div class="cal-popover-backdrop" id="calPopoverBackdrop"></div>
+<div class="cal-popover" id="calPopover" role="dialog" aria-modal="true">
+  <div class="cal-popover-head">
+    <div class="cal-popover-bar" id="calPopoverBar" style="background: var(--gold)"></div>
+    <div class="cal-popover-title" id="calPopoverTitle">Event title</div>
+    <button class="cal-popover-close" id="calPopoverClose" type="button" aria-label="Close">×</button>
+  </div>
+  <div class="cal-popover-body" id="calPopoverBody"></div>
+  <div class="cal-popover-foot">
+    <button class="btn-danger" id="calPopoverDelete" type="button">Delete</button>
+    <span class="btn-spacer"></span>
+    <a class="btn-secondary" id="calPopoverOpen" target="_blank" rel="noopener">Open in Google</a>
+    <span class="cal-status" id="calPopoverStatus"></span>
+  </div>
+</div>
+
+<!-- Create event modal (reuses popover skeleton) -->
+<div class="cal-popover-backdrop" id="calCreateBackdrop"></div>
+<div class="cal-popover" id="calCreate" role="dialog" aria-modal="true">
+  <div class="cal-popover-head">
+    <div class="cal-popover-bar" style="background: var(--red)"></div>
+    <div class="cal-popover-title">New event</div>
+    <button class="cal-popover-close" id="calCreateClose" type="button" aria-label="Close">×</button>
+  </div>
+  <div class="cal-form">
+    <div class="cal-form-row">
+      <label class="cal-form-label">Title</label>
+      <input class="cal-form-input" id="newTitle" type="text" placeholder="What's this about?">
+    </div>
+    <div class="cal-form-row inline">
+      <label style="font-size:12.5px;display:inline-flex;align-items:center;gap:6px;color:var(--navy)">
+        <input type="checkbox" id="newAllDay"> All-day
+      </label>
+    </div>
+    <div class="cal-form-grid">
+      <div class="cal-form-row">
+        <label class="cal-form-label">Start</label>
+        <input class="cal-form-input" id="newStart" type="datetime-local">
+      </div>
+      <div class="cal-form-row">
+        <label class="cal-form-label">End</label>
+        <input class="cal-form-input" id="newEnd" type="datetime-local">
+      </div>
+    </div>
+    <div class="cal-form-row">
+      <label class="cal-form-label">Calendar</label>
+      <select class="cal-form-select" id="newCalendar"></select>
+    </div>
+    <div class="cal-form-row">
+      <label class="cal-form-label">Location</label>
+      <input class="cal-form-input" id="newLocation" type="text" placeholder="Optional">
+    </div>
+    <div class="cal-form-row">
+      <label class="cal-form-label">Attendees (comma-separated emails)</label>
+      <input class="cal-form-input" id="newAttendees" type="text" placeholder="lana@..., pia@...">
+    </div>
+    <div class="cal-form-row">
+      <label class="cal-form-label">Description</label>
+      <textarea class="cal-form-textarea" id="newDescription" placeholder="Optional"></textarea>
+    </div>
+  </div>
+  <div class="cal-popover-foot">
+    <span class="cal-status" id="calCreateStatus"></span>
+    <span class="btn-spacer"></span>
+    <button class="btn-secondary" id="calCreateCancel" type="button">Cancel</button>
+    <button class="btn-primary" id="calCreateSave" type="button">Create event</button>
+  </div>
+</div>
+
+<script src="/calendar.js"></script>
+</body>
+</html>
