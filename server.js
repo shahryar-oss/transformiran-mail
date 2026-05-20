@@ -1087,6 +1087,46 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Stream a Gmail attachment back to the browser. Gmail's API returns
+// base64-encoded bytes; we decode + set the right Content-Type + filename
+// headers so the browser saves it cleanly.
+app.get("/api/gmail/message/:id/attachment/:attachmentId", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  const attachmentId = req.params.attachmentId;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) return res.status(400).json({ error: "bad_id" });
+  if (!attachmentId) return res.status(400).json({ error: "bad_attachment_id" });
+
+  const filename = (req.query.filename || "attachment").toString().replace(/[/\\]/g, "_");
+  const mimeType = (req.query.mimeType || "application/octet-stream").toString();
+
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+    const r = await g.users.messages.attachments.get({
+      userId: "me",
+      messageId: id,
+      id: attachmentId,
+    });
+    // Gmail returns urlsafe base64 — convert to standard b64 then decode.
+    const b64 = (r.data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+    const buffer = Buffer.from(b64, "base64");
+
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", buffer.length);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    res.send(buffer);
+  } catch (err) {
+    console.error("[/api/gmail/message/:id/attachment/:attachmentId] failed:", err);
+    res.status(500).json({ error: "attachment_fetch_failed", message: err.message });
+  }
+});
+
 // ====================================================================
 // Saved prompts — reusable Delta prompts (↑ key in chat input)
 // ====================================================================

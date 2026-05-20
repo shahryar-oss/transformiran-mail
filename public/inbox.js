@@ -515,6 +515,8 @@
             <span class="rh-value">${escapeHtml(stub.date || "")}</span>
           </div>
         </div>
+        <!-- Attachment chips render here once /api/gmail/message/:id resolves. -->
+        <div class="reader-attachments-bar" id="readerAttachmentsBar" hidden></div>
         <div class="reader-actions">
           <button class="btn delta-btn primary" data-action="draft-reply">
             <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Draft a reply
@@ -614,24 +616,105 @@
       bodyEl.innerHTML = `<div class="reader-empty-body">No body content.</div>`;
     }
 
-    // Attachments tray
-    if (data.attachments && data.attachments.length) {
-      const tray = document.createElement("div");
-      tray.className = "reader-attachments";
-      tray.innerHTML =
-        `<div class="reader-attachments-label">${data.attachments.length} attachment${data.attachments.length > 1 ? "s" : ""}</div>` +
-        data.attachments
-          .map(
-            (a) => `
-              <div class="reader-attachment">
-                <span class="ra-icon"><svg viewBox="0 0 24 24"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg></span>
-                <span class="ra-name">${escapeHtml(a.filename || "(unnamed)")}</span>
-                <span class="ra-meta">${fmtSize(a.size)} · ${escapeHtml(a.mimeType || "")}</span>
-              </div>`
-          )
-          .join("");
-      bodyEl.appendChild(tray);
+    // Attachments now render in the header bar (above the body) — Outlook-style.
+    // Populate that bar from data.attachments. Each chip is clickable to
+    // download via the new /api/gmail/message/:id/attachment/:aId endpoint.
+    renderAttachmentsBar(data);
+  }
+
+  // ---------- Attachments bar (in reader header) -------------------
+  function renderAttachmentsBar(data) {
+    const bar = document.getElementById("readerAttachmentsBar");
+    if (!bar) return;
+    const attachments = Array.isArray(data?.attachments) ? data.attachments : [];
+    if (!attachments.length) {
+      bar.hidden = true;
+      bar.innerHTML = "";
+      return;
     }
+    bar.hidden = false;
+    const messageId = data.id;
+    bar.innerHTML = `
+      <div class="rab-chips">
+        ${attachments.map((a, i) => attachmentChipHtml(messageId, a, i)).join("")}
+      </div>
+      ${attachments.length > 1
+        ? `<button type="button" class="rab-all" id="rabDownloadAll">Download all</button>`
+        : ""}
+    `;
+
+    // Wire click → trigger download via hidden anchor
+    bar.querySelectorAll(".rab-chip").forEach((chip) => {
+      chip.addEventListener("click", (e) => {
+        e.preventDefault();
+        const url = chip.dataset.url;
+        const fn = chip.dataset.filename || "attachment";
+        triggerDownload(url, fn);
+      });
+    });
+    const dlAll = bar.querySelector("#rabDownloadAll");
+    if (dlAll) {
+      dlAll.addEventListener("click", () => {
+        attachments.forEach((a, i) => {
+          // Slight stagger so the browser doesn't block multi-downloads
+          setTimeout(() => {
+            const url = `/api/gmail/message/${encodeURIComponent(messageId)}/attachment/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(a.filename || "attachment")}&mimeType=${encodeURIComponent(a.mimeType || "application/octet-stream")}`;
+            triggerDownload(url, a.filename || "attachment");
+          }, i * 250);
+        });
+      });
+    }
+  }
+
+  function attachmentChipHtml(messageId, a, idx) {
+    const filename = a.filename || "(unnamed)";
+    const mimeType = a.mimeType || "application/octet-stream";
+    const url = `/api/gmail/message/${encodeURIComponent(messageId)}/attachment/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(filename)}&mimeType=${encodeURIComponent(mimeType)}`;
+    const iconSvg = attachmentIconFor(mimeType, filename);
+    return `
+      <a class="rab-chip" href="${url}" data-url="${url}" data-filename="${escapeHtml(filename)}" title="${escapeHtml(filename)}">
+        <span class="rab-icon">${iconSvg}</span>
+        <span class="rab-info">
+          <span class="rab-name">${escapeHtml(filename)}</span>
+          <span class="rab-meta">${fmtSize(a.size)}</span>
+        </span>
+      </a>`;
+  }
+
+  // Map MIME type / extension to a coloured icon glyph. Plain enough we
+  // don't need an icon library — three buckets cover 95% of attachments.
+  function attachmentIconFor(mimeType, filename) {
+    const lower = (filename || "").toLowerCase();
+    const isXls = /\.(xlsx?|csv)$/.test(lower) || mimeType.includes("spreadsheet") || mimeType.includes("csv");
+    const isDoc = /\.docx?$/.test(lower) || mimeType.includes("wordprocessing") || mimeType === "application/msword";
+    const isPdf = /\.pdf$/.test(lower) || mimeType.includes("pdf");
+    const isImg = /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(lower) || mimeType.startsWith("image/");
+    const isPpt = /\.pptx?$/.test(lower) || mimeType.includes("presentation");
+    const isZip = /\.(zip|tar|gz|7z|rar)$/.test(lower);
+    let cls = "ft-generic", glyph = "FILE";
+    if (isXls) { cls = "ft-xls";  glyph = "XLS"; }
+    else if (isDoc) { cls = "ft-doc"; glyph = "DOC"; }
+    else if (isPdf) { cls = "ft-pdf"; glyph = "PDF"; }
+    else if (isImg) { cls = "ft-img"; glyph = "IMG"; }
+    else if (isPpt) { cls = "ft-ppt"; glyph = "PPT"; }
+    else if (isZip) { cls = "ft-zip"; glyph = "ZIP"; }
+    return `
+      <span class="ft-tile ${cls}">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"/></svg>
+        <span class="ft-label">${glyph}</span>
+      </span>`;
+  }
+
+  function triggerDownload(url, filename) {
+    // Create a hidden anchor + click it. Browser handles the download
+    // because the server sets Content-Disposition: attachment.
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => a.remove(), 0);
   }
 
   function wrapHtmlBody(html) {

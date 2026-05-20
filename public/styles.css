@@ -1072,6 +1072,7 @@ button { font-family: inherit; cursor: pointer; }
   padding: 0;
 }
 
+/* Legacy bottom-of-body attachment tray (kept for any cached HTML) */
 .reader-attachments {
   margin-top: 18px;
   padding-top: 14px;
@@ -1103,6 +1104,120 @@ button { font-family: inherit; cursor: pointer; }
   flex-shrink: 0;
 }
 .reader-attachment .ra-icon svg { width: 16px; height: 16px; fill: currentColor; display: block; }
+
+/* ============================================================
+   READER HEADER ATTACHMENT BAR — Outlook-style chips below To/Cc
+   ============================================================ */
+.reader-attachments-bar {
+  margin-top: 14px;
+  padding: 12px 0 4px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rab-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.rab-chip {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--navy);
+  font-size: 13px;
+  transition: background .12s, border-color .12s;
+  max-width: 280px;
+  min-height: 44px;
+}
+.rab-chip:hover {
+  background: var(--paper);
+  border-color: var(--gold);
+}
+.rab-icon {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.rab-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  overflow: hidden;
+}
+.rab-name {
+  font-weight: 500;
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+.rab-meta {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.2;
+}
+.rab-all {
+  background: transparent;
+  border: none;
+  color: var(--gold-dark);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  flex-shrink: 0;
+}
+.rab-all:hover { color: var(--red-dark); }
+
+/* File-type tile — colored square with the extension label, similar to
+   Outlook / Gmail file chips. Avoids per-format icon assets. */
+.ft-tile {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  position: relative;
+  flex-shrink: 0;
+}
+.ft-tile svg {
+  width: 28px;
+  height: 28px;
+  fill: currentColor;
+  opacity: .25;
+  position: absolute;
+  inset: 4px;
+}
+.ft-label {
+  position: relative;
+  z-index: 1;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+.ft-tile.ft-xls     { background: #1F8552; }   /* Excel green */
+.ft-tile.ft-doc     { background: #2A6FBA; }   /* Word blue */
+.ft-tile.ft-pdf     { background: #C0392B; }   /* PDF red */
+.ft-tile.ft-img     { background: #8E44AD; }   /* Image purple */
+.ft-tile.ft-ppt     { background: #C75B12; }   /* PowerPoint orange */
+.ft-tile.ft-zip     { background: #555E68; }   /* Zip grey */
+.ft-tile.ft-generic { background: var(--gold-dark); }
 
 /* ============================================================
    OUTLOOK-STYLE READER TOOLBAR — top of the open email
