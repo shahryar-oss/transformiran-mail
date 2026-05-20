@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Contacts — Delta Mail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" type="image/png" href="/delta-logo.png">
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .contacts-app {
+    display: grid;
+    grid-template-columns: 220px minmax(280px, 360px) 1fr;
+    height: 100vh;
+    background: var(--paper);
+    flex: 1; min-height: 0;
+  }
+
+  /* ---------------- LEFT RAIL ---------------- */
+  .ct-rail {
+    background: var(--cream);
+    border-right: 1px solid var(--line);
+    padding: 18px 12px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .ct-back {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--gold-dark); text-decoration: none;
+    font-weight: 600;
+  }
+  .ct-back:hover { color: var(--red); }
+  .ct-back svg { width: 14px; height: 14px; fill: currentColor; }
+
+  .ct-new {
+    background: var(--red); color: white; border: none;
+    border-radius: 999px; padding: 9px 14px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 2px 8px rgba(233, 42, 46, .2);
+    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 6px;
+    justify-content: center;
+  }
+  .ct-new:hover { background: var(--red-dark); }
+  .ct-new svg { width: 13px; height: 13px; fill: currentColor; }
+
+  .ct-section-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+    padding: 0 4px;
+  }
+  .ct-sort {
+    display: flex; flex-direction: column; gap: 1px;
+  }
+  .ct-sort-btn {
+    background: transparent; border: none;
+    color: var(--navy);
+    font-family: inherit; font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ct-sort-btn:hover { background: var(--cream-dark); }
+  .ct-sort-btn.active {
+    background: var(--cream-dark);
+    color: var(--gold-dark);
+    font-weight: 600;
+  }
+  .ct-sort-btn svg { width: 14px; height: 14px; fill: currentColor; opacity: .7; }
+  .ct-extract {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--navy-soft);
+    font-family: inherit; font-size: 12px;
+    padding: 7px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-align: left;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ct-extract:hover { border-color: var(--gold); color: var(--navy); }
+  .ct-extract svg { width: 13px; height: 13px; fill: currentColor; }
+
+  /* ---------------- CENTER (list) ---------------- */
+  .ct-list {
+    border-right: 1px solid var(--line);
+    background: var(--paper);
+    display: flex; flex-direction: column;
+    min-height: 0;
+  }
+  .ct-list-head {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .ct-search-wrap {
+    position: relative;
+    display: flex; align-items: center;
+  }
+  .ct-search-wrap svg {
+    position: absolute;
+    left: 10px;
+    width: 14px; height: 14px;
+    fill: var(--muted);
+    pointer-events: none;
+  }
+  .ct-search {
+    width: 100%;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px 8px 32px;
+    font-family: inherit; font-size: 13px;
+    color: var(--navy);
+    outline: none;
+  }
+  .ct-search:focus { border-color: var(--gold); }
+  .ct-count {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .ct-rows {
+    flex: 1;
+    overflow-y: auto;
+  }
+  .ct-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .ct-row:hover { background: var(--cream); }
+  .ct-row.selected { background: var(--cream-dark); }
+  .ct-avatar {
+    width: 36px; height: 36px;
+    background: var(--gold);
+    color: white;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 14px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .ct-row-body {
+    flex: 1; min-width: 0;
+  }
+  .ct-row-name {
+    font-size: 13.5px; font-weight: 600;
+    color: var(--navy);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .ct-row-name .ct-star {
+    color: var(--gold-dark);
+    flex-shrink: 0;
+    width: 12px; height: 12px;
+    display: inline-flex;
+  }
+  .ct-row-name .ct-star svg { width: 12px; height: 12px; fill: currentColor; }
+  .ct-row-email {
+    font-size: 12px;
+    color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ct-row-meta {
+    font-size: 10.5px;
+    color: var(--muted);
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .ct-empty {
+    padding: 40px 24px;
+    text-align: center;
+    font-size: 13px; color: var(--muted);
+  }
+
+  /* ---------------- RIGHT (detail) ---------------- */
+  .ct-detail {
+    background: var(--paper);
+    display: flex; flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  .ct-detail-empty {
+    flex: 1;
+    display: grid; place-items: center;
+    color: var(--muted);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px;
+  }
+  .ct-detail-head {
+    background: var(--cream);
+    padding: 24px;
+    display: flex; align-items: center; gap: 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ct-detail-avatar {
+    width: 72px; height: 72px;
+    background: var(--gold);
+    color: white;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 28px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .ct-detail-headinfo { flex: 1; min-width: 0; }
+  .ct-detail-name {
+    font-size: 22px; font-weight: 700;
+    color: var(--navy);
+    margin: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ct-detail-name-input {
+    font-size: 22px; font-weight: 700;
+    color: var(--navy);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    outline: none;
+    padding: 0;
+    width: 100%;
+    font-family: inherit;
+  }
+  .ct-detail-name-input:focus { border-bottom-color: var(--gold); }
+  .ct-detail-sub {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+  .ct-detail-actions {
+    display: flex; gap: 6px;
+    flex-shrink: 0;
+  }
+  .ct-action {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px; font-weight: 600;
+    color: var(--navy);
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .ct-action:hover { border-color: var(--gold); }
+  .ct-action svg { width: 12px; height: 12px; fill: currentColor; }
+  .ct-action.important { color: var(--gold-dark); border-color: var(--gold); background: rgba(178, 142, 68, .1); }
+  .ct-action.delete { color: var(--bad); border-color: rgba(196, 69, 69, .3); }
+  .ct-action.delete:hover { background: rgba(196, 69, 69, .08); }
+
+  .ct-detail-body {
+    padding: 18px 24px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .ct-field {
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .ct-field-icon {
+    width: 18px; height: 18px;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .ct-field-icon svg { width: 18px; height: 18px; fill: currentColor; }
+  .ct-field-content { flex: 1; min-width: 0; }
+  .ct-field-label {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: 2px;
+  }
+  .ct-field-value,
+  .ct-field-input {
+    font-size: 14px;
+    color: var(--navy);
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    padding: 2px 0;
+  }
+  .ct-field-value.empty,
+  .ct-field-input::placeholder { color: var(--muted); font-style: italic; }
+  .ct-field-input:focus,
+  .ct-field-input:hover { border-bottom-color: var(--gold); }
+  .ct-field-textarea {
+    font-size: 13.5px;
+    color: var(--navy);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+    width: 100%;
+    font-family: inherit;
+    padding: 8px 10px;
+    min-height: 70px;
+    resize: vertical;
+  }
+  .ct-field-textarea:focus { border-color: var(--gold); }
+
+  .ct-section-title {
+    font-size: 12px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted);
+    padding: 0 24px;
+    margin-top: 8px;
+  }
+  .ct-recent {
+    padding: 0 24px 18px;
+  }
+  .ct-recent-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--navy);
+  }
+  .ct-recent-item:last-child { border-bottom: none; }
+  .ct-recent-item:hover .ct-recent-subject { color: var(--gold-dark); }
+  .ct-recent-subject {
+    font-size: 13px;
+    font-weight: 500;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: color .12s;
+  }
+  .ct-recent-snippet {
+    font-size: 11.5px;
+    color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    margin-top: 2px;
+  }
+  .ct-recent-date {
+    font-size: 10.5px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .ct-status {
+    font-size: 11.5px;
+    color: var(--muted);
+    padding: 6px 24px;
+  }
+  .ct-status.ok    { color: var(--good); font-weight: 600; }
+  .ct-status.error { color: var(--bad); }
+
+  /* Source pill — small label on each contact's detail showing where it came from */
+  .ct-source-pill {
+    display: inline-block;
+    font-size: 9.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    margin-left: 8px;
+    vertical-align: 2px;
+  }
+  .ct-source-pill.manual     { background: var(--cream-dark); color: var(--navy-soft); }
+  .ct-source-pill.auto-inbox { background: rgba(178, 142, 68, .15); color: var(--gold-dark); }
+  .ct-source-pill.google     { background: rgba(91, 124, 163, .15); color: #3F5670; }
+
+  /* Create-contact modal — reuses the calendar popover pattern */
+  .ct-modal-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(40, 47, 57, .35);
+    z-index: 80;
+    display: none;
+  }
+  .ct-modal-backdrop.open { display: block; }
+  .ct-modal {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: min(480px, 92vw);
+    background: var(--paper);
+    border-radius: 14px;
+    box-shadow: 0 22px 50px rgba(40, 47, 57, .25);
+    z-index: 81;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .ct-modal.open { display: flex; }
+  .ct-modal-head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--line);
+    background: var(--cream);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .ct-modal-title {
+    font-size: 16px; font-weight: 700; color: var(--navy);
+  }
+  .ct-modal-close {
+    background: transparent; border: none;
+    color: var(--muted); cursor: pointer;
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    font-size: 18px; line-height: 1;
+  }
+  .ct-modal-close:hover { background: var(--paper); color: var(--navy); }
+  .ct-modal-body {
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .ct-form-row {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .ct-form-label {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .4px;
+    color: var(--muted);
+  }
+  .ct-form-input,
+  .ct-form-textarea {
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--navy);
+    outline: none;
+  }
+  .ct-form-input:focus,
+  .ct-form-textarea:focus { border-color: var(--gold); }
+  .ct-form-textarea { min-height: 70px; resize: vertical; }
+  .ct-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .ct-modal-foot {
+    padding: 12px 18px;
+    border-top: 1px solid var(--line);
+    background: var(--cream);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ct-modal-foot .spacer { flex: 1; }
+  .btn-primary {
+    background: var(--red); color: white;
+    border: none; padding: 7px 16px; border-radius: 999px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(233, 42, 46, .22);
+  }
+  .btn-primary:hover { background: var(--red-dark); }
+  .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-secondary {
+    background: transparent; border: 1px solid var(--line);
+    padding: 7px 14px; border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
+    color: var(--navy); cursor: pointer;
+  }
+  .btn-secondary:hover { background: var(--cream); border-color: var(--gold); }
+</style>
+</head>
+<body>
+
+<div class="contacts-app">
+
+  <!-- LEFT RAIL -->
+  <aside class="ct-rail">
+    <a class="ct-back" href="/">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+      Inbox
+    </a>
+
+    <button class="ct-new" id="ctNewBtn" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+      New contact
+    </button>
+
+    <div>
+      <div class="ct-section-label" style="margin-bottom:6px">Sort</div>
+      <div class="ct-sort">
+        <button class="ct-sort-btn active" data-sort="name" type="button">
+          <svg viewBox="0 0 24 24"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>
+          Name (A–Z)
+        </button>
+        <button class="ct-sort-btn" data-sort="recent" type="button">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm5 11h-6V7h1.5v4.5H17V13z"/></svg>
+          Recently active
+        </button>
+        <button class="ct-sort-btn" data-sort="frequent" type="button">
+          <svg viewBox="0 0 24 24"><path d="M3 17h18v2H3v-2zm0-7h18v2H3v-2zm0-7h18v2H3V3z"/></svg>
+          Most contacted
+        </button>
+      </div>
+    </div>
+
+    <button class="ct-extract" id="ctExtractBtn" type="button" title="Rescan your inbox for senders not yet in contacts">
+      <svg viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.3 0 6 2.7 6 6 0 1-.3 2-.7 2.8l1.5 1.5C19.5 15 20 13.6 20 12c0-4.4-3.6-8-8-8zm-6.3 4.7L4.2 7.2C3.5 9 3 10.4 3 12c0 4.4 3.6 8 8 8v3l4-4-4-4v3c-3.3 0-6-2.7-6-6 0-1 .3-2 .7-2.8z"/></svg>
+      Refresh from inbox
+    </button>
+  </aside>
+
+  <!-- CENTER — list -->
+  <section class="ct-list">
+    <header class="ct-list-head">
+      <div class="ct-search-wrap">
+        <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.51 4.51 0 0 1 9.5 14z"/></svg>
+        <input class="ct-search" id="ctSearch" type="text" placeholder="Search name, email, or organization…" autocomplete="off">
+      </div>
+      <div class="ct-count" id="ctCount">Loading…</div>
+    </header>
+    <div class="ct-rows" id="ctRows"></div>
+  </section>
+
+  <!-- RIGHT — detail -->
+  <section class="ct-detail" id="ctDetail">
+    <div class="ct-detail-empty">Select a contact on the left to see their details.</div>
+  </section>
+</div>
+
+<!-- New contact modal -->
+<div class="ct-modal-backdrop" id="ctModalBackdrop"></div>
+<div class="ct-modal" id="ctModal" role="dialog" aria-modal="true">
+  <div class="ct-modal-head">
+    <div class="ct-modal-title">New contact</div>
+    <button class="ct-modal-close" id="ctModalClose" type="button" aria-label="Close">×</button>
+  </div>
+  <div class="ct-modal-body">
+    <div class="ct-form-grid">
+      <div class="ct-form-row">
+        <label class="ct-form-label">Name</label>
+        <input class="ct-form-input" id="newCtName" type="text" placeholder="Full name">
+      </div>
+      <div class="ct-form-row">
+        <label class="ct-form-label">Email</label>
+        <input class="ct-form-input" id="newCtEmail" type="email" placeholder="person@example.com">
+      </div>
+    </div>
+    <div class="ct-form-grid">
+      <div class="ct-form-row">
+        <label class="ct-form-label">Phone</label>
+        <input class="ct-form-input" id="newCtPhone" type="text" placeholder="Optional">
+      </div>
+      <div class="ct-form-row">
+        <label class="ct-form-label">Organization</label>
+        <input class="ct-form-input" id="newCtOrg" type="text" placeholder="Optional">
+      </div>
+    </div>
+    <div class="ct-form-row">
+      <label class="ct-form-label">Job title</label>
+      <input class="ct-form-input" id="newCtTitle" type="text" placeholder="Optional">
+    </div>
+    <div class="ct-form-row">
+      <label class="ct-form-label">Notes</label>
+      <textarea class="ct-form-textarea" id="newCtNotes" placeholder="Optional"></textarea>
+    </div>
+  </div>
+  <div class="ct-modal-foot">
+    <span class="ct-status" id="ctModalStatus" style="padding:0"></span>
+    <span class="spacer"></span>
+    <button class="btn-secondary" id="ctModalCancel" type="button">Cancel</button>
+    <button class="btn-primary" id="ctModalSave" type="button">Save contact</button>
+  </div>
+</div>
+
+<script src="/contacts.js"></script>
+</body>
+</html>

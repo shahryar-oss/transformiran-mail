@@ -18,6 +18,7 @@ const importantContacts = require("./lib/important_contacts");
 const memoryExtractor = require("./lib/memory_extractor");
 const inboxCache = require("./lib/inbox_cache");
 const calendarLib = require("./lib/calendar");
+const contactsLib = require("./lib/contacts");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -132,6 +133,12 @@ app.get("/tasks", (req, res) => {
 app.get("/calendar", (req, res) => {
   if (!req.user) return res.redirect("/");
   res.sendFile(path.join(__dirname, "public", "calendar.html"));
+});
+
+// Contacts page — per-user people directory (auto-extracted from inbox)
+app.get("/contacts", (req, res) => {
+  if (!req.user) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public", "contacts.html"));
 });
 
 // ====================================================================
@@ -350,6 +357,91 @@ app.delete("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/calendar/events/:id] delete failed:", err);
     res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Contacts API — per-user people directory
+// ====================================================================
+app.get("/api/contacts", auth.requireAuth, async (req, res) => {
+  const search = req.query.search ? String(req.query.search).trim() : "";
+  const sort = req.query.sort || "name";
+  try {
+    const contacts = await contactsLib.list(req.user.id, { search, sort });
+    res.json({ contacts, count: contacts.length });
+  } catch (err) {
+    console.error("[/api/contacts] list failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.get("/api/contacts/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const contact = await contactsLib.get(req.user.id, id);
+    if (!contact) return res.status(404).json({ error: "not_found" });
+    res.json(contact);
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.get("/api/contacts/:id/messages", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const contact = await contactsLib.get(req.user.id, id);
+    if (!contact) return res.status(404).json({ error: "not_found" });
+    const messages = await contactsLib.recentEmails(req.user.id, contact.email, { limit: 12 });
+    res.json({ messages, count: messages.length });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/contacts", auth.requireAuth, async (req, res) => {
+  try {
+    const contact = await contactsLib.create(req.user.id, req.body || {});
+    res.json(contact);
+  } catch (err) {
+    const code = err.message === "invalid_email" ? 400 : 500;
+    res.status(code).json({ error: err.message, message: err.message });
+  }
+});
+
+app.patch("/api/contacts/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const contact = await contactsLib.update(req.user.id, id, req.body || {});
+    if (!contact) return res.status(404).json({ error: "not_found" });
+    res.json(contact);
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/contacts/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await contactsLib.remove(req.user.id, id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// Refresh / populate contacts from the user's inbox_cache. Fire-and-forget
+// from the frontend on /contacts load.
+app.post("/api/contacts/extract-from-inbox", auth.requireAuth, async (req, res) => {
+  try {
+    const result = await contactsLib.extractFromInbox(req.user.id);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/contacts/extract-from-inbox] failed:", err);
+    res.status(500).json({ error: "extract_failed", message: err.message });
   }
 });
 
