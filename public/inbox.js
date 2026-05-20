@@ -391,7 +391,18 @@
         <div class="reader-headers">
           <div class="rh-row">
             <span class="rh-label">From</span>
-            <span class="rh-value"><strong>${escapeHtml(f.name || f.email)}</strong>${f.name ? ` <span class="rh-email">&lt;${escapeHtml(f.email)}&gt;</span>` : ""}</span>
+            <span class="rh-value">
+              <strong>${escapeHtml(f.name || f.email)}</strong>${f.name ? ` <span class="rh-email">&lt;${escapeHtml(f.email)}&gt;</span>` : ""}
+              ${f.email && !isAlreadyImportant(f.email) ? `
+                <button class="rh-add-important" id="rhAddImportant" data-email="${escapeHtml(f.email)}" data-name="${escapeHtml(f.name || f.email)}" title="Pin this sender as an Important folder">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                  Important
+                </button>` : f.email && isAlreadyImportant(f.email) ? `
+                <span class="rh-is-important" title="Already in your Important folders">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+                  Important
+                </span>` : ""}
+            </span>
           </div>
           ${stub.to ? `
           <div class="rh-row">
@@ -438,6 +449,16 @@
     // Wire the Outlook-style toolbar buttons.
     readerEl.querySelectorAll(".reader-toolbar [data-tb]").forEach((btn) => {
       btn.addEventListener("click", () => onToolbarAction(btn.dataset.tb, stub, btn));
+    });
+
+    // "+ Important" — one-click promote the sender into the user's
+    // Important folders list. Re-renders the rail + the reader header.
+    const addImportantBtn = readerEl.querySelector("#rhAddImportant");
+    addImportantBtn?.addEventListener("click", async () => {
+      addImportantBtn.disabled = true;
+      await addSenderToImportant(addImportantBtn.dataset.email, addImportantBtn.dataset.name);
+      // Re-render the reader head so the chip flips to the "already" state.
+      onSelect(id, messages);
     });
 
     // Fetch full body.
@@ -1267,25 +1288,138 @@
         setFolder(f.dataset.folder);
       });
     });
-    // VIP folders — each one runs a Gmail query for from/to/cc:<email>,
-    // spanning Inbox + Archive + Sent. The full history with that person.
-    document.querySelectorAll(".folder[data-vip]").forEach((f) => {
+  }
+
+  // -------- IMPORTANT CONTACTS (dynamic rail folders) ----------------
+  // Per-user list loaded from /api/important-contacts. Default-seeded with
+  // Lana / Lazarus / Maggie / Pia for every user. Plus button lets the user
+  // add anyone else (Simon, donors, future contacts module entries…).
+  let _importantContacts = [];
+
+  async function loadImportantContacts() {
+    try {
+      const r = await fetch("/api/important-contacts");
+      if (!r.ok) return;
+      const data = await r.json();
+      _importantContacts = data.contacts || [];
+      renderImportantFolders();
+    } catch (err) {
+      console.warn("[important-contacts] load failed:", err);
+    }
+  }
+
+  function renderImportantFolders() {
+    const wrap = document.getElementById("importantFolders");
+    if (!wrap) return;
+    if (!_importantContacts.length) {
+      wrap.innerHTML = `<div class="important-empty">Nobody pinned yet. Click + to add.</div>`;
+      return;
+    }
+    wrap.innerHTML = _importantContacts.map((c) => `
+      <a class="folder important" href="#imp-${encodeURIComponent(c.email)}"
+         data-imp-email="${escapeHtml(c.email)}"
+         data-imp-name="${escapeHtml(c.name)}"
+         data-imp-id="${c.id}">
+        <span class="vip-dot" style="background:${escapeHtml(c.color || "#B28E44")}"></span>
+        <span class="folder-name">${escapeHtml(c.name)}</span>
+        <button class="important-remove" title="Remove from Important" data-imp-remove="${c.id}">×</button>
+      </a>
+    `).join("");
+
+    wrap.querySelectorAll(".folder.important").forEach((f) => {
       f.addEventListener("click", (e) => {
+        if (e.target.classList.contains("important-remove")) return;
         e.preventDefault();
-        const email = f.dataset.vip;
-        const name = f.dataset.vipName || email;
-        // newer_than:1y caps the result set so this stays fast on a large
-        // mailbox; deepen later if the user wants more history per VIP.
+        const email = f.dataset.impEmail;
+        const name = f.dataset.impName;
         const q = `(from:${email} OR to:${email} OR cc:${email}) newer_than:1y`;
-        // 'vip' isn't a system folder — the server falls back to 'inbox'
-        // semantics, but the q parameter overrides so we get full-mailbox
-        // results. setFolder won't activate any system folder pill since
-        // no .folder[data-folder=vip] exists; we add .active ourselves.
-        setFolder("vip", { query: q, title: name });
+        setFolder("important", { query: q, title: name });
         f.classList.add("active");
       });
     });
+
+    wrap.querySelectorAll(".important-remove").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = btn.dataset.impRemove;
+        const folder = btn.closest(".folder");
+        const name = folder?.dataset.impName || "this contact";
+        if (!confirm(`Remove ${name} from Important?`)) return;
+        try {
+          const r = await fetch(`/api/important-contacts/${id}`, { method: "DELETE" });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          await loadImportantContacts();
+          showToast(`Removed ${name} from Important`, "ok");
+        } catch (err) {
+          showToast(`Remove failed: ${err.message || err}`, "error");
+        }
+      });
+    });
   }
+
+  async function addImportantContact() {
+    const email = (prompt("Email address of the person to add to Important:") || "").trim();
+    if (!email) return;
+    if (!email.includes("@")) {
+      showToast("That doesn't look like an email address", "error");
+      return;
+    }
+    const name = (prompt("Display name (shown in the rail):", email.split("@")[0]) || "").trim() || email;
+    // Rotate through a few brand colors so each new entry is visually distinct.
+    const PALETTE = ["#B28E44", "#E92A2E", "#4F9D5A", "#5B7CA3", "#9C6BAD", "#D27D2D", "#2D8C8C"];
+    const color = PALETTE[_importantContacts.length % PALETTE.length];
+    try {
+      const r = await fetch("/api/important-contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name, color }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.message || body.error || "Add failed");
+      }
+      await loadImportantContacts();
+      showToast(`Added ${name} to Important`, "ok");
+    } catch (err) {
+      showToast(`Add failed: ${err.message || err}`, "error");
+    }
+  }
+
+  // Returns true if this email address is already in the user's Important
+  // list. Used by the reader pane to show or hide the "+ Add to Important"
+  // chip next to the sender name.
+  function isAlreadyImportant(email) {
+    if (!email) return false;
+    const lower = email.toLowerCase();
+    return _importantContacts.some((c) => c.email.toLowerCase() === lower);
+  }
+
+  async function addSenderToImportant(email, name) {
+    if (!email) return;
+    try {
+      const PALETTE = ["#B28E44", "#E92A2E", "#4F9D5A", "#5B7CA3", "#9C6BAD", "#D27D2D", "#2D8C8C"];
+      const color = PALETTE[_importantContacts.length % PALETTE.length];
+      const r = await fetch("/api/important-contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, name: name || email, color }),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        throw new Error(body.message || body.error || "Add failed");
+      }
+      await loadImportantContacts();
+      showToast(`Added ${name || email} to Important`, "ok");
+    } catch (err) {
+      showToast(`Add failed: ${err.message || err}`, "error");
+    }
+  }
+
+  document.getElementById("importantAddBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    addImportantContact();
+  });
 
   // ---------- SEARCH -------------------------------------------------
   function wireSearch() {
@@ -1414,6 +1548,8 @@
   wireFolderLinks();
   wireSearch();
   document.getElementById("loadMoreBtn")?.addEventListener("click", loadMore);
+  // Pull the user's Important contacts (auto-seeded with org defaults).
+  loadImportantContacts();
 
   async function main() {
     try {

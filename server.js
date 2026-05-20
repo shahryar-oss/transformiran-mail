@@ -14,6 +14,7 @@ const classifier = require("./lib/classifier");
 const memory = require("./lib/memory");
 const backfill = require("./lib/backfill");
 const tasks = require("./lib/tasks");
+const importantContacts = require("./lib/important_contacts");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -281,6 +282,39 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
     humanEA: getHumanEAFor(req.user.email),
     role: getRoleFor(req.user.email),
   });
+});
+
+// ====================================================================
+// Important contacts API — per-user 'Important' folders + VIP weighting
+// ====================================================================
+app.get("/api/important-contacts", auth.requireAuth, async (req, res) => {
+  try {
+    const contacts = await importantContacts.list(req.user.id);
+    res.json({ contacts });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/important-contacts", auth.requireAuth, async (req, res) => {
+  try {
+    const row = await importantContacts.add(req.user.id, req.body || {});
+    res.json(row);
+  } catch (err) {
+    const msg = err.message === "invalid_email" ? "invalid_email" : "add_failed";
+    res.status(400).json({ error: msg, message: err.message });
+  }
+});
+
+app.delete("/api/important-contacts/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    await importantContacts.remove(req.user.id, id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
 });
 
 // Mark the user as welcomed — called by the welcome.html "Get started" button.

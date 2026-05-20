@@ -218,15 +218,19 @@ button { font-family: inherit; cursor: pointer; }
 .folder.active { background: var(--cream-dark); color: var(--gold-dark); font-weight: 600; }
 .folder.muted { color: var(--navy-soft); font-weight: 500; }
 
-/* VIP folders — each VIP gets a colored dot to make the row recognizable
-   at a glance. Spans Inbox + Archive + Sent so the user can see the full
+/* Important folders — per-user dynamic list (loaded from
+   /api/important-contacts). Each contact gets a colored dot for quick
+   recognition. Spans Inbox + Archive + Sent so the user can see the full
    conversation history with that person. */
-.folder.vip {
+.folder.important,
+.folder.vip /* legacy class still applied by older builds */ {
   display: flex;
   align-items: center;
   gap: 8px;
   color: var(--navy);
+  position: relative;
 }
+.folder.important .vip-dot,
 .folder.vip .vip-dot {
   width: 8px;
   height: 8px;
@@ -234,8 +238,105 @@ button { font-family: inherit; cursor: pointer; }
   flex-shrink: 0;
   display: inline-block;
 }
+.folder.important:hover,
 .folder.vip:hover { background: var(--cream-dark); }
+.folder.important.active,
 .folder.vip.active { background: var(--cream-dark); color: var(--navy); font-weight: 600; }
+
+/* Inline X on each Important folder row — appears on hover. Doesn't
+   navigate; calls DELETE /api/important-contacts/:id. */
+.folder.important .important-remove {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .12s, color .12s, background .12s;
+  flex-shrink: 0;
+}
+.folder.important:hover .important-remove { opacity: 1; }
+.folder.important .important-remove:hover { color: var(--bad); background: rgba(196, 69, 69, .12); }
+
+/* The "Important" section label gets a flex layout so the + button sits
+   inline with the text. */
+.folders-group-label.important-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.important-add {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--gold-dark);
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s, border-color .12s;
+}
+.important-add:hover {
+  background: var(--cream);
+  border-color: var(--gold);
+}
+.important-empty {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* "+ Important" chip / "Important" badge next to the From sender in the
+   reader. The button promotes the sender into the user's Important list
+   with one click. */
+.rh-add-important,
+.rh-is-important {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  vertical-align: 2px;
+}
+.rh-add-important {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  color: var(--gold-dark);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.rh-add-important:hover:not(:disabled) {
+  background: var(--paper);
+  border-color: var(--gold);
+}
+.rh-add-important:disabled { opacity: .5; cursor: not-allowed; }
+.rh-add-important svg,
+.rh-is-important svg {
+  width: 11px;
+  height: 11px;
+  fill: currentColor;
+}
+.rh-is-important {
+  background: rgba(178, 142, 68, .12);
+  color: var(--gold-dark);
+  border: 1px solid transparent;
+}
 .folder.folder-tool {
   display: flex;
   align-items: center;
