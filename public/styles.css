@@ -3778,3 +3778,48 @@ body.delta-panel-open .delta-fab { display: none; }
 @keyframes delta-listen-spin {
   to { transform: rotate(360deg); }
 }
+
+/* Briefing card — Listen button in the head (next to dismiss ×). */
+.briefing-card .bc-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.briefing-card .bc-head-text { flex: 1; }
+.briefing-card .bc-listen {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--gold-dark, #8a6b2a);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: .75;
+  transition: opacity .15s ease, background .15s ease;
+}
+.briefing-card .bc-listen svg { width: 16px; height: 16px; fill: currentColor; }
+.briefing-card .bc-listen:hover { opacity: 1; background: rgba(178, 142, 68, 0.12); }
+.briefing-card .bc-listen.playing {
+  background: var(--gold, #b28e44);
+  color: white;
+}
+.briefing-card .bc-listen.playing svg { fill: white; }
+
+/* Per-reply listen — slim, same shape as the existing bc-btn pills. */
+.briefing-card .bc-btn.bc-reply-listen {
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.briefing-card .bc-btn.bc-reply-listen svg { width: 13px; height: 13px; fill: currentColor; }
+.briefing-card .bc-btn.bc-reply-listen.playing {
+  background: var(--gold, #b28e44);
+  color: white;
+  border-color: var(--gold, #b28e44);
+}
+.briefing-card .bc-btn.bc-reply-listen.playing svg { fill: white; }
