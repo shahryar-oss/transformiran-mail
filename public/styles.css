@@ -3846,3 +3846,36 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .delta-tts-toast.ok    { background: #2ea043; }
 .delta-tts-toast.error { background: var(--red, #e92a2e); }
+
+/* Mic button — recording / transcribing states. */
+.delta-mic[disabled] { opacity: .35; }
+.delta-mic:not([disabled]) { opacity: 1; cursor: pointer; }
+.delta-mic.recording {
+  background: var(--red, #e92a2e);
+  color: white;
+  border-radius: 8px;
+  animation: delta-mic-pulse 1.2s ease-in-out infinite;
+}
+.delta-mic.recording svg { fill: white; }
+@keyframes delta-mic-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(233, 42, 46, 0.55); }
+  50%      { box-shadow: 0 0 0 8px rgba(233, 42, 46, 0.0); }
+}
+.delta-mic.transcribing {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Autoplay-pulse — a soft gold glow on the Listen button when
+ * auto-play is on but the browser blocked the programmatic start.
+ * Invites the user to tap. */
+.delta-msg-act.autoplay-pulse,
+.bc-listen.autoplay-pulse,
+.bc-reply-listen.autoplay-pulse {
+  animation: delta-autoplay-pulse 1.4s ease-in-out infinite;
+  color: var(--gold-dark, #8a6b2a) !important;
+}
+@keyframes delta-autoplay-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(178, 142, 68, 0.55); }
+  50%      { box-shadow: 0 0 0 6px rgba(178, 142, 68, 0.0); }
+}

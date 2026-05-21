@@ -706,6 +706,71 @@ app.post("/api/decision-rules/mine", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Voice INPUT — Phase 5.AI. OpenAI Whisper transcription.
+// POST /api/transcribe
+//   Headers: Content-Type: audio/webm  (or audio/mp4, audio/ogg…)
+//   Body:    raw audio bytes from MediaRecorder
+//   Reply:   { ok, text }
+// We accept the bytes directly rather than pulling in multer for one
+// endpoint. Express's body parsers won't touch audio/* so the raw
+// stream is available on req.
+// ====================================================================
+app.get("/api/transcribe/status", auth.requireAuth, async (req, res) => {
+  try {
+    const t = require("./lib/transcribe");
+    res.json({ ok: true, enabled: t.isEnabled(), model: t.MODEL });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/transcribe", auth.requireAuth, async (req, res) => {
+  try {
+    const t = require("./lib/transcribe");
+    if (!t.isEnabled()) {
+      return res.status(503).json({
+        error: "transcribe_not_configured",
+        message: "Set OPENAI_API_KEY to enable voice input.",
+      });
+    }
+    const mime = req.get("Content-Type") || "audio/webm";
+    if (!/^audio\//.test(mime)) {
+      return res.status(400).json({ error: "audio_content_type_required" });
+    }
+    // Cap at 25MB — OpenAI's hard limit on Whisper file size.
+    const MAX_BYTES = 25 * 1024 * 1024;
+    const chunks = [];
+    let total = 0;
+    let abort = false;
+    await new Promise((resolve, reject) => {
+      req.on("data", (chunk) => {
+        if (abort) return;
+        total += chunk.length;
+        if (total > MAX_BYTES) {
+          abort = true;
+          reject(new Error("audio_too_large"));
+          return;
+        }
+        chunks.push(chunk);
+      });
+      req.on("end", resolve);
+      req.on("error", reject);
+    });
+    if (abort) return; // promise rejected
+    const buffer = Buffer.concat(chunks, total);
+    if (buffer.length < 200) {
+      return res.status(400).json({ error: "audio_too_short" });
+    }
+    const language = req.query.language ? String(req.query.language).slice(0, 5) : null;
+    const result = await t.transcribe(buffer, { mime, language });
+    res.json({ ok: true, text: result.text, model: result.model });
+  } catch (err) {
+    console.error("[/api/transcribe] failed:", err.message);
+    res.status(500).json({ error: "transcribe_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // TTS — Phase 5.AH. Voice output for Delta replies.
 // GET  /api/tts/status      → { enabled, provider, default_voice }
 // POST /api/tts             → audio/mpeg bytes for the given text
