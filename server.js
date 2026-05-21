@@ -1222,8 +1222,9 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
         if (forceFresh) {
           // Synchronous sync — block on Gmail to guarantee the user sees
           // fresh state right now. This is what they're asking for when
-          // they click refresh.
-          await inboxCache.syncForUser(req.user.id);
+          // they click refresh. `force: true` overrides any stuck
+          // sync_in_progress flag from a previously hung sync.
+          await inboxCache.syncForUser(req.user.id, { force: true });
         }
         const cachedCount = await inboxCache.getCountForUser(req.user.id);
         if (cachedCount > 0) {
@@ -1812,6 +1813,41 @@ app.get("/api/inbox/snoozed", auth.requireAuth, async (req, res) => {
     res.json({ messages, count: messages.length });
   } catch (err) {
     console.error("[/api/inbox/snoozed] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+// Force-sync the current user's inbox cache RIGHT NOW. Bypasses the
+// per-user 90s freshness check and the stuck sync_in_progress flag.
+// Wired to a button in the UI so when the inbox feels stale, the user
+// can refresh on demand without waiting for the background worker.
+app.post("/api/inbox/force-sync", auth.requireAuth, async (req, res) => {
+  try {
+    const result = await inboxCache.syncForUser(req.user.id, { force: true });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[/api/inbox/force-sync] failed:", err);
+    res.status(500).json({ error: "force_sync_failed", message: err.message });
+  }
+});
+
+// Diagnostic — peek at the current user's cache state. Used by the UI
+// to show "last refreshed N seconds ago" and detect stale-sync issues.
+app.get("/api/inbox/sync-state", auth.requireAuth, async (req, res) => {
+  try {
+    const state = await inboxCache.getState(req.user.id);
+    const count = await inboxCache.getCountForUser(req.user.id);
+    res.json({
+      ok: true,
+      cached_count: count,
+      last_sync_at: state?.last_sync_at || null,
+      last_sync_count: state?.last_sync_count || 0,
+      last_sync_error: state?.last_sync_error || null,
+      sync_in_progress: !!state?.sync_in_progress,
+      updated_at: state?.updated_at || null,
+    });
+  } catch (err) {
+    console.error("[/api/inbox/sync-state] failed:", err);
     res.status(500).json({ error: "fetch_failed", message: err.message });
   }
 });
@@ -2755,6 +2791,9 @@ dbReady
   .then(async () => {
     console.log("[boot] db ready");
     startBackfillWorker();
+    // Recover from any stuck sync_in_progress flags left behind by a
+    // previously crashed/hung worker before the cache loop starts up.
+    try { await inboxCache.clearStuckSyncFlags({ olderThanMs: 60_000 }); } catch (_) {}
     startInboxCacheWorker();
     startSnoozeWakeWorker();
     startMemoryEmbeddingBackfillWorker();
@@ -2820,15 +2859,44 @@ function startBackfillWorker() {
 // ====================================================================
 function startInboxCacheWorker() {
   let running = false;
+  let runningSince = 0;
+  let cycleCount = 0;
+  // If a cycle is still "running" after 3 minutes, something hung and
+  // the worker has been silently skipping ever since. Force-reclaim it.
+  const STUCK_GRACE_MS = 3 * 60 * 1000;
   const cycle = async () => {
-    if (running) return;
+    if (running) {
+      const stuckFor = Date.now() - runningSince;
+      if (stuckFor > STUCK_GRACE_MS) {
+        console.warn(`[inbox-cache-worker] previous cycle stuck for ${Math.round(stuckFor/1000)}s — force-reclaiming`);
+        running = false;
+      } else {
+        return;
+      }
+    }
     running = true;
+    runningSince = Date.now();
+    cycleCount++;
+    // Heartbeat log every 10 cycles (~5 min) so we can see the worker
+    // is alive without flooding logs every 30s.
+    if (cycleCount % 10 === 1) {
+      console.log(`[inbox-cache-worker] heartbeat cycle=${cycleCount}`);
+    }
     try {
       const due = await inboxCache.listUsersDueForSync({ stalerThanMs: 90_000, limit: 3 });
+      if (due.length) {
+        console.log(`[inbox-cache-worker] cycle ${cycleCount}: ${due.length} user(s) due`);
+      }
       await Promise.all(
         due.map((row) =>
-          inboxCache.syncForUser(row.user_id).catch((err) => {
-            console.warn(`[inbox-cache-worker] user ${row.user_id} sync failed:`, err.message);
+          inboxCache.syncForUser(row.user_id).then((res) => {
+            if (res && res.count !== undefined) {
+              console.log(`[inbox-cache-worker] user ${row.user_id}: synced ${res.count} messages`);
+            } else if (res && res.error) {
+              console.warn(`[inbox-cache-worker] user ${row.user_id}: sync error: ${res.error}`);
+            }
+          }).catch((err) => {
+            console.warn(`[inbox-cache-worker] user ${row.user_id} sync threw:`, err.message);
           })
         )
       );
@@ -2840,7 +2908,7 @@ function startInboxCacheWorker() {
   };
   setTimeout(cycle, 5_000);
   setInterval(cycle, 30_000);
-  console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness)");
+  console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness, 12s gmail timeout, 3min stuck-grace)");
 }
 
 // ====================================================================
