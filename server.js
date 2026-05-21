@@ -706,6 +706,60 @@ app.post("/api/decision-rules/mine", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// TTS — Phase 5.AH. Voice output for Delta replies.
+// GET  /api/tts/status      → { enabled, provider, default_voice }
+// POST /api/tts             → audio/mpeg bytes for the given text
+// ====================================================================
+app.get("/api/tts/status", auth.requireAuth, async (req, res) => {
+  try {
+    const tts = require("./lib/tts");
+    const provider = tts.providerInUse();
+    res.json({
+      ok: true,
+      enabled: tts.isEnabled(),
+      provider,
+      default_voice: provider === "elevenlabs"
+        ? tts.DEFAULT_ELEVENLABS_VOICE
+        : tts.DEFAULT_OPENAI_VOICE,
+      max_chars: tts.MAX_CHARS,
+    });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/tts", auth.requireAuth, async (req, res) => {
+  const { text, voice, provider } = req.body || {};
+  if (!text || typeof text !== "string") {
+    return res.status(400).json({ error: "text_required" });
+  }
+  // Hard size cap before we even invoke the provider — defends against
+  // pathological inputs that bypass the chat reply path.
+  if (text.length > 20_000) {
+    return res.status(413).json({ error: "text_too_long" });
+  }
+  try {
+    const tts = require("./lib/tts");
+    if (!tts.isEnabled()) {
+      return res.status(503).json({
+        error: "tts_not_configured",
+        message: "Set OPENAI_API_KEY (cheap, default) or ELEVENLABS_API_KEY (higher quality) to enable TTS.",
+      });
+    }
+    const result = await tts.synthesize(text, { voice, provider });
+    res.set("Content-Type", result.mime);
+    res.set("Content-Length", String(result.buffer.length));
+    res.set("X-TTS-Provider", result.provider);
+    res.set("X-TTS-Voice", result.voice);
+    res.set("Cache-Control", "no-store"); // each reply text differs
+    res.send(result.buffer);
+  } catch (err) {
+    console.error("[/api/tts] failed:", err.message);
+    res.status(500).json({ error: "tts_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Voice Profile API — Phase 5.AE. Edit-diff learning surface.
 // GET  /api/voice/profile         → stats + distilled cheatsheet
 // POST /api/voice/distill         → force a re-distill now (manual refresh)

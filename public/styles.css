@@ -3713,3 +3713,68 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .rule-suggestion .rs-status.ok    { color: var(--good, #2ea043); font-weight: 600; }
 .rule-suggestion .rs-status.error { color: var(--bad, #d12d2d); }
+
+/* ===================================================================
+ * TTS / Voice Output — Phase 5.AH
+ * =================================================================== */
+
+/* Header auto-play toggle. Same shape as the New chat / close buttons. */
+.delta-tts-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--navy, #282f39);
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 2px;
+  opacity: 0.6;
+  transition: opacity .15s ease, background .15s ease, color .15s ease;
+}
+.delta-tts-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+.delta-tts-toggle:hover {
+  opacity: 1;
+  background: rgba(178, 142, 68, 0.10);
+}
+.delta-tts-toggle.active {
+  opacity: 1;
+  color: var(--gold-dark, #8a6b2a);
+  background: rgba(178, 142, 68, 0.16);
+}
+.delta-tts-toggle.active:hover {
+  background: rgba(178, 142, 68, 0.24);
+}
+
+/* Per-message Listen button — re-uses .delta-msg-act styling and adds
+ * a playing-state highlight + a small loading spinner. */
+.delta-msg-act.delta-listen.playing {
+  background: var(--gold, #b28e44);
+  color: white;
+}
+.delta-msg-act.delta-listen.playing svg {
+  fill: white;
+}
+.delta-msg-act.delta-listen.loading {
+  cursor: wait;
+}
+.delta-listen-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: delta-listen-spin .7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes delta-listen-spin {
+  to { transform: rotate(360deg); }
+}
