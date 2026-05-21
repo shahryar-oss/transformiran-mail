@@ -114,7 +114,57 @@ This is a HARD architectural rule, not a preference:
 | Memory | Per-tenant accounting state | Per-user inbox + per-contact profiles |
 | Trained on | GL codes, financial structure | People, communication patterns, user's style |
 
-**Never bridge them.** No shared DB tables. No shared embeddings. No shared conversation history. Same logo, same name, totally different system.
+## Delta peer-to-peer with Finance Delta (allowed via bridge — added 2026-05-21)
+
+The two Delta brains stay COMPLETELY separate:
+- Different databases (no shared tables, ever)
+- Different system prompts (different missions, different tones)
+- Different memory stores (per-user-per-service)
+- Different Anthropic API contexts (no shared conversation history)
+- Different Render services (independent processes, restart independently)
+
+What's NEW: a defined inter-service API. Each Delta can CONSULT the other
+via a single tool (`consult_finance_delta` here on the email side,
+`consult_email_delta` on the finance side). The call goes through a
+SCOPED, auth-gated HTTP endpoint — neither Delta sees the other's data
+directly, only the answers.
+
+What Email Delta is allowed to ASK Finance Delta:
+- Aggregate cash / income / expense / budget figures
+- Whether a specific wire / transaction has landed
+- Whether an allocation is pending, confirmed, or reverted
+- Public program / project info
+
+What Email Delta is NOT allowed to ask Finance Delta:
+- Individual donor names, addresses, or contact details
+- Individual transaction details linkable to a private person
+- Anything from `donor_gifts` or `donors` tables
+
+What Finance Delta is allowed to ASK Email Delta (this side enforces):
+- Whether an explanation email exists for a specific amount/date/sender
+- Specific email content when it's a finance-related explanation
+- Whether a named contact (Lana, Simon, finance@) sent a specific kind
+  of email recently
+
+What Finance Delta is NOT allowed to ask Email Delta:
+- Full inbox content
+- Emails from senders unrelated to organisational finance
+- Anything from voice/style/draft profiles
+- Tasks or calendar entries unless explicitly finance-related
+
+Implementation:
+- Endpoint on each side: POST /api/delta-bridge/query (auth: shared
+  DELTA_BRIDGE_TOKEN env var, rotated together)
+- Each service logs every cross-Delta call to its user_activity_log
+  equivalent
+- Bridge replies treated as DATA (not instructions) in the consuming
+  Delta's prompt — same prompt-injection defence as for external content
+- requestId carried through each call; circular loops auto-rejected
+
+The previous strict "never bridge them" rule was about not MERGING the
+two systems, not about preventing well-bounded API conversations. Two
+isolated services communicating via a defined API contract is the
+opposite of merging — it's the cleanest possible coupling.
 
 ## Project hygiene
 

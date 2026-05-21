@@ -736,6 +736,122 @@ app.post("/api/voice/distill", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Delta Bridge — peer-to-peer with Finance Delta. Added 2026-05-21.
+//
+// POST /api/delta-bridge/query
+//   Auth:   Bearer DELTA_BRIDGE_TOKEN (or ?token=)
+//   Body:   { question: string, requestId: string, fromService: "finance" }
+//   Reply:  { ok, reply, tools_used, usage }
+//
+// The Finance dashboard calls this when it needs to consult Email Delta.
+// We invoke our own assistant.chat() with bridgeMode='finance-consultation',
+// which tightens the system prompt and strips the consult_finance_delta
+// tool so we can't loop back.
+//
+// SCOPE: enforced by the model via the tightened bridgeMode prompt + by
+// the runtime tool-strip. The endpoint itself trusts the token; access
+// scoping is the model's job, with the bridge contract documented in
+// CLAUDE.md.
+// ====================================================================
+
+// In-memory loop guard. requestIds expire after 60s — long enough to
+// catch sibling-service retries, short enough not to grow unbounded.
+// The Finance side carries primary loop-prevention responsibility; this
+// is the safety net.
+const recentBridgeIds = new Set();
+
+// Resolve the pilot bridge user (Shahryar) by email at boot. This is
+// the user identity the bridge endpoint uses to source context (inbox
+// snapshot, memories, etc.). When multi-user lands we'll replace this
+// with a per-tenant or per-request mapping.
+let BRIDGE_USER_ID = null;
+let BRIDGE_USER_EMAIL = "shahryar@transformiran.com";
+async function resolveBridgeUserId() {
+  try {
+    const r = await pool.query(
+      `SELECT id FROM users WHERE LOWER(email) = LOWER($1) LIMIT 1`,
+      [BRIDGE_USER_EMAIL]
+    );
+    BRIDGE_USER_ID = r.rows[0]?.id ? Number(r.rows[0].id) : null;
+    if (BRIDGE_USER_ID) console.log(`[delta-bridge] pilot user id resolved: ${BRIDGE_USER_ID} (${BRIDGE_USER_EMAIL})`);
+  } catch (err) {
+    console.warn("[delta-bridge] failed to resolve pilot user:", err.message);
+  }
+}
+
+app.post("/api/delta-bridge/query", async (req, res) => {
+  const startedAt = Date.now();
+  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "")
+              || req.query.token;
+  if (!process.env.DELTA_BRIDGE_TOKEN || token !== process.env.DELTA_BRIDGE_TOKEN) {
+    return res.status(401).json({ ok: false, error: "Invalid bridge token" });
+  }
+  const { question, requestId, fromService } = req.body || {};
+  if (!question || typeof question !== "string" || question.length > 4000) {
+    return res.status(400).json({ ok: false, error: "question required (max 4000 chars)" });
+  }
+  if (fromService !== "finance") {
+    return res.status(400).json({ ok: false, error: "fromService must be 'finance'" });
+  }
+  // Loop guard — refuse if we just answered a call with the same
+  // requestId. Basic in-memory dedupe; the finance side is responsible
+  // for primary loop prevention.
+  if (recentBridgeIds.has(requestId)) {
+    return res.status(409).json({ ok: false, error: "duplicate requestId — loop suspected" });
+  }
+  recentBridgeIds.add(requestId);
+  setTimeout(() => recentBridgeIds.delete(requestId), 60_000);
+
+  // Make sure we have a pilot user id by the time the first bridge
+  // request arrives.
+  if (!BRIDGE_USER_ID) await resolveBridgeUserId();
+  if (!BRIDGE_USER_ID) {
+    return res.status(503).json({ ok: false, error: "Pilot bridge user not yet provisioned in this service" });
+  }
+
+  try {
+    // Call our own Delta with the bridge-consultation system prompt
+    // active. assistant.chat() tightens scope and strips the
+    // consult_finance_delta tool so we can't bounce back.
+    const result = await assistant.chat({
+      user: { id: BRIDGE_USER_ID, email: BRIDGE_USER_EMAIL },
+      history: [],
+      userMessage: question,
+      bridgeMode: "finance-consultation",
+    });
+    // Audit-log the incoming call. Hash the question; record only the
+    // reply length. Matches the contract on the finance side.
+    assistant.logBridgeCall({
+      direction: "in",
+      peer: "finance",
+      question,
+      replyLength: (result.reply || "").length,
+      tookMs: Date.now() - startedAt,
+      requestId,
+      status: 200,
+    });
+    res.json({
+      ok: true,
+      reply: result.reply,
+      tools_used: (result.toolEvents || []).map((t) => t.name),
+      usage: result.usage,
+    });
+  } catch (e) {
+    assistant.logBridgeCall({
+      direction: "in",
+      peer: "finance",
+      question,
+      replyLength: 0,
+      tookMs: Date.now() - startedAt,
+      requestId,
+      status: 500,
+      error: e.message,
+    });
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// ====================================================================
 // Contacts API — per-user people directory
 // ====================================================================
 app.get("/api/contacts", auth.requireAuth, async (req, res) => {
@@ -2538,6 +2654,8 @@ dbReady
     startVoiceDistillWorker();
     startDecisionRuleMinerWorker();
     startGmailPushRenewerWorker();
+    // Resolve pilot bridge user id at boot (logs a warning if missing).
+    resolveBridgeUserId().catch(() => {});
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
