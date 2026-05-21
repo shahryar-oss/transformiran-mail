@@ -3630,3 +3630,86 @@ body.delta-panel-open .delta-fab { display: none; }
   font-weight: 600;
 }
 .bc-reply-status a:hover { text-decoration: underline; }
+
+/* ===================================================================
+ * RULE SUGGESTION CARD — Phase 5.AF.
+ * Appears in chat when the miner finds a high-confidence behavioural
+ * pattern worth confirming. Smaller and softer than the briefing card.
+ * =================================================================== */
+.rule-suggestion {
+  margin: 8px 12px;
+  padding: 12px 14px;
+  background: var(--cream-deep, #f3eedf);
+  border-left: 3px solid var(--gold, #b28e44);
+  border-radius: 8px;
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(40, 47, 57, 0.06);
+  animation: rs-in .25s ease-out;
+}
+@keyframes rs-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rule-suggestion.rs-fadeout {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.rule-suggestion .rs-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.rule-suggestion .rs-head .k-logo {
+  width: 14px; height: 14px;
+}
+.rule-suggestion .rs-title {
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--gold-dark, #8a6b2a);
+  font-weight: 700;
+}
+.rule-suggestion .rs-prompt {
+  color: var(--navy, #282f39);
+  line-height: 1.45;
+  margin-bottom: 10px;
+}
+.rule-suggestion .rs-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rule-suggestion .rs-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--gold, #b28e44);
+  background: white;
+  color: var(--navy, #282f39);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.rule-suggestion .rs-btn:hover:not(:disabled) {
+  background: var(--gold-soft, rgba(178, 142, 68, .1));
+}
+.rule-suggestion .rs-btn.rs-confirm {
+  background: var(--gold, #b28e44);
+  color: white;
+  box-shadow: 0 2px 6px rgba(178, 142, 68, .25);
+}
+.rule-suggestion .rs-btn.rs-confirm:hover:not(:disabled) {
+  background: var(--gold-dark, #8a6b2a);
+}
+.rule-suggestion .rs-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.rule-suggestion .rs-status {
+  font-size: 11px;
+  color: var(--muted, #6b6b6b);
+  margin-left: 4px;
+}
+.rule-suggestion .rs-status.ok    { color: var(--good, #2ea043); font-weight: 600; }
+.rule-suggestion .rs-status.error { color: var(--bad, #d12d2d); }

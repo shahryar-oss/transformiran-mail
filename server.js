@@ -515,6 +515,114 @@ app.post("/api/briefing/save-draft", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Decision Rules API — Phase 5.AF. Pattern mining + confirm-first rules.
+// GET    /api/decision-rules/candidates                 → pending suggestions
+// POST   /api/decision-rules/candidates/:id/confirm     → promote to rule
+// POST   /api/decision-rules/candidates/:id/reject      → mark rejected
+// GET    /api/decision-rules/rules                      → active rules
+// PATCH  /api/decision-rules/rules/:id                  → enable/disable
+// DELETE /api/decision-rules/rules/:id                  → remove rule
+// POST   /api/decision-rules/mine                       → force mine now (admin)
+// ====================================================================
+app.get("/api/decision-rules/candidates", auth.requireAuth, async (req, res) => {
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const candidates = await decisionRules.listPendingCandidates(req.user.id);
+    res.json({
+      ok: true,
+      candidates: candidates.map((c) => ({
+        ...c,
+        prompt: decisionRules.describeCandidate(c),
+      })),
+    });
+  } catch (err) {
+    console.error("[/api/decision-rules/candidates] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/decision-rules/candidates/:id/confirm", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const result = await decisionRules.confirmCandidate(req.user.id, id);
+    if (!result.ok) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/decision-rules/candidates/:id/confirm] failed:", err);
+    res.status(500).json({ error: "confirm_failed", message: err.message });
+  }
+});
+
+app.post("/api/decision-rules/candidates/:id/reject", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const result = await decisionRules.rejectCandidate(req.user.id, id);
+    if (!result.ok) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/decision-rules/candidates/:id/reject] failed:", err);
+    res.status(500).json({ error: "reject_failed", message: err.message });
+  }
+});
+
+app.get("/api/decision-rules/rules", auth.requireAuth, async (req, res) => {
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const rules = await decisionRules.listActiveRules(req.user.id);
+    res.json({ ok: true, rules });
+  } catch (err) {
+    console.error("[/api/decision-rules/rules] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.patch("/api/decision-rules/rules/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  const { enabled } = req.body || {};
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const result = enabled
+      ? await decisionRules.enableRule(req.user.id, id)
+      : await decisionRules.disableRule(req.user.id, id);
+    if (!result.ok) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/decision-rules/rules/:id] PATCH failed:", err);
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.delete("/api/decision-rules/rules/:id", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const result = await decisionRules.deleteRule(req.user.id, id);
+    if (!result.ok) return res.status(404).json(result);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/decision-rules/rules/:id] DELETE failed:", err);
+    res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+app.post("/api/decision-rules/mine", auth.requireAuth, async (req, res) => {
+  try {
+    const decisionRules = require("./lib/decisionRules");
+    const result = await decisionRules.mineCandidates(req.user.id);
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[/api/decision-rules/mine] failed:", err);
+    res.status(500).json({ error: "mine_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Voice Profile API — Phase 5.AE. Edit-diff learning surface.
 // GET  /api/voice/profile         → stats + distilled cheatsheet
 // POST /api/voice/distill         → force a re-distill now (manual refresh)
@@ -1049,6 +1157,18 @@ app.post("/api/inbox/bulk-action", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // Phase 5.AF — log each thread-level action for decision-rule mining.
+    // Best-effort: failures don't affect the response. We log BEFORE
+    // invalidating cache… wait, we already invalidated above. Cache still
+    // has the rows briefly because invalidation marks-for-refresh rather
+    // than deleting — but to be safe we capture metadata up front next time.
+    try {
+      const decisionRules = require("./lib/decisionRules");
+      await decisionRules.logActionsForThreads(req.user, action, threadIds);
+    } catch (err) {
+      console.warn("[bulk-action] action log failed:", err.message);
+    }
+
     res.json({ ok: true, ...results });
   } catch (err) {
     console.error("[/api/inbox/bulk-action] failed:", err);
@@ -1246,6 +1366,41 @@ app.post("/api/gmail/message/:id/labels", auth.requireAuth, async (req, res) => 
       if (add.includes("STARRED"))   await inboxCache.setStarred(req.user.id, id, true);
       if (remove.includes("STARRED")) await inboxCache.setStarred(req.user.id, id, false);
     } catch (_) {}
+
+    // Phase 5.AF — log label changes as either "archive" (INBOX removed)
+    // or generic "label" so the miner can find sender-level archive
+    // patterns even when users single-click Archive from the row hover.
+    try {
+      const decisionRules = require("./lib/decisionRules");
+      // Look up cached metadata by message_id.
+      const metaRow = await pool.query(
+        `SELECT thread_id, from_header, subject FROM inbox_cache
+          WHERE user_id = $1 AND message_id = $2 LIMIT 1`,
+        [req.user.id, id]
+      );
+      const meta = metaRow.rows[0];
+      if (meta) {
+        if (remove.includes("INBOX")) {
+          await decisionRules.logAction(req.user, "archive", {
+            messageId: id,
+            threadId: meta.thread_id,
+            from: meta.from_header,
+            subject: meta.subject,
+          });
+        } else if (add.length || remove.length) {
+          await decisionRules.logAction(req.user, "label", {
+            messageId: id,
+            threadId: meta.thread_id,
+            from: meta.from_header,
+            subject: meta.subject,
+            signals: { add, remove },
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[/api/gmail/message/:id/labels] action log failed:", err.message);
+    }
+
     res.json({ ok: true, labelIds: r.data.labelIds || [] });
   } catch (err) {
     console.error("[/api/gmail/message/:id/labels] failed:", err);
@@ -1262,8 +1417,35 @@ app.post("/api/gmail/message/:id/trash", auth.requireAuth, async (req, res) => {
     if (!creds) return res.status(400).json({ error: "no_google_creds" });
     const client = gmail.authedClientFromTokens(creds);
     const g = google.gmail({ version: "v1", auth: client });
+    // Capture metadata BEFORE invalidating, so action-log has sender info.
+    let trashMeta = null;
+    try {
+      const r = await pool.query(
+        `SELECT thread_id, from_header, subject FROM inbox_cache
+          WHERE user_id = $1 AND message_id = $2 LIMIT 1`,
+        [req.user.id, id]
+      );
+      trashMeta = r.rows[0] || null;
+    } catch (_) {}
+
     await g.users.messages.trash({ userId: "me", id });
     try { await inboxCache.invalidateMessage(req.user.id, id); } catch (_) {}
+
+    // Phase 5.AF — log the delete for decision-rule mining.
+    if (trashMeta) {
+      try {
+        const decisionRules = require("./lib/decisionRules");
+        await decisionRules.logAction(req.user, "delete", {
+          messageId: id,
+          threadId: trashMeta.thread_id,
+          from: trashMeta.from_header,
+          subject: trashMeta.subject,
+        });
+      } catch (err) {
+        console.warn("[/api/gmail/message/:id/trash] action log failed:", err.message);
+      }
+    }
+
     res.json({ ok: true });
   } catch (err) {
     console.error("[/api/gmail/message/:id/trash] failed:", err);
@@ -1285,6 +1467,19 @@ app.post("/api/inbox/snooze", auth.requireAuth, async (req, res) => {
       snoozeUntil,
       stub: stub || {},
     });
+    // Phase 5.AF — log this snooze for decision-rule mining.
+    try {
+      const decisionRules = require("./lib/decisionRules");
+      await decisionRules.logAction(req.user, "snooze", {
+        messageId,
+        threadId,
+        from: stub?.from || row?.from_header,
+        subject: stub?.subject || row?.subject,
+        signals: { snooze_until: snoozeUntil },
+      });
+    } catch (err) {
+      console.warn("[/api/inbox/snooze] action log failed:", err.message);
+    }
     res.json({ ok: true, snoozeUntil: row.snooze_until, id: Number(row.id) });
   } catch (err) {
     console.error("[/api/inbox/snooze] failed:", err);
@@ -1617,10 +1812,40 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // ---- 2b. Phase 5.AF — Apply confirmed decision rules. Each matched
+    // message gets actioned (archive / delete / mark_done) and stripped
+    // from the to-be-classified set so we don't pay classifier tokens
+    // for mail we already auto-handled.
+    let ruleHandledIds = [];
+    let ruleByAction = {};
+    try {
+      const decisionRules = require("./lib/decisionRules");
+      const creds = await auth.loadGoogleCreds(req.user.id);
+      let g = null;
+      if (creds) {
+        const oauthClient = gmail.authedClientFromTokens(creds);
+        g = google.gmail({ version: "v1", auth: oauthClient });
+      }
+      const result = await decisionRules.applyRulesTo(req.user, g, enriched);
+      ruleHandledIds = result.handled.map((h) => h.id);
+      ruleByAction = result.byAction;
+      // Invalidate inbox cache + mark-done where appropriate.
+      for (const h of result.handled) {
+        try { await inboxCache.invalidateMessage(req.user.id, h.id); } catch (_) {}
+      }
+      const markDoneIds = result.handled.filter((h) => h.action === "mark_done").map((h) => h.id);
+      if (markDoneIds.length) {
+        await classifier.markMessagesDone(req.user.id, markDoneIds, "Auto-applied rule");
+      }
+    } catch (err) {
+      console.warn("[classify] rule application failed:", err.message);
+    }
+    const toClassify = enriched.filter((m) => !ruleHandledIds.includes(m.id));
+
     // ---- 3. Classify the enriched set (and pick up any already-cached). ----
     const aiClassifications = await classifier.classifyForUser(
       req.user,
-      enriched,
+      toClassify,
       { force: !!force }
     );
 
@@ -1634,11 +1859,22 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
         reason: "Replied — live sync",
       };
     }
+    // Rule-handled messages return as DONE / archived so the row hides.
+    for (const id of ruleHandledIds) {
+      full[id] = {
+        id,
+        category: "DONE",
+        urgency: "low",
+        reason: "Auto-handled by your rule",
+      };
+    }
 
     res.json({
       classifications: full,
       count: Object.keys(full).length,
       liveSyncCount,
+      ruleHandledCount: ruleHandledIds.length,
+      ruleByAction,
     });
   } catch (err) {
     console.error("[/api/classify] failed:", err);
@@ -1968,6 +2204,20 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // Phase 5.AF — log this reply (and the implicit archive) for
+    // decision-rule mining. Best-effort.
+    if (threadId) {
+      try {
+        const decisionRules = require("./lib/decisionRules");
+        await decisionRules.logActionsForThreads(req.user, "reply", [threadId]);
+        if (archivedThreadId) {
+          await decisionRules.logActionsForThreads(req.user, "archive", [archivedThreadId]);
+        }
+      } catch (err) {
+        console.warn("[/api/gmail/send] action log failed:", err.message);
+      }
+    }
+
     res.json({
       ok: true,
       sentMessageId: sendRes.data.id,
@@ -2203,6 +2453,7 @@ dbReady
       console.warn("[boot] briefing schema/worker failed (non-fatal):", err.message);
     }
     startVoiceDistillWorker();
+    startDecisionRuleMinerWorker();
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
@@ -2374,6 +2625,44 @@ function startVoiceDistillWorker() {
   setTimeout(cycle, 120_000); // 2 min after boot — let the rest settle
   setInterval(cycle, 6 * 60 * 60 * 1000); // every 6 hours
   console.log("[boot] voice distill scheduled (cycle 6h, 5 users/cycle)");
+}
+
+// ====================================================================
+// DECISION-RULE MINER WORKER — Phase 5.AF. Every 12h, scans the action
+// log per user and proposes high-confidence patterns. Candidates land
+// in delta_rule_candidates and the next time the user opens Delta's
+// chat they see "I noticed a pattern — confirm?" cards. Also prunes
+// old action-log rows on the same cadence.
+// ====================================================================
+function startDecisionRuleMinerWorker() {
+  const decisionRules = require("./lib/decisionRules");
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const userIds = await decisionRules.listUsersNeedingMine({ limit: 10 });
+      for (const uid of userIds) {
+        try {
+          const result = await decisionRules.mineCandidates(uid);
+          if (result.inserted > 0) {
+            console.log(`[decision-miner] user ${uid}: ${result.inserted} new candidates`);
+          }
+        } catch (err) {
+          console.warn(`[decision-miner] user ${uid} failed:`, err.message);
+        }
+      }
+      const pruned = await decisionRules.prune({});
+      if (pruned > 0) console.log(`[decision-miner] pruned ${pruned} old action-log rows`);
+    } catch (err) {
+      console.error("[decision-miner] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 180_000); // 3 min after boot
+  setInterval(cycle, 12 * 60 * 60 * 1000); // every 12h
+  console.log("[boot] decision-rule miner scheduled (cycle 12h, 10 users/cycle)");
 }
 
 // ====================================================================
