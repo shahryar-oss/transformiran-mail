@@ -2009,6 +2009,7 @@ dbReady
     startBackfillWorker();
     startInboxCacheWorker();
     startSnoozeWakeWorker();
+    startMemoryEmbeddingBackfillWorker();
     try {
       await memoryExtractor.ensureSchema();
       startMemoryExtractorWorker();
@@ -2081,6 +2082,34 @@ function startInboxCacheWorker() {
   setTimeout(cycle, 5_000);
   setInterval(cycle, 30_000);
   console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness)");
+}
+
+// ====================================================================
+// MEMORY EMBEDDING BACKFILL — Phase 5.AC. Once per minute, look for
+// delta_memory rows without an embedding and generate one (via OpenAI).
+// Throttled to 25 rows per cycle to keep the OpenAI bill predictable.
+// No-op when OPENAI_API_KEY isn't set.
+// ====================================================================
+function startMemoryEmbeddingBackfillWorker() {
+  const memory = require("./lib/memory");
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const result = await memory.backfillEmbeddings({ limit: 25 });
+      if (result.backfilled > 0) {
+        console.log(`[memory-embedding-backfill] backfilled ${result.backfilled} memories`);
+      }
+    } catch (err) {
+      console.error("[memory-embedding-backfill] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 30_000);
+  setInterval(cycle, 60_000);
+  console.log("[boot] memory embedding backfill scheduled (cycle 60s, 25/cycle)");
 }
 
 // ====================================================================
