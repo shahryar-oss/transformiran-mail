@@ -20,6 +20,7 @@ const inboxCache = require("./lib/inbox_cache");
 const calendarLib = require("./lib/calendar");
 const contactsLib = require("./lib/contacts");
 const snooze = require("./lib/snooze");
+const briefing = require("./lib/briefing");
 const mime = require("./lib/mime");
 const { google } = require("googleapis");
 
@@ -380,6 +381,136 @@ app.delete("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/calendar/events/:id] delete failed:", err);
     res.status(500).json({ error: "delete_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Morning briefing — Phase 5.AD. Lazy-generated daily brief delivered as
+// a chat card when the user opens Delta on a new day.
+// ====================================================================
+app.get("/api/briefing/today", auth.requireAuth, async (req, res) => {
+  try {
+    const row = await briefing.getTodayForUser(req.user, { allowGenerate: true });
+    if (!row) return res.json({ ok: false, brief: null });
+    res.json({
+      ok: true,
+      id: Number(row.id),
+      date: row.briefing_date,
+      generated_at: row.generated_at,
+      shown_at: row.shown_at,
+      dismissed_at: row.dismissed_at,
+      brief: typeof row.brief_json === "string" ? JSON.parse(row.brief_json) : row.brief_json,
+    });
+  } catch (err) {
+    console.error("[/api/briefing/today] failed:", err);
+    res.status(500).json({ error: "generate_failed", message: err.message });
+  }
+});
+
+app.post("/api/briefing/shown", auth.requireAuth, async (req, res) => {
+  try {
+    await briefing.markShown(req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "mark_shown_failed", message: err.message });
+  }
+});
+
+app.post("/api/briefing/dismiss", auth.requireAuth, async (req, res) => {
+  try {
+    await briefing.markDismissed(req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
+// Save one of the briefing's pre-drafted replies straight to Gmail Drafts.
+// The body is the draft text from the brief; we look up the message_id to
+// thread it correctly + grab the From header for the To field.
+app.post("/api/briefing/save-draft", auth.requireAuth, async (req, res) => {
+  const { messageId, draft, subject } = req.body || {};
+  if (!messageId || !draft) return res.status(400).json({ error: "messageId_and_draft_required" });
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+
+    // Look up the source message to get From / Subject / Message-ID headers.
+    const src = await g.users.messages.get({
+      userId: "me",
+      id: messageId,
+      format: "metadata",
+      metadataHeaders: ["From", "Subject", "Message-ID"],
+    });
+    const headers = mime.headersToMap(src.data.payload?.headers || []);
+    const to = headers.from || "";
+    const replySubject = subject || (
+      /^re:/i.test(headers.subject || "") ? headers.subject : `Re: ${headers.subject || ""}`
+    );
+    const threadId = src.data.threadId;
+    const inReplyTo = headers["message-id"];
+
+    // Honor user's signature mode (same as /api/gmail/draft).
+    const sig = await gmail.getCachedSignature(req.user.id, client);
+    const mode = req.user.signature_mode || "always";
+    const useSig =
+      mode === "never" ? false :
+      mode === "first" ? !inReplyTo : true;
+    const sigHtml = useSig && sig?.html ? sig.html : "";
+    const sigText = useSig && sig ? gmail.signatureToPlainText(sig.html) : "";
+
+    const raw = require("./lib/mime").buildReplyMessage
+      ? mime.buildReplyMessage({ to, subject: replySubject, bodyText: draft, signatureText: sigText, signatureHtml: sigHtml, inReplyTo })
+      : null;
+    // Fallback if buildReplyMessage isn't exported — use buildMultipartMessage
+    const finalRaw = raw || (typeof buildMultipartMessage === "function"
+      ? buildMultipartMessage({ to, subject: replySubject, bodyText: draft, signatureText: sigText, signatureHtml: sigHtml, inReplyTo })
+      : null);
+
+    if (!finalRaw) {
+      // Build a minimal RFC822 raw message ourselves
+      const headerLines = [
+        `To: ${to}`,
+        `Subject: ${replySubject}`,
+        inReplyTo ? `In-Reply-To: ${inReplyTo}` : null,
+        inReplyTo ? `References: ${inReplyTo}` : null,
+        "Content-Type: text/plain; charset=utf-8",
+        "MIME-Version: 1.0",
+        "",
+      ].filter(Boolean).join("\r\n");
+      const bodyWithSig = sigText ? `${draft}\n\n${sigText}` : draft;
+      const rfc = `${headerLines}\r\n${bodyWithSig}`;
+      const b64 = Buffer.from(rfc, "utf-8").toString("base64")
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+      const draftRes = await g.users.drafts.create({
+        userId: "me",
+        requestBody: {
+          message: { raw: b64, ...(threadId ? { threadId } : {}) },
+        },
+      });
+      return res.json({
+        ok: true,
+        draftId: draftRes.data.id,
+        gmailUrl: `https://mail.google.com/mail/u/0/#drafts`,
+      });
+    }
+
+    const draftRes = await g.users.drafts.create({
+      userId: "me",
+      requestBody: {
+        message: { raw: finalRaw, ...(threadId ? { threadId } : {}) },
+      },
+    });
+    res.json({
+      ok: true,
+      draftId: draftRes.data.id,
+      gmailUrl: `https://mail.google.com/mail/u/0/#drafts`,
+    });
+  } catch (err) {
+    console.error("[/api/briefing/save-draft] failed:", err);
+    res.status(500).json({ error: "save_draft_failed", message: err.message });
   }
 });
 
@@ -2016,6 +2147,12 @@ dbReady
     } catch (err) {
       console.warn("[boot] memory extractor schema/worker failed (non-fatal):", err.message);
     }
+    try {
+      await briefing.ensureSchema();
+      startBriefingPrewarmWorker();
+    } catch (err) {
+      console.warn("[boot] briefing schema/worker failed (non-fatal):", err.message);
+    }
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
@@ -2082,6 +2219,42 @@ function startInboxCacheWorker() {
   setTimeout(cycle, 5_000);
   setInterval(cycle, 30_000);
   console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness)");
+}
+
+// ====================================================================
+// MORNING BRIEFING PRE-WARM — Phase 5.AD. Every 15 minutes between
+// 04:00–10:00 UTC, generate today's brief for any user who hasn't gotten
+// one yet. Users who open Delta first still hit the lazy path and get
+// the brief generated on-demand.
+// ====================================================================
+function startBriefingPrewarmWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    const hourUTC = new Date().getUTCHours();
+    // Only run during morning prep window — outside this, lazy generation
+    // on /api/briefing/today handles it.
+    if (hourUTC < 3 || hourUTC > 11) return;
+    running = true;
+    try {
+      const due = await briefing.listUsersNeedingBrief({ limit: 3 });
+      for (const user of due) {
+        try {
+          await briefing.generateForUser(user);
+          console.log(`[briefing-prewarm] generated for user ${user.id} (${user.email})`);
+        } catch (err) {
+          console.warn(`[briefing-prewarm] user ${user.id} failed:`, err.message);
+        }
+      }
+    } catch (err) {
+      console.error("[briefing-prewarm] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 60_000);            // 1 min after boot
+  setInterval(cycle, 15 * 60 * 1000);   // every 15 min
+  console.log("[boot] briefing prewarm scheduled (cycle 15m, window 03-11 UTC)");
 }
 
 // ====================================================================

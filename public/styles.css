@@ -3411,3 +3411,222 @@ body.delta-panel-open .delta-fab { display: none; }
   flex-shrink: 0;
   letter-spacing: .2px;
 }
+
+/* ============================================================
+   MORNING BRIEFING CARD (Phase 5.AD)
+   Delivered as the first card in the chat panel on the first open
+   of the day. Cream + gold + navy. Inline pre-drafted replies.
+   ============================================================ */
+.briefing-card {
+  background: var(--paper);
+  border: 1px solid var(--gold);
+  border-left: 4px solid var(--gold);
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin: 8px 0;
+  align-self: stretch;
+  max-width: 100%;
+  box-shadow: 0 6px 20px rgba(178, 142, 68, .14);
+}
+.briefing-card.briefing-loading {
+  border-left: 4px solid var(--line);
+  border-color: var(--line);
+  color: var(--muted);
+  font-size: 13px;
+}
+.bc-loading-text {
+  padding: 4px 0;
+  font-style: italic;
+}
+.bc-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.bc-head-text {
+  display: flex;
+  flex-direction: column;
+}
+.bc-greeting {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--gold-dark);
+}
+.bc-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+  margin-top: 2px;
+}
+.bc-dismiss {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 20px;
+  cursor: pointer;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  line-height: 1;
+}
+.bc-dismiss:hover { background: var(--cream); color: var(--navy); }
+.bc-headline {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--navy);
+  line-height: 1.4;
+  margin: 6px 0 10px;
+}
+.bc-section { margin-top: 10px; }
+.bc-section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--muted);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bc-count {
+  background: var(--gold);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+}
+.bc-priorities {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--navy);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.bc-priorities li { margin-bottom: 3px; }
+.bc-priorities li::marker { color: var(--gold-dark); }
+.bc-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--navy-soft);
+  padding: 4px 0;
+}
+.bc-inline-icon {
+  color: var(--gold-dark);
+  flex-shrink: 0;
+}
+.bc-inline-icon svg { width: 13px; height: 13px; fill: currentColor; }
+
+/* Pre-drafted replies stack */
+.bc-replies {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bc-reply {
+  background: var(--cream);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.bc-reply-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.bc-reply-num {
+  background: var(--navy);
+  color: white;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.bc-reply-meta { flex: 1; min-width: 0; }
+.bc-reply-sender {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-reply-subject {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bc-reply-why {
+  font-size: 11.5px;
+  color: var(--gold-dark);
+  font-style: italic;
+  margin-bottom: 6px;
+}
+.bc-reply-body {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--navy);
+  outline: none;
+  resize: vertical;
+  min-height: 90px;
+  line-height: 1.5;
+}
+.bc-reply-body:focus { border-color: var(--gold); }
+.bc-reply-actions {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bc-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--navy);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.bc-btn:hover { border-color: var(--gold); }
+.bc-btn:disabled { opacity: .5; cursor: not-allowed; }
+.bc-btn.bc-save {
+  background: var(--red);
+  color: white;
+  border-color: var(--red);
+  box-shadow: 0 2px 6px rgba(233, 42, 46, .22);
+}
+.bc-btn.bc-save:hover:not(:disabled) { background: var(--red-dark); }
+.bc-reply-status {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+.bc-reply-status.ok    { color: var(--good); font-weight: 600; }
+.bc-reply-status.error { color: var(--bad); }
+.bc-reply-status a {
+  color: var(--gold-dark);
+  text-decoration: none;
+  font-weight: 600;
+}
+.bc-reply-status a:hover { text-decoration: underline; }
