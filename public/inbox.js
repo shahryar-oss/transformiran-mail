@@ -1340,6 +1340,9 @@
             body: bodyTa.value,
             threadId: currentDraft.threadId,
             inReplyTo: currentDraft.inReplyTo,
+            // Phase 5.AE — Carry Delta's draft id so the server can
+            // diff what was actually sent against the original draft.
+            deltaDraftId: currentDraft.deltaDraftId || null,
           }),
         });
         const data = await r.json();

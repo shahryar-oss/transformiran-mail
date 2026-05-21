@@ -515,6 +515,36 @@ app.post("/api/briefing/save-draft", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Voice Profile API — Phase 5.AE. Edit-diff learning surface.
+// GET  /api/voice/profile         → stats + distilled cheatsheet
+// POST /api/voice/distill         → force a re-distill now (manual refresh)
+// ====================================================================
+app.get("/api/voice/profile", auth.requireAuth, async (req, res) => {
+  try {
+    const voice = require("./lib/voice");
+    const stats = await voice.getStats(req.user.id);
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    console.error("[/api/voice/profile] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/voice/distill", auth.requireAuth, async (req, res) => {
+  try {
+    const voice = require("./lib/voice");
+    // Triggered by a "refresh now" button. Will succeed if at least
+    // REDISTILL_AFTER_NEW_EDITS edits have accumulated since the last
+    // distill (or there's no profile yet and enough edits exist).
+    const result = await voice.distillProfile(req.user);
+    res.json({ ok: true, result });
+  } catch (err) {
+    console.error("[/api/voice/distill] failed:", err);
+    res.status(500).json({ error: "distill_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Contacts API — per-user people directory
 // ====================================================================
 app.get("/api/contacts", auth.requireAuth, async (req, res) => {
@@ -1738,6 +1768,10 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       inReplyTo: result.inReplyTo,
       styleExamples: result.styleExamples,
       signatureAvailable,
+      // Phase 5.AE — opaque id the client carries back through send so
+      // we can capture the user's edits.
+      deltaDraftId: result.deltaDraftId || null,
+      voiceProfileApplied: !!result.voiceProfileApplied,
     });
   } catch (err) {
     console.error("[/api/assistant/draft] failed:", err);
@@ -1852,7 +1886,7 @@ app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
 // is the actual send call. This is the trust line: human clicks Send;
 // Delta never auto-sends without that explicit click.
 app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
-  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo } = req.body || {};
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deltaDraftId } = req.body || {};
   if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
@@ -1920,6 +1954,20 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // Phase 5.AE — if this send carries a Delta draft id, look up the
+    // original draft + diff against what was actually sent. The diff is
+    // the "voice signal" Delta will learn from. Best-effort; failure does
+    // not affect the user-visible send result.
+    let voiceRecorded = null;
+    if (deltaDraftId) {
+      try {
+        const voice = require("./lib/voice");
+        voiceRecorded = await voice.recordSend(req.user.id, deltaDraftId, body || bodyHtml || "");
+      } catch (err) {
+        console.warn("[/api/gmail/send] voice capture failed:", err.message);
+      }
+    }
+
     res.json({
       ok: true,
       sentMessageId: sendRes.data.id,
@@ -1928,6 +1976,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       archived: !!archivedThreadId,
       archivedThreadId,
       markedDone,
+      voiceRecorded,
     });
   } catch (err) {
     console.error("[/api/gmail/send] failed:", err);
@@ -2153,6 +2202,7 @@ dbReady
     } catch (err) {
       console.warn("[boot] briefing schema/worker failed (non-fatal):", err.message);
     }
+    startVoiceDistillWorker();
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
@@ -2283,6 +2333,47 @@ function startMemoryEmbeddingBackfillWorker() {
   setTimeout(cycle, 30_000);
   setInterval(cycle, 60_000);
   console.log("[boot] memory embedding backfill scheduled (cycle 60s, 25/cycle)");
+}
+
+// ====================================================================
+// VOICE DISTILL WORKER — Phase 5.AE. Every 6h, picks up to 5 users who
+// have accumulated enough new edits since their last voice-profile
+// distill, and refreshes the profile from their recent edits. Most
+// users will also see their profile refreshed opportunistically right
+// after a send via voice.distillProfileIfReady(), so this worker is
+// mostly a safety net for slow-trickle users.
+//
+// Also prunes original-draft rows older than 30d on the same cadence.
+// ====================================================================
+function startVoiceDistillWorker() {
+  const voice = require("./lib/voice");
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const due = await voice.listUsersNeedingDistill({ limit: 5 });
+      for (const user of due) {
+        try {
+          const result = await voice.distillProfile(user);
+          if (result.ok) {
+            console.log(`[voice-distill] user ${user.id} (${user.email}): refreshed from ${result.distilled_from} edits`);
+          }
+        } catch (err) {
+          console.warn(`[voice-distill] user ${user.id} failed:`, err.message);
+        }
+      }
+      const pruned = await voice.pruneOriginals({ olderThanDays: 30 });
+      if (pruned > 0) console.log(`[voice-distill] pruned ${pruned} old draft originals`);
+    } catch (err) {
+      console.error("[voice-distill] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 120_000); // 2 min after boot — let the rest settle
+  setInterval(cycle, 6 * 60 * 60 * 1000); // every 6 hours
+  console.log("[boot] voice distill scheduled (cycle 6h, 5 users/cycle)");
 }
 
 // ====================================================================
