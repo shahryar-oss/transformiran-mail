@@ -3823,3 +3823,26 @@ body.delta-panel-open .delta-fab { display: none; }
   border-color: var(--gold, #b28e44);
 }
 .briefing-card .bc-btn.bc-reply-listen.playing svg { fill: white; }
+
+/* TTS toast — small floating status pill bottom-right. Used when
+ * voice generation starts, succeeds, or fails so silence is never
+ * an acceptable failure mode for an audio feature. */
+.delta-tts-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: var(--navy, #282f39);
+  color: white;
+  padding: 10px 16px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(40, 47, 57, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s ease;
+  max-width: 360px;
+}
+.delta-tts-toast.ok    { background: #2ea043; }
+.delta-tts-toast.error { background: var(--red, #e92a2e); }
