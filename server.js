@@ -515,6 +515,89 @@ app.post("/api/briefing/save-draft", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Gmail Push (Cloud Pub/Sub) — Phase 5.AG. Real-time inbox.
+// POST /api/gmail/push/webhook       → Pub/Sub destination (no auth header;
+//                                       shared-secret in ?token=)
+// POST /api/gmail/push/enable        → start watch for this user
+// POST /api/gmail/push/disable       → stop watch
+// GET  /api/gmail/push/status        → watch state for this user
+// ====================================================================
+
+// Pub/Sub webhook. Mounted as plain POST — auth is the shared-secret
+// `token` query param matched against GMAIL_PUSH_TOKEN. Pub/Sub will
+// retry on 5xx, so we always 200 unless the token's wrong.
+app.post("/api/gmail/push/webhook", async (req, res) => {
+  try {
+    const gmailPush = require("./lib/gmailPush");
+    if (!gmailPush.isEnabled()) {
+      // Acknowledge to stop Pub/Sub retries when push isn't configured.
+      return res.status(204).end();
+    }
+    if (req.query.token !== gmailPush.PUSH_TOKEN) {
+      console.warn("[push/webhook] bad token from", req.ip);
+      return res.status(401).json({ error: "bad_token" });
+    }
+    // Process asynchronously — Pub/Sub timeout is generous but we want
+    // to ack quickly so it doesn't retry on slow processing.
+    gmailPush.handleNotification(req.body).then((result) => {
+      if (!result?.ok) {
+        console.warn("[push/webhook] handler returned non-ok:", result?.error);
+      } else if (result.newMessageIds > 0) {
+        console.log(`[push/webhook] user ${result.user_id}: ${result.newMessageIds} new, ${result.ruleHandled} auto-handled`);
+      }
+    }).catch((err) => {
+      console.error("[push/webhook] handler failed:", err);
+    });
+    res.status(204).end();
+  } catch (err) {
+    console.error("[push/webhook] failed:", err);
+    res.status(500).json({ error: "webhook_failed" });
+  }
+});
+
+app.post("/api/gmail/push/enable", auth.requireAuth, async (req, res) => {
+  try {
+    const gmailPush = require("./lib/gmailPush");
+    if (!gmailPush.isEnabled()) {
+      return res.status(400).json({ ok: false, error: "push_not_configured" });
+    }
+    const result = await gmailPush.startWatchForUser(req.user.id);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/gmail/push/enable] failed:", err);
+    res.status(500).json({ error: "enable_failed", message: err.message });
+  }
+});
+
+app.post("/api/gmail/push/disable", auth.requireAuth, async (req, res) => {
+  try {
+    const gmailPush = require("./lib/gmailPush");
+    const result = await gmailPush.stopWatchForUser(req.user.id);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/gmail/push/disable] failed:", err);
+    res.status(500).json({ error: "disable_failed", message: err.message });
+  }
+});
+
+app.get("/api/gmail/push/status", auth.requireAuth, async (req, res) => {
+  try {
+    const gmailPush = require("./lib/gmailPush");
+    const status = await gmailPush.getWatchStatus(req.user.id);
+    res.json({
+      ok: true,
+      enabled: gmailPush.isEnabled(),
+      configured: gmailPush.isEnabled(),
+      topic: gmailPush.TOPIC || null,
+      watch: status,
+    });
+  } catch (err) {
+    console.error("[/api/gmail/push/status] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Decision Rules API — Phase 5.AF. Pattern mining + confirm-first rules.
 // GET    /api/decision-rules/candidates                 → pending suggestions
 // POST   /api/decision-rules/candidates/:id/confirm     → promote to rule
@@ -2454,6 +2537,7 @@ dbReady
     }
     startVoiceDistillWorker();
     startDecisionRuleMinerWorker();
+    startGmailPushRenewerWorker();
   })
   .catch((err) => console.error("[boot] db init failed (non-fatal):", err));
 
@@ -2663,6 +2747,37 @@ function startDecisionRuleMinerWorker() {
   setTimeout(cycle, 180_000); // 3 min after boot
   setInterval(cycle, 12 * 60 * 60 * 1000); // every 12h
   console.log("[boot] decision-rule miner scheduled (cycle 12h, 10 users/cycle)");
+}
+
+// ====================================================================
+// GMAIL PUSH RENEWER — Phase 5.AG. Gmail watches expire after 7 days.
+// Once per hour, find any watch expiring within 24h and re-call
+// users.watch() so it stays active. No-op if push isn't configured.
+// ====================================================================
+function startGmailPushRenewerWorker() {
+  const gmailPush = require("./lib/gmailPush");
+  if (!gmailPush.isEnabled()) {
+    console.log("[boot] gmail-push renewer skipped (push not configured)");
+    return;
+  }
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const result = await gmailPush.renewExpiring({ withinHours: 24, limit: 10 });
+      if (result.renewed > 0) {
+        console.log(`[push-renewer] renewed ${result.renewed} watches`);
+      }
+    } catch (err) {
+      console.error("[push-renewer] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 60_000); // 1 min after boot
+  setInterval(cycle, 60 * 60 * 1000); // every hour
+  console.log("[boot] gmail-push renewer scheduled (cycle 1h)");
 }
 
 // ====================================================================
