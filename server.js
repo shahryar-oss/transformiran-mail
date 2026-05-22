@@ -706,6 +706,70 @@ app.post("/api/decision-rules/mine", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Finance-alert diagnostics — Phase 5.AJ.
+// GET  /api/finance-alerts/status     → { enabled, notify_url, watch_names }
+// GET  /api/finance-alerts/recent     → last 30 alerts sent for this user
+// POST /api/finance-alerts/test       → manually fire a test push (admin)
+// POST /api/finance-alerts/replay/:id → re-push a previously-failed alert
+// ====================================================================
+app.get("/api/finance-alerts/status", auth.requireAuth, async (req, res) => {
+  try {
+    const f = require("./lib/financeAlerts");
+    res.json({
+      ok: true,
+      enabled: f.isEnabled(),
+      watch_names: f.watchNames(),
+      notify_url: process.env.FINANCE_NOTIFY_URL || "https://transformiran.info/api/delta-bridge/notify",
+    });
+  } catch (err) {
+    res.status(500).json({ error: "status_failed", message: err.message });
+  }
+});
+
+app.get("/api/finance-alerts/recent", auth.requireAuth, async (req, res) => {
+  try {
+    const f = require("./lib/financeAlerts");
+    const limit = Math.min(Number(req.query.limit) || 30, 100);
+    const rows = await f.listRecent(req.user.id, { limit });
+    res.json({ ok: true, alerts: rows, count: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/finance-alerts/test", auth.requireAuth, async (req, res) => {
+  try {
+    const f = require("./lib/financeAlerts");
+    if (!f.isEnabled()) {
+      return res.status(503).json({ error: "bridge_not_configured" });
+    }
+    // Synthetic message to exercise the push path without needing a
+    // real inbox event.
+    const fakeMessage = {
+      message_id: "test-" + Date.now(),
+      thread_id: null,
+      from_header: req.body?.from || "Lana Silk <lana@transformiran.com>",
+      subject: req.body?.subject || "TEST: bridge push from Email Delta",
+      snippet: req.body?.snippet || "This is a test notification to verify the Email→Finance bridge is alive. Wire of €5,000 example.",
+      date_header: new Date().toUTCString(),
+      internal_date: Date.now(),
+    };
+    const match = f.matchesAlert(fakeMessage);
+    if (!match) {
+      return res.status(400).json({ error: "fake_message_didnt_match", hint: "include 'Lana' / 'Simon' or a financial keyword" });
+    }
+    const result = await f.pushNotification({
+      user: req.user,
+      message: fakeMessage,
+      match,
+    });
+    res.json({ ok: result.ok, ...result, match });
+  } catch (err) {
+    res.status(500).json({ error: "test_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Voice INPUT — Phase 5.AI. OpenAI Whisper transcription.
 // POST /api/transcribe
 //   Headers: Content-Type: audio/webm  (or audio/mp4, audio/ogg…)
@@ -897,6 +961,54 @@ async function resolveBridgeUserId() {
     console.warn("[delta-bridge] failed to resolve pilot user:", err.message);
   }
 }
+
+// POST /api/delta-bridge/notify — symmetric inbound notification path.
+// Auth: same Bearer DELTA_BRIDGE_TOKEN. Used when the sibling Delta
+// has something to TELL us without expecting a reasoning reply.
+// Acknowledges + audit-logs the receipt; future-proofs in case Finance
+// Delta starts pushing us alerts too.
+app.post("/api/delta-bridge/notify", async (req, res) => {
+  const startedAt = Date.now();
+  const token = (req.get("Authorization") || "").replace(/^Bearer\s+/i, "")
+              || req.query.token;
+  if (!process.env.DELTA_BRIDGE_TOKEN || token !== process.env.DELTA_BRIDGE_TOKEN) {
+    return res.status(401).json({ ok: false, error: "Invalid bridge token" });
+  }
+  const { event, requestId, fromService, ...payload } = req.body || {};
+  if (!event || typeof event !== "string") {
+    return res.status(400).json({ ok: false, error: "event required" });
+  }
+  if (fromService !== "finance") {
+    return res.status(400).json({ ok: false, error: "fromService must be 'finance'" });
+  }
+  // Loop guard re-used.
+  if (recentBridgeIds.has(requestId)) {
+    return res.status(409).json({ ok: false, error: "duplicate requestId — loop suspected" });
+  }
+  recentBridgeIds.add(requestId);
+  setTimeout(() => recentBridgeIds.delete(requestId), 60_000);
+
+  // Hash the event payload so the audit log never carries content.
+  try {
+    const crypto = require("crypto");
+    const hash = crypto.createHash("sha256")
+      .update(JSON.stringify(payload || {}))
+      .digest("hex").slice(0, 16);
+    console.log("[delta-bridge]", JSON.stringify({
+      ts: new Date().toISOString(),
+      bridge: true,
+      direction: "in",
+      peer: "finance",
+      event,
+      content_hash: hash,
+      took_ms: Date.now() - startedAt,
+      request_id: requestId,
+      status: 200,
+    }));
+  } catch (_) {}
+
+  res.json({ ok: true, acknowledged: true });
+});
 
 app.post("/api/delta-bridge/query", async (req, res) => {
   const startedAt = Date.now();
