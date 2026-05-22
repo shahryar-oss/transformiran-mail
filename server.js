@@ -2906,6 +2906,12 @@ dbReady
     // Recover from any stuck sync_in_progress flags left behind by a
     // previously crashed/hung worker before the cache loop starts up.
     try { await inboxCache.clearStuckSyncFlags({ olderThanMs: 60_000 }); } catch (_) {}
+    // Catch-up: mirror any inbox_cache rows that exist but aren't yet
+    // in gmail_messages_indexed. Without this, today's emails are
+    // invisible to search_inbox (and thus to Finance Delta queries).
+    try { await inboxCache.reindexMissingForAllUsers(); } catch (err) {
+      console.warn("[boot] reindexMissingForAllUsers failed (non-fatal):", err.message);
+    }
     startInboxCacheWorker();
     startSnoozeWakeWorker();
     startMemoryEmbeddingBackfillWorker();
