@@ -143,6 +143,11 @@ app.get("/contacts", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "contacts.html"));
 });
 
+app.get("/promises", (req, res) => {
+  if (!req.user) return res.redirect("/");
+  res.sendFile(path.join(__dirname, "public", "promises.html"));
+});
+
 // ====================================================================
 // Tasks API
 // ====================================================================
@@ -702,6 +707,76 @@ app.post("/api/decision-rules/mine", auth.requireAuth, async (req, res) => {
   } catch (err) {
     console.error("[/api/decision-rules/mine] failed:", err);
     res.status(500).json({ error: "mine_failed", message: err.message });
+  }
+});
+
+// ====================================================================
+// Commitments / promises — Phase 5.AK.
+//   GET  /api/commitments              → list (default: open)
+//   GET  /api/commitments?status=...   → filter by status
+//   GET  /api/commitments/overdue      → just the overdue ones
+//   GET  /api/commitments/stats        → counts for morning brief
+//   POST /api/commitments/:id/dismiss  → cancel a wrongly-extracted one
+//   POST /api/commitments/:id/fulfill  → manually mark done
+// ====================================================================
+app.get("/api/commitments", auth.requireAuth, async (req, res) => {
+  try {
+    const commitments = require("./lib/commitments");
+    const status = req.query.status ? String(req.query.status) : null;
+    let rows;
+    if (!status || status === "open") {
+      rows = await commitments.listOpen(req.user.id, { limit: 100 });
+    } else {
+      rows = await commitments.listAll(req.user.id, { status, limit: 100 });
+    }
+    res.json({ ok: true, commitments: rows, count: rows.length });
+  } catch (err) {
+    console.error("[/api/commitments] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.get("/api/commitments/overdue", auth.requireAuth, async (req, res) => {
+  try {
+    const commitments = require("./lib/commitments");
+    const rows = await commitments.listOverdue(req.user.id);
+    res.json({ ok: true, commitments: rows, count: rows.length });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.get("/api/commitments/stats", auth.requireAuth, async (req, res) => {
+  try {
+    const commitments = require("./lib/commitments");
+    const stats = await commitments.getStats(req.user.id);
+    res.json({ ok: true, ...stats });
+  } catch (err) {
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/commitments/:id/dismiss", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const commitments = require("./lib/commitments");
+    const result = await commitments.dismiss(req.user.id, id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
+app.post("/api/commitments/:id/fulfill", auth.requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: "bad_id" });
+  try {
+    const commitments = require("./lib/commitments");
+    const result = await commitments.markFulfilled(req.user.id, id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "fulfill_failed", message: err.message });
   }
 });
 
@@ -2669,6 +2744,27 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
         console.warn("[/api/gmail/send] voice capture failed:", err.message);
       }
     }
+
+    // Phase 5.AK — Commitment extraction. Read the just-sent body
+    // and extract any promises the user made into delta_commitments.
+    // Fire-and-forget — never blocks the send response.
+    setImmediate(() => {
+      try {
+        const commitments = require("./lib/commitments");
+        commitments.extractFromSent(req.user, {
+          to,
+          subject,
+          bodyText: body,
+          sentMessageId: sendRes.data.id,
+          threadId: sendRes.data.threadId || threadId,
+          date: new Date().toISOString(),
+        }).catch((err) => {
+          console.warn("[/api/gmail/send] commitment extraction failed:", err.message);
+        });
+      } catch (err) {
+        console.warn("[/api/gmail/send] commitment extractor unavailable:", err.message);
+      }
+    });
 
     // Phase 5.AF — log this reply (and the implicit archive) for
     // decision-rule mining. Best-effort.

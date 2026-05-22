@@ -81,6 +81,33 @@
     return r.json();
   }
 
+  // Phase 5.AK — pulse a red badge on the Promises rail item whenever
+  // any commitment is overdue. Cheap fetch, runs on inbox open + every
+  // 2 min while the tab is active.
+  async function refreshPromisesBadge() {
+    try {
+      const r = await fetch("/api/commitments/stats");
+      if (!r.ok) return;
+      const s = await r.json();
+      const badge = document.getElementById("promisesBadge");
+      if (!badge) return;
+      const overdue = s.overdue_count || 0;
+      if (overdue > 0) {
+        badge.textContent = String(overdue);
+        badge.hidden = false;
+        badge.className = "folder-badge folder-badge-red";
+      } else if (s.open_count > 0) {
+        badge.textContent = String(s.open_count);
+        badge.hidden = false;
+        badge.className = "folder-badge";
+      } else {
+        badge.hidden = true;
+      }
+    } catch (_) {}
+  }
+  refreshPromisesBadge();
+  setInterval(refreshPromisesBadge, 120_000);
+
   // Folder + pagination state
   let _currentFolder = "inbox";
   let _currentQuery = "";

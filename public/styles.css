@@ -3879,3 +3879,34 @@ body.delta-panel-open .delta-fab { display: none; }
   0%, 100% { box-shadow: 0 0 0 0 rgba(178, 142, 68, 0.55); }
   50%      { box-shadow: 0 0 0 6px rgba(178, 142, 68, 0.0); }
 }
+
+/* Phase 5.AK — folder-badge: small pill on rail items showing counts.
+ * Default = navy chip. Red variant for "needs attention now" (overdue). */
+.folder-badge {
+  margin-left: auto;
+  background: rgba(40, 47, 57, 0.10);
+  color: var(--navy-soft, #5a6470);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 20px;
+  text-align: center;
+}
+.folder-badge-red {
+  background: var(--red, #e92a2e);
+  color: white;
+}
+
+/* Phase 5.AK — render in the briefing card too if Delta included
+ * a commitments_summary field. */
+.bc-section.bc-commitments {
+  border-left: 3px solid var(--red, #e92a2e);
+  padding-left: 12px;
+  background: rgba(233, 42, 46, 0.04);
+  border-radius: 0 8px 8px 0;
+  margin-top: 10px;
+}
+.bc-section.bc-commitments .bc-section-label {
+  color: var(--red, #e92a2e);
+}

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Promises — Delta Mail</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/styles.css">
+<link rel="icon" type="image/png" href="/delta-logo.png">
+<style>
+  body { display: flex; flex-direction: column; overflow: hidden; }
+  .promises-app {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 100vh;
+    background: var(--paper, #fff);
+    flex: 1;
+    min-height: 0;
+  }
+  .promises-rail {
+    background: var(--cream, #f7f3e9);
+    border-right: 1px solid var(--line, #e8dfd0);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .promises-rail-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--line, #e8dfd0);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .promises-rail-head a.back {
+    color: var(--navy-soft, #5a6470); text-decoration: none; font-size: 13px;
+  }
+  .promises-rail-head a.back:hover { color: var(--navy, #282f39); }
+  .promises-rail-title {
+    font-size: 17px; font-weight: 700; color: var(--navy, #282f39);
+    margin: 0;
+  }
+  .promises-rail-body { flex: 1; overflow-y: auto; padding: 8px 6px; }
+  .filter-btn {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%; background: transparent;
+    border: 0; color: var(--navy, #282f39);
+    padding: 10px 12px; border-radius: 8px;
+    text-align: left; font-size: 14px;
+    cursor: pointer;
+    transition: background .12s ease;
+  }
+  .filter-btn:hover { background: rgba(178,142,68,.10); }
+  .filter-btn.active {
+    background: rgba(178,142,68,.18);
+    color: var(--gold-dark, #8a6b2a);
+    font-weight: 600;
+  }
+  .filter-btn .count {
+    margin-left: auto;
+    background: rgba(40,47,57,0.08);
+    color: var(--navy-soft, #5a6470);
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .filter-btn.active .count {
+    background: var(--gold-dark, #8a6b2a);
+    color: white;
+  }
+  .filter-btn.overdue.active { background: rgba(233,42,46,.10); color: var(--red, #e92a2e); }
+  .filter-btn.overdue.active .count { background: var(--red, #e92a2e); }
+
+  /* Main panel */
+  .promises-main {
+    overflow-y: auto;
+    padding: 24px 32px 48px;
+  }
+  .promises-main-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--line, #e8dfd0);
+  }
+  .promises-main-head h1 {
+    margin: 0;
+    font-size: 24px; font-weight: 700;
+    color: var(--navy, #282f39);
+  }
+  .promises-main-head .subtitle {
+    font-size: 13px;
+    color: var(--navy-soft, #5a6470);
+    margin-top: 4px;
+  }
+  .empty {
+    text-align: center;
+    padding: 80px 24px;
+    color: var(--navy-soft, #5a6470);
+  }
+  .empty-icon { font-size: 56px; margin-bottom: 18px; }
+  .empty-title { font-size: 17px; font-weight: 600; color: var(--navy, #282f39); margin-bottom: 6px; }
+  .empty-sub { font-size: 14px; }
+
+  /* Promise card */
+  .promise {
+    background: var(--paper, #fff);
+    border: 1px solid var(--line, #e8dfd0);
+    border-radius: 10px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: start;
+    transition: box-shadow .12s ease;
+  }
+  .promise:hover {
+    box-shadow: 0 2px 12px rgba(40,47,57,0.06);
+  }
+  .promise.overdue {
+    border-left: 3px solid var(--red, #e92a2e);
+  }
+  .promise.fulfilled {
+    opacity: .7;
+    background: rgba(46,160,67,0.04);
+  }
+  .promise-body { min-width: 0; }
+  .promise-text {
+    font-size: 15px; font-weight: 600; color: var(--navy, #282f39);
+    margin-bottom: 4px;
+    line-height: 1.4;
+  }
+  .promise-meta {
+    font-size: 13px; color: var(--navy-soft, #5a6470);
+    display: flex; flex-wrap: wrap; gap: 12px;
+  }
+  .promise-meta .recipient { font-weight: 500; color: var(--navy, #282f39); }
+  .promise-meta .deadline { font-style: italic; }
+  .promise-meta .deadline.is-overdue { color: var(--red, #e92a2e); font-weight: 600; }
+  .promise-meta .when-said { color: var(--navy-soft, #5a6470); }
+  .promise-actions {
+    display: flex; flex-direction: column; gap: 6px;
+    min-width: 110px;
+  }
+  .promise-actions button {
+    background: transparent;
+    border: 1px solid var(--line, #e8dfd0);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--navy, #282f39);
+    cursor: pointer;
+    transition: background .12s ease, border-color .12s ease;
+  }
+  .promise-actions button:hover { background: var(--cream, #f7f3e9); }
+  .promise-actions button.fulfill {
+    background: #2ea043;
+    border-color: #2ea043;
+    color: white;
+  }
+  .promise-actions button.fulfill:hover { background: #248a37; border-color: #248a37; }
+  .promise-actions button.dismiss { color: var(--navy-soft, #5a6470); }
+  .promise-fulfilled-stamp {
+    font-size: 12px;
+    color: #2ea043;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 4px;
+  }
+</style>
+</head>
+<body>
+
+<div class="promises-app">
+  <aside class="promises-rail">
+    <div class="promises-rail-head">
+      <a href="/" class="back" title="Back to Inbox">← Inbox</a>
+      <h1 class="promises-rail-title">Promises</h1>
+    </div>
+    <div class="promises-rail-body">
+      <button class="filter-btn active" data-filter="open">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+        Open <span class="count" id="countOpen">0</span>
+      </button>
+      <button class="filter-btn overdue" data-filter="overdue">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M12 2L1 21h22L12 2zm0 6l7.53 13H4.47L12 8zm-1 4v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>
+        Overdue <span class="count" id="countOverdue">0</span>
+      </button>
+      <button class="filter-btn" data-filter="fulfilled">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+        Fulfilled <span class="count" id="countFulfilled">0</span>
+      </button>
+      <button class="filter-btn" data-filter="cancelled">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        Cancelled <span class="count" id="countCancelled">0</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="promises-main">
+    <div class="promises-main-head">
+      <div>
+        <h1 id="mainTitle">Open promises</h1>
+        <div class="subtitle" id="mainSubtitle">Things you've committed to do — auto-extracted from your sent emails.</div>
+      </div>
+    </div>
+    <div id="promisesList"></div>
+  </main>
+</div>
+
+<script>
+(async function() {
+  let currentFilter = "open";
+  let allPromises = { open: [], overdue: [], fulfilled: [], cancelled: [] };
+
+  function fmtDeadline(p) {
+    if (!p.due_at) return p.due_text || "no deadline";
+    const d = new Date(p.due_at);
+    const now = Date.now();
+    const diffMs = d.getTime() - now;
+    if (diffMs < 0) {
+      const days = Math.round(-diffMs / 86400000);
+      if (days === 0) return "overdue (today)";
+      if (days === 1) return "overdue 1 day";
+      return "overdue " + days + " days";
+    }
+    const days = Math.round(diffMs / 86400000);
+    if (days === 0) return "due today " + d.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    if (days === 1) return "due tomorrow";
+    return "due " + d.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
+  }
+
+  function renderPromise(p, filter) {
+    const overdueCls = (filter === "overdue" || (p.is_overdue && filter === "open")) ? "overdue" : "";
+    const fulfilledCls = filter === "fulfilled" ? "fulfilled" : "";
+    const deadline = fmtDeadline(p);
+    const isOverdueDl = p.due_at && new Date(p.due_at) < new Date();
+    const showActions = filter === "open" || filter === "overdue";
+    return `
+      <div class="promise ${overdueCls} ${fulfilledCls}" data-id="${p.id}">
+        <div class="promise-body">
+          <div class="promise-text">${escapeHtml(p.commitment_text)}</div>
+          <div class="promise-meta">
+            <span class="recipient">→ ${escapeHtml(p.recipient_name || p.recipient_email || "someone")}</span>
+            <span class="deadline ${isOverdueDl ? "is-overdue" : ""}">${escapeHtml(deadline)}</span>
+            ${p.due_text ? `<span class="when-said">said: "${escapeHtml(p.due_text)}"</span>` : ""}
+            ${filter === "fulfilled" && p.fulfilled_at ? `<span class="when-said">✓ ${new Date(p.fulfilled_at).toLocaleDateString()}</span>` : ""}
+          </div>
+        </div>
+        <div class="promise-actions">
+          ${showActions ? `
+            <button class="fulfill" data-act="fulfill">Mark done</button>
+            <button class="dismiss" data-act="dismiss">Dismiss</button>
+          ` : filter === "fulfilled" ? `<div class="promise-fulfilled-stamp">✓ Fulfilled</div>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(s) {
+    return String(s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  }
+
+  async function load() {
+    // Fetch open (will include is_overdue), fulfilled, cancelled separately.
+    const [openRes, fulRes, canRes] = await Promise.all([
+      fetch("/api/commitments?status=open").then(r => r.json()),
+      fetch("/api/commitments?status=fulfilled").then(r => r.json()),
+      fetch("/api/commitments?status=cancelled").then(r => r.json()),
+    ]);
+    const open = openRes.commitments || [];
+    allPromises.open = open.filter(p => !p.is_overdue);
+    allPromises.overdue = open.filter(p => p.is_overdue);
+    allPromises.fulfilled = fulRes.commitments || [];
+    allPromises.cancelled = canRes.commitments || [];
+
+    document.getElementById("countOpen").textContent = allPromises.open.length;
+    document.getElementById("countOverdue").textContent = allPromises.overdue.length;
+    document.getElementById("countFulfilled").textContent = allPromises.fulfilled.length;
+    document.getElementById("countCancelled").textContent = allPromises.cancelled.length;
+
+    render();
+  }
+
+  function render() {
+    const list = document.getElementById("promisesList");
+    const items = allPromises[currentFilter] || [];
+    const titles = {
+      open: "Open promises",
+      overdue: "Overdue promises",
+      fulfilled: "Fulfilled (recent)",
+      cancelled: "Cancelled / dismissed",
+    };
+    const subs = {
+      open: "Things you've committed to do — auto-extracted from your sent emails.",
+      overdue: "These passed their deadline. Time to close the loop.",
+      fulfilled: "Auto-marked when the recipient replied in the same thread, or manually completed.",
+      cancelled: "Promises you dismissed — likely false extractions.",
+    };
+    document.getElementById("mainTitle").textContent = titles[currentFilter];
+    document.getElementById("mainSubtitle").textContent = subs[currentFilter];
+
+    if (!items.length) {
+      list.innerHTML = `
+        <div class="empty">
+          <div class="empty-icon">${currentFilter === "open" || currentFilter === "overdue" ? "✓" : "—"}</div>
+          <div class="empty-title">${currentFilter === "open" ? "All clear" : currentFilter === "overdue" ? "Nothing overdue" : "Nothing here"}</div>
+          <div class="empty-sub">${
+            currentFilter === "open" ? "When you make a commitment in an email, it'll show up here automatically."
+            : currentFilter === "overdue" ? "All your open promises are still on time."
+            : currentFilter === "fulfilled" ? "Promises auto-close when the recipient replies in the same thread."
+            : "Nothing dismissed."
+          }</div>
+        </div>`;
+      return;
+    }
+
+    list.innerHTML = items.map(p => renderPromise(p, currentFilter)).join("");
+
+    // Wire actions
+    list.querySelectorAll("[data-act='fulfill']").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const card = e.target.closest(".promise");
+        const id = card.dataset.id;
+        btn.disabled = true;
+        await fetch(`/api/commitments/${id}/fulfill`, { method: "POST" });
+        await load();
+      });
+    });
+    list.querySelectorAll("[data-act='dismiss']").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const card = e.target.closest(".promise");
+        const id = card.dataset.id;
+        if (!confirm("Dismiss this promise? (Use this when Delta extracted something that wasn't actually a commitment.)")) return;
+        btn.disabled = true;
+        await fetch(`/api/commitments/${id}/dismiss`, { method: "POST" });
+        await load();
+      });
+    });
+  }
+
+  // Wire filter buttons
+  document.querySelectorAll(".filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      currentFilter = btn.dataset.filter;
+      render();
+    });
+  });
+
+  await load();
+})();
+</script>
+</body>
+</html>
