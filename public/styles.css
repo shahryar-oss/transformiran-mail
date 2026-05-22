@@ -3910,3 +3910,161 @@ body.delta-panel-open .delta-fab { display: none; }
 .bc-section.bc-commitments .bc-section-label {
   color: var(--red, #e92a2e);
 }
+
+/* ===================================================================
+ * Phase 5.AL — Action items card + smart reply chips
+ * =================================================================== */
+
+/* Action items card — top of reader body */
+.ai-card {
+  background: var(--cream, #f7f3e9);
+  border: 1px solid var(--line, #e8dfd0);
+  border-left: 4px solid var(--gold-dark, #8a6b2a);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0 0 14px 0;
+  transition: opacity .24s ease;
+}
+.ai-card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+.ai-card-title {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--navy, #282f39);
+  text-transform: none;
+}
+.ai-card-title .k-logo-inline { width: 16px; height: 16px; }
+.ai-card-dismiss {
+  background: transparent;
+  border: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--navy-soft, #5a6470);
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+.ai-card-dismiss:hover {
+  background: rgba(40,47,57,0.08);
+  color: var(--navy, #282f39);
+}
+.ai-card-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.ai-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-top: 1px solid rgba(232, 223, 208, 0.7);
+  gap: 12px;
+}
+.ai-item:first-child { border-top: 0; }
+.ai-item-text {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0;
+}
+.ai-item-bullet {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--gold-dark, #8a6b2a);
+  flex-shrink: 0;
+}
+.ai-item-high   .ai-item-bullet { background: var(--red, #e92a2e); }
+.ai-item-medium .ai-item-bullet { background: var(--gold, #b28e44); }
+.ai-item-low    .ai-item-bullet { background: var(--navy-soft, #5a6470); }
+.ai-item-label {
+  font-size: 14px;
+  color: var(--navy, #282f39);
+  font-weight: 500;
+}
+.ai-item-due {
+  font-size: 12px;
+  color: var(--navy-soft, #5a6470);
+  font-style: italic;
+  margin-left: 6px;
+}
+.ai-item-high .ai-item-due { color: var(--red, #e92a2e); font-weight: 600; }
+.ai-item-add {
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy, #282f39);
+  cursor: pointer;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.ai-item-add svg { width: 12px; height: 12px; fill: currentColor; }
+.ai-item-add:hover {
+  background: var(--gold, #b28e44);
+  border-color: var(--gold, #b28e44);
+  color: white;
+}
+.ai-item-add.ai-item-added {
+  background: #2ea043;
+  border-color: #2ea043;
+  color: white;
+  pointer-events: none;
+}
+.ai-spinner {
+  display: inline-block;
+  width: 11px; height: 11px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ai-spin .7s linear infinite;
+  vertical-align: middle;
+}
+@keyframes ai-spin { to { transform: rotate(360deg); } }
+
+/* Smart reply chips — between reader head and the main action row */
+.smart-reply-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0 6px;
+  margin: 0 0 4px;
+  flex-wrap: wrap;
+}
+.src-label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  color: var(--navy-soft, #5a6470);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.src-label .k-logo-inline { width: 14px; height: 14px; }
+.src-chip {
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--navy, #282f39);
+  cursor: pointer;
+  transition: all .15s ease;
+  white-space: nowrap;
+}
+.src-chip:hover {
+  background: var(--gold, #b28e44);
+  border-color: var(--gold, #b28e44);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(178, 142, 68, 0.20);
+}
+.src-chip-commit:hover    { background: #2ea043; border-color: #2ea043; }
+.src-chip-clarify:hover   { background: var(--gold, #b28e44); border-color: var(--gold, #b28e44); }
+.src-chip-delegate:hover  { background: var(--navy, #282f39); border-color: var(--navy, #282f39); }

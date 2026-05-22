@@ -637,7 +637,14 @@
     // Fetch full body.
     const bodyEl = document.getElementById("readerBody");
     try {
-      const r = await fetch(`/api/gmail/message/${encodeURIComponent(id)}`);
+      // Phase 5.AL — kick off body + extract IN PARALLEL. Body usually
+      // resolves first (Gmail fetch is fast); extract takes a Claude
+      // hop. Renders independently so the user sees the body
+      // immediately and the action items / smart replies fade in.
+      const bodyPromise    = fetch(`/api/gmail/message/${encodeURIComponent(id)}`);
+      const extractPromise = fetch(`/api/messages/${encodeURIComponent(id)}/extract`);
+
+      const r = await bodyPromise;
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const data = await r.json();
 
@@ -655,6 +662,17 @@
       }
 
       renderBody(bodyEl, data);
+
+      // Phase 5.AL — when extract resolves, render action item card
+      // + smart reply chips. Best-effort: failures hide silently.
+      extractPromise
+        .then((er) => er.ok ? er.json() : null)
+        .then((ed) => {
+          if (!ed) return;
+          if (ed.action_items?.length) renderActionItemsCard(id, ed.action_items, stub);
+          if (ed.smart_replies?.length) renderSmartReplyChips(id, ed.smart_replies, stub, data);
+        })
+        .catch(() => {});
     } catch (err) {
       bodyEl.innerHTML = `
         <div class="reader-error">
@@ -694,6 +712,133 @@
     // Populate that bar from data.attachments. Each chip is clickable to
     // download via the new /api/gmail/message/:id/attachment/:aId endpoint.
     renderAttachmentsBar(data);
+  }
+
+  // ---------- Action items card (Phase 5.AL) -----------------------
+  // Renders at the top of the reader body when Delta extracts asks
+  // the sender made of the user. Each item has Add-to-tasks + dismiss.
+  function renderActionItemsCard(messageId, items, stub) {
+    const bodyEl = document.getElementById("readerBody");
+    if (!bodyEl || !items.length) return;
+    // Don't double-render if user re-opened the same email.
+    if (bodyEl.querySelector(".ai-card")) return;
+
+    const card = document.createElement("div");
+    card.className = "ai-card";
+    card.innerHTML = `
+      <div class="ai-card-head">
+        <span class="ai-card-title">
+          <img class="k-logo-inline" src="/delta-logo.png" alt="Delta">
+          What they're asking you to do
+        </span>
+        <button class="ai-card-dismiss" title="Dismiss all">×</button>
+      </div>
+      <ul class="ai-card-list">
+        ${items.map((it, i) => `
+          <li class="ai-item ai-item-${escapeHtml(it.urgency || "low")}" data-i="${i}">
+            <div class="ai-item-text">
+              <span class="ai-item-bullet"></span>
+              <span class="ai-item-label">${escapeHtml(it.text)}</span>
+              ${it.due_text ? `<span class="ai-item-due">${escapeHtml(it.due_text)}</span>` : ""}
+            </div>
+            <button class="ai-item-add" data-i="${i}" title="Add to To Do">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+              Add
+            </button>
+          </li>
+        `).join("")}
+      </ul>
+    `;
+    // Insert AT TOP of the reader body.
+    bodyEl.insertBefore(card, bodyEl.firstChild);
+
+    // Wire dismiss-all.
+    card.querySelector(".ai-card-dismiss").addEventListener("click", async () => {
+      card.style.opacity = "0";
+      setTimeout(() => card.remove(), 240);
+      // Persist dismissal so it doesn't come back on re-open.
+      fetch(`/api/messages/${encodeURIComponent(messageId)}/extract/dismiss`, { method: "POST" }).catch(() => {});
+    });
+
+    // Wire each Add-to-tasks button.
+    card.querySelectorAll(".ai-item-add").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const i = Number(btn.dataset.i);
+        const item = items[i];
+        if (!item) return;
+        btn.disabled = true;
+        btn.innerHTML = `<span class="ai-spinner"></span>`;
+        try {
+          const r = await fetch(`/api/inbox/add-to-todo`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              source_message_id: messageId,
+              source_thread_id: stub?.threadId || null,
+              source_subject: stub?.subject || "",
+              source_from: stub?.from || "",
+              title: item.text,
+              due_at: item.due_at_iso || null,
+              important: item.urgency === "high",
+            }),
+          });
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;vertical-align:text-bottom"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg> Added`;
+          btn.classList.add("ai-item-added");
+        } catch (err) {
+          btn.innerHTML = "× failed";
+          btn.disabled = false;
+          console.warn("[ai-item add] failed:", err);
+        }
+      });
+    });
+  }
+
+  // ---------- Smart reply chips (Phase 5.AL) -----------------------
+  // Three one-tap reply chips ABOVE the existing draft-reply button.
+  // Each chip click opens the standard reply composer pre-filled with
+  // the chip's draft body. User reviews + sends.
+  function renderSmartReplyChips(messageId, replies, stub, fullData) {
+    const actionsRow = document.querySelector(".reader-actions");
+    if (!actionsRow || !replies.length) return;
+    // Already rendered? Skip.
+    if (actionsRow.parentElement.querySelector(".smart-reply-chips")) return;
+
+    const chipsRow = document.createElement("div");
+    chipsRow.className = "smart-reply-chips";
+    chipsRow.innerHTML = `
+      <span class="src-label">
+        <img class="k-logo-inline" src="/delta-logo.png" alt="Delta">
+        Quick reply:
+      </span>
+      ${replies.map((r, i) => `
+        <button class="src-chip src-chip-${escapeHtml(r.intent || "commit")}" data-i="${i}" title="${escapeHtml(r.draft_body)}">
+          ${escapeHtml(r.label)}
+        </button>
+      `).join("")}
+    `;
+    actionsRow.parentElement.insertBefore(chipsRow, actionsRow);
+
+    // On chip click, open the standard reply composer with the chip's
+    // draft body pre-filled. Reuses the existing onDeltaAction path
+    // for the toolbar / open-reply flow.
+    chipsRow.querySelectorAll(".src-chip").forEach((chip) => {
+      chip.addEventListener("click", () => {
+        const i = Number(chip.dataset.i);
+        const r = replies[i];
+        if (!r) return;
+        // Cheap pre-fill: just stash on a global the reply composer reads.
+        window._smartReplyPrefill = {
+          messageId,
+          body: r.draft_body,
+          intent: r.intent,
+        };
+        // Open reply with the prefill applied.
+        if (typeof onDeltaAction === "function") {
+          onDeltaAction("draft-reply", stub);
+        }
+      });
+    });
   }
 
   // ---------- Attachments bar (in reader header) -------------------
@@ -1431,8 +1576,45 @@
       }
     });
 
-    // Kick off the initial draft.
-    generate("");
+    // Phase 5.AL — if a Smart Reply chip set a pre-fill for THIS
+    // message, skip the Claude regenerate hop entirely and populate
+    // the composer directly with the chip's draft body.
+    const prefill = window._smartReplyPrefill;
+    if (prefill && prefill.messageId === msg.id && prefill.body) {
+      // Wait one tick so the DOM is fully mounted before we touch fields.
+      setTimeout(() => {
+        // We still need the recipient + subject from the standard
+        // draft endpoint — but we can fetch those without paying for
+        // a body regeneration. Pass a sentinel "use_prefill" hint
+        // that the server can recognise OR just call the cheap path:
+        // ask for the metadata only by re-using the existing endpoint
+        // (its returned to/subject are fine — we'll overwrite body).
+        fetch("/api/assistant/draft", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ openMessageId: msg.id, instructions: "", mode }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            currentDraft = data;
+            toInput.value = data.to || "";
+            if (data.cc) { ccInput.value = data.cc; ccRow.hidden = false; }
+            subjInput.value = data.subject || "";
+            bodyTa.value = prefill.body;          // ← override with chip
+            titleEl.textContent = `Smart reply ready (${prefill.intent || "commit"})`;
+            regenBtn.disabled = false; saveBtn.disabled = false; bodyTa.disabled = false;
+          })
+          .catch(() => {
+            // Fall back to normal generate if metadata fetch fails.
+            generate("");
+          });
+        // Clear so a subsequent normal Reply doesn't pick this up.
+        window._smartReplyPrefill = null;
+      }, 0);
+    } else {
+      // Kick off the initial draft.
+      generate("");
+    }
   }
 
   // ---------- COMPOSE MODAL (rich-text new email) ----------------------

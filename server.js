@@ -2426,6 +2426,115 @@ app.post("/api/classify", auth.requireAuth, async (req, res) => {
 // Fetch a single message in full, including parsed body.
 // Also fetches inline images (signature logos, embedded screenshots) and
 // rewrites cid: references in the HTML to data: URIs so they render.
+// Phase 5.AL — extract action items + smart reply chips for a single
+// message. Lazy + cached by (user_id, message_id). Client fetches this
+// in PARALLEL with the body endpoint so the message renders instantly
+// and the extractions stream in alongside.
+app.get("/api/messages/:id/extract", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    return res.status(400).json({ error: "bad_id" });
+  }
+  try {
+    const emailExtractions = require("./lib/emailExtractions");
+    if (!emailExtractions.isAvailable()) {
+      return res.json({ ok: true, action_items: [], smart_replies: [], skipped: "no_anthropic_key" });
+    }
+
+    // Try cache first using only the message_id — body-less. If hit,
+    // return without ever fetching Gmail.
+    // (extractFor handles the cache check internally, but we want to
+    // skip Gmail entirely on a cache hit.)
+    // We can't compute input_hash without the body, so we just call
+    // extractFor with snippet — if the cache has the same hash, fine;
+    // if not, the body fetch path runs.
+    let message = null;
+
+    // Fast path — read from inbox_cache (no Gmail fetch).
+    try {
+      const r = await pool.query(
+        `SELECT message_id, thread_id, from_header, to_header, cc_header,
+                subject, snippet, date_header
+           FROM inbox_cache
+          WHERE user_id = $1 AND message_id = $2`,
+        [req.user.id, id]
+      );
+      if (r.rows[0]) {
+        const row = r.rows[0];
+        message = {
+          id: row.message_id,
+          threadId: row.thread_id,
+          from: row.from_header,
+          to: row.to_header,
+          cc: row.cc_header,
+          subject: row.subject,
+          snippet: row.snippet,
+          bodyText: row.snippet, // body fetched below if needed
+          date: row.date_header,
+        };
+      }
+    } catch (_) {}
+
+    // If not cached or we need full body, fetch from Gmail.
+    let body = null;
+    try {
+      const creds = await auth.loadGoogleCreds(req.user.id);
+      if (creds) {
+        const client = gmail.authedClientFromTokens(creds);
+        const g = google.gmail({ version: "v1", auth: client });
+        const r = await g.users.messages.get({ userId: "me", id, format: "full" });
+        const headers = mime.headersToMap(r.data.payload?.headers || []);
+        body = mime.pickBody(r.data.payload);
+        message = {
+          id: r.data.id,
+          threadId: r.data.threadId,
+          from: headers.from || message?.from || "",
+          to: headers.to || message?.to || "",
+          cc: headers.cc || message?.cc || "",
+          subject: headers.subject || message?.subject || "",
+          snippet: r.data.snippet || message?.snippet || "",
+          bodyText: body.text || mime.htmlToText(body.html || "") || message?.snippet || "",
+          date: headers.date || message?.date || "",
+        };
+      }
+    } catch (err) {
+      console.warn("[/api/messages/:id/extract] body fetch failed:", err.message);
+    }
+
+    if (!message) {
+      return res.status(404).json({ error: "message_not_found" });
+    }
+
+    const result = await emailExtractions.extractFor(req.user, message);
+    res.json({
+      ok: true,
+      action_items: result.action_items || [],
+      smart_replies: result.smart_replies || [],
+      cached: !!result.cached,
+    });
+  } catch (err) {
+    console.error("[/api/messages/:id/extract] failed:", err);
+    res.status(500).json({ error: "extract_failed", message: err.message });
+  }
+});
+
+// POST /api/messages/:id/extract/dismiss — manually clear cached
+// extraction for a message (e.g. user disagrees with what Delta
+// suggested and doesn't want to see it again on re-open).
+app.post("/api/messages/:id/extract/dismiss", auth.requireAuth, async (req, res) => {
+  const id = req.params.id;
+  if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
+    return res.status(400).json({ error: "bad_id" });
+  }
+  try {
+    const emailExtractions = require("./lib/emailExtractions");
+    const result = await emailExtractions.invalidate(req.user.id, id);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
 app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
   const id = req.params.id;
   if (!id || !/^[A-Za-z0-9_-]+$/.test(id)) {
