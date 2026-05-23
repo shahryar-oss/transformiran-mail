@@ -453,6 +453,7 @@ button { font-family: inherit; cursor: pointer; }
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;     /* header never collapses */
   background: var(--paper);
+  position: relative; /* anchor point for .notif-dropdown */
 }
 .list-title-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 4px; position: relative; }
 .list-title-row .list-title { flex: 1; }
@@ -476,7 +477,12 @@ button { font-family: inherit; cursor: pointer; }
   pointer-events: none;
 }
 
-/* Notification dropdown — Phase 5.BB */
+/* Notification dropdown — Phase 5.BB.
+ * NOTE: `display: flex` overrides the HTML5 `[hidden]` rule's
+ * `display: none`, so we have to explicitly re-hide it. Without
+ * this the dropdown renders into the layout flow (off-screen but
+ * eating height) and pushes the rest of the page up. (Phase 5.BE fix) */
+.notif-dropdown[hidden] { display: none !important; }
 .notif-dropdown {
   position: absolute;
   top: 100%;
