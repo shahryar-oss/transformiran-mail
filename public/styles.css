@@ -1324,13 +1324,19 @@ button { font-family: inherit; cursor: pointer; }
 
 /* Phase 5.AR — when docked inside the reader column, drop the
  * overlay treatment and stretch to fill the section. Lots more
- * writing space, plus the email list remains visible on the left. */
+ * writing space, plus the email list remains visible on the left.
+ *
+ * Phase 5.AS — match the red-bordered card styling of .draft-composer
+ * so all five composer entry points (Reply / Reply-All / Forward /
+ * New email / Delta-drafted) feel visually identical.
+ */
 .compose-modal.docked {
   position: absolute;
   inset: 0;
   z-index: auto;
   display: block;
-  background: var(--paper, #fff);
+  background: transparent;
+  padding: 0;
 }
 .compose-modal.docked .compose-backdrop {
   display: none;
@@ -1341,8 +1347,12 @@ button { font-family: inherit; cursor: pointer; }
   height: 100%;
   max-width: none;
   max-height: none;
-  border-radius: 0;
-  box-shadow: none;
+  /* Red-bordered card style matching .draft-composer */
+  background: var(--paper);
+  border: 1px solid var(--red);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(233, 42, 46, .12);
+  overflow: hidden;
 }
 .compose-backdrop {
   position: absolute;
@@ -4349,4 +4359,192 @@ body.delta-panel-open .delta-fab { display: none; }
   padding: 1px 6px;
   border-radius: 999px;
   margin-left: auto;
+}
+
+/* ===================================================================
+ * Phase 5.AS — Delta action card (docked in reader)
+ * Used by Summarize / Translate / Ask about this / Add to To Do.
+ * Same red-bordered card style as .draft-composer so every
+ * email-action interaction lives in the middle pane consistently.
+ * =================================================================== */
+
+.delta-action-card {
+  background: var(--paper, #fff);
+  border: 1px solid var(--red, #e92a2e);
+  border-radius: 14px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(233, 42, 46, .12);
+  display: flex;
+  flex-direction: column;
+  max-height: 720px;
+}
+
+.dac-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line, #e8dfd0);
+  background: var(--cream, #f7f3e9);
+}
+.dac-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--navy, #282f39);
+  font-size: 13.5px;
+}
+.dac-title .k-logo {
+  width: 16px;
+  height: 16px;
+  padding: 2px;
+}
+.dac-close {
+  background: transparent;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--navy-soft, #5a6470);
+  cursor: pointer;
+  padding: 2px 10px;
+  border-radius: 6px;
+}
+.dac-close:hover {
+  background: rgba(40, 47, 57, 0.08);
+  color: var(--navy, #282f39);
+}
+
+.dac-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 80px;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--navy, #282f39);
+}
+.dac-body p { margin: 0 0 10px 0; }
+.dac-body ul, .dac-body ol { margin: 0 0 10px 0; padding-left: 22px; }
+.dac-body li { margin: 4px 0; }
+.dac-body h1, .dac-body h2, .dac-body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 12px 0 6px;
+  color: var(--navy, #282f39);
+}
+.dac-body code {
+  background: var(--cream, #f7f3e9);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.dac-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--navy-soft, #5a6470);
+  font-size: 13.5px;
+  font-style: italic;
+}
+.dac-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--gold, #b28e44);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: dac-spin .7s linear infinite;
+}
+@keyframes dac-spin { to { transform: rotate(360deg); } }
+
+.dac-error {
+  color: var(--red, #e92a2e);
+  background: rgba(233, 42, 46, 0.06);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+/* Follow-up Q&A on "Ask about this" — input + send button at footer. */
+.dac-followup {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line, #e8dfd0);
+  background: var(--cream, #f7f3e9);
+}
+.dac-followup-input {
+  flex: 1;
+  border: 1px solid var(--line, #e8dfd0);
+  background: var(--paper, #fff);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  outline: none;
+  color: var(--navy, #282f39);
+}
+.dac-followup-input:focus { border-color: var(--gold, #b28e44); }
+.dac-followup-send {
+  background: var(--red, #e92a2e);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.dac-followup-send svg { width: 12px; height: 12px; fill: currentColor; }
+.dac-followup-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Conversation turns (only when follow-ups happen). */
+.dac-message {
+  padding: 10px 14px;
+  margin: 6px 0;
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+.dac-message-user {
+  background: var(--cream, #f7f3e9);
+  color: var(--navy, #282f39);
+  border-left: 3px solid var(--navy, #282f39);
+}
+.dac-message-assistant {
+  background: transparent;
+  color: var(--navy, #282f39);
+}
+
+/* Footer actions row */
+.dac-actions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--line, #e8dfd0);
+  background: var(--paper, #fff);
+}
+.dac-actions:empty { display: none; }
+.dac-action-btn {
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--navy, #282f39);
+  cursor: pointer;
+  transition: background .12s ease, border-color .12s ease, color .12s ease;
+}
+.dac-action-btn:hover {
+  background: var(--cream, #f7f3e9);
+  border-color: var(--gold, #b28e44);
+  color: var(--gold-dark, #8a6b2a);
 }

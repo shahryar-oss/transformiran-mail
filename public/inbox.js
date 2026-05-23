@@ -1375,36 +1375,171 @@
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
-  // Delta action buttons in the reader. 'Draft a reply' has its own
-  // inline workflow (compose card with editable body + save-to-drafts).
-  // The other actions pre-fill the Delta chat input and open the panel.
+  // Delta action buttons in the reader. 'Draft a reply' opens the
+  // inline draft composer. All other Delta actions (Summarize /
+  // Translate / Ask about this / Add to To Do) open a docked red-
+  // bordered card in the middle reader pane showing Delta's result.
+  // Phase 5.AS — moved from "open Delta side-panel" to "open in
+  // middle pane" so all email-related Delta interactions live in the
+  // same primary work area.
   function onDeltaAction(action, msg) {
     if (action === "draft-reply") {
       return openDraftComposer(msg);
     }
-    const fab = document.getElementById("deltaFab");
-    const promptByAction = {
+    return openDeltaActionCard(action, msg);
+  }
+
+  // ---------- DELTA ACTION CARD (Phase 5.AS) ------------------------
+  // Docked card in the reader showing Delta's response to one of the
+  // email actions (Summarize / Translate / Ask about this / Add to
+  // To Do). Same red-bordered card styling as the draft composer.
+  async function openDeltaActionCard(action, msg) {
+    const bodyEl = document.getElementById("readerBody");
+    if (!bodyEl) return;
+    // Remove any prior delta action card / draft composer so only
+    // one card sits in the reader at a time.
+    document.querySelectorAll(".delta-action-card").forEach((c) => c.remove());
+
+    const titles = {
+      summarize: "Summary",
+      translate: "Translation",
+      explain:   "Delta — Ask about this email",
+      "add-todo": "Add to To Do",
+    };
+    const prompts = {
       summarize: `Summarize this email in 3 bullets.`,
       translate: `Translate this email into English (or to whichever language I usually reply in if it's already in English).`,
       explain:   `What is this email actually asking for? What should I do about it?`,
       "add-todo": `Extract every action item from this email and create a separate To Do task for each one. Use create_task with source_message_id set to the open email's id so each task links back. Set due_at if a deadline is mentioned, in_my_day=true for anything due today, and important=true if the sender is a key person (Lana, Lazarus, Pia, Maggie). Don't draft a reply — just create the tasks. After all tools run, respond with one short line: "Added N tasks." (no bullets, no recap).`,
     };
-    const autoSendActions = new Set(["add-todo"]);
-    const prompt = promptByAction[action] || `Help me with this email.`;
-    if (fab && fab.click) fab.click();
-    setTimeout(() => {
-      const chatInput = document.getElementById("deltaInputChat");
-      const welcomeInput = document.getElementById("deltaInputWelcome");
-      const target = chatInput?.offsetParent !== null ? chatInput : welcomeInput;
-      if (!target) return;
-      target.value = prompt;
-      target.focus();
-      if (autoSendActions.has(action)) {
-        // Click the matching Send button to fire the prompt immediately.
-        const sendBtnId = target.id === "deltaInputChat" ? "deltaSendChat" : "deltaSendWelcome";
-        document.getElementById(sendBtnId)?.click();
+
+    const card = document.createElement("div");
+    card.className = "delta-action-card delta-action-" + action;
+    card.innerHTML = `
+      <div class="dac-head">
+        <div class="dac-title">
+          <img class="k-logo" src="/delta-logo.png" alt="Delta">
+          <span>${escapeHtml(titles[action] || "Delta")}</span>
+        </div>
+        <button class="dac-close" title="Close">×</button>
+      </div>
+      <div class="dac-body">
+        <div class="dac-loading">
+          <span class="dac-spinner"></span>
+          <span>Delta is working…</span>
+        </div>
+      </div>
+      ${action === "explain" ? `
+        <div class="dac-followup">
+          <input type="text" class="dac-followup-input" placeholder="Ask a follow-up…">
+          <button class="dac-followup-send" disabled>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+            Send
+          </button>
+        </div>` : ""}
+      <div class="dac-actions"></div>
+    `;
+    bodyEl.prepend(card);
+
+    const bodyDiv = card.querySelector(".dac-body");
+    const actionsDiv = card.querySelector(".dac-actions");
+    const closeBtn = card.querySelector(".dac-close");
+    closeBtn.addEventListener("click", () => card.remove());
+
+    // History for follow-up Q&A on "explain" action.
+    const localHistory = [];
+
+    // Fire the initial Delta call.
+    const fireDelta = async (userMsg, append = false) => {
+      const loadingHtml = `<div class="dac-loading"><span class="dac-spinner"></span><span>Delta is working…</span></div>`;
+      if (append) {
+        const sep = document.createElement("div");
+        sep.className = "dac-message dac-message-user";
+        sep.textContent = userMsg;
+        bodyDiv.appendChild(sep);
+        const loading = document.createElement("div");
+        loading.className = "dac-message dac-message-assistant dac-temp";
+        loading.innerHTML = loadingHtml;
+        bodyDiv.appendChild(loading);
+        bodyDiv.scrollTop = bodyDiv.scrollHeight;
+      } else {
+        bodyDiv.innerHTML = loadingHtml;
       }
-    }, 60);
+      try {
+        const r = await fetch("/api/assistant", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: userMsg,
+            history: localHistory,
+            openMessageId: msg.id,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.message || data.error || "Delta failed");
+        const reply = data.reply || "(no reply)";
+        localHistory.push({ role: "user", content: userMsg });
+        localHistory.push({ role: "assistant", content: reply });
+
+        if (append) {
+          card.querySelector(".dac-temp")?.remove();
+          const replyEl = document.createElement("div");
+          replyEl.className = "dac-message dac-message-assistant";
+          replyEl.innerHTML = (typeof window.renderMarkdown === "function")
+            ? window.renderMarkdown(reply)
+            : escapeHtml(reply).replace(/\n/g, "<br>");
+          bodyDiv.appendChild(replyEl);
+          bodyDiv.scrollTop = bodyDiv.scrollHeight;
+        } else {
+          bodyDiv.innerHTML = (typeof window.renderMarkdown === "function")
+            ? window.renderMarkdown(reply)
+            : escapeHtml(reply).replace(/\n/g, "<br>");
+        }
+
+        // Footer actions: Copy result button (for all non-todo).
+        if (action !== "add-todo") {
+          actionsDiv.innerHTML = `<button class="dac-action-btn" data-act="copy">
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;fill:currentColor;vertical-align:text-bottom;margin-right:4px"><path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2zm0 16H8V7h11v14z"/></svg>
+            Copy
+          </button>`;
+          actionsDiv.querySelector("[data-act='copy']").addEventListener("click", (e) => {
+            navigator.clipboard.writeText(reply).catch(() => {});
+            e.currentTarget.textContent = "✓ Copied";
+            setTimeout(() => card.remove(), 600);
+          });
+        } else {
+          // Add to To Do — refresh the rail badge after tasks created.
+          actionsDiv.innerHTML = `<button class="dac-action-btn" data-act="open-todo">Open To Do →</button>`;
+          actionsDiv.querySelector("[data-act='open-todo']").addEventListener("click", () => {
+            window.location.href = "/tasks";
+          });
+          if (typeof refreshPromisesBadge === "function") refreshPromisesBadge();
+        }
+      } catch (err) {
+        bodyDiv.innerHTML = `<div class="dac-error">Couldn't reach Delta: ${escapeHtml(err.message || String(err))}</div>`;
+      }
+    };
+    fireDelta(prompts[action] || `Help me with this email.`);
+
+    // Wire follow-up input for "explain" action.
+    const followupInput = card.querySelector(".dac-followup-input");
+    const followupSend = card.querySelector(".dac-followup-send");
+    if (followupInput && followupSend) {
+      followupInput.addEventListener("input", () => {
+        followupSend.disabled = !followupInput.value.trim();
+      });
+      const submit = () => {
+        const text = followupInput.value.trim();
+        if (!text) return;
+        followupInput.value = "";
+        followupSend.disabled = true;
+        fireDelta(text, true);
+      };
+      followupSend.addEventListener("click", submit);
+      followupInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+      });
+    }
   }
 
   // ---------- OUTLOOK-STYLE TOOLBAR ------------------------------------
