@@ -3242,6 +3242,9 @@
       // Deep-link: /?msg=<gmailId> opens that message in the reader.
       // Used by /tasks "Open source email" links and other cross-page jumps.
       await openMessageFromUrlIfPresent();
+
+      // Wire up notification bell + start polling (Phase 5.BB).
+      try { initNotificationCenter(); } catch (err) { console.warn("[notif] init failed:", err); }
     } catch (err) {
       listEl.innerHTML = `
         <div class="list-empty">
@@ -3345,6 +3348,158 @@
       }
     }
   };
+
+  // -------- Notification center (Phase 5.BB) ----------------------------
+  // Bell icon in list header → dropdown of actionable items (overdue
+  // promises, due-soon tasks, important-sender unread mail). Click an
+  // item → navigate to the source (email, /promises, or /tasks).
+  // ----------------------------------------------------------------------
+  let _notifPollHandle = null;
+  let _notifCache = { notifications: [], unread_count: 0 };
+
+  function initNotificationCenter() {
+    const bell = document.getElementById("notifBellBtn");
+    const dropdown = document.getElementById("notifDropdown");
+    const clearAllBtn = document.getElementById("notifClearAll");
+    if (!bell || !dropdown) return;
+
+    bell.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const isOpen = !dropdown.hasAttribute("hidden");
+      if (isOpen) {
+        dropdown.setAttribute("hidden", "");
+        return;
+      }
+      // Opening: render current cache immediately, then mark as seen.
+      renderNotifications(_notifCache.notifications);
+      dropdown.removeAttribute("hidden");
+      try {
+        await fetch("/api/notifications/seen", { method: "POST" });
+        // Hide unread badge immediately for snappy UX.
+        const badge = document.getElementById("notifBadge");
+        if (badge) { badge.setAttribute("hidden", ""); badge.textContent = "0"; }
+      } catch (_) {}
+    });
+
+    clearAllBtn?.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      try {
+        await fetch("/api/notifications/dismiss-all", { method: "POST" });
+        _notifCache.notifications = [];
+        renderNotifications([]);
+        updateBadge(0);
+      } catch (err) {
+        console.warn("[notif] clear-all failed:", err);
+      }
+    });
+
+    // Close dropdown when clicking outside it.
+    document.addEventListener("click", (e) => {
+      if (dropdown.hasAttribute("hidden")) return;
+      if (dropdown.contains(e.target) || bell.contains(e.target)) return;
+      dropdown.setAttribute("hidden", "");
+    });
+
+    // Initial fetch + recurring poll every 60s.
+    pollNotifications();
+    _notifPollHandle = setInterval(pollNotifications, 60_000);
+  }
+
+  async function pollNotifications() {
+    try {
+      const r = await fetch("/api/notifications");
+      if (!r.ok) return;
+      const data = await r.json();
+      if (!data.ok) return;
+      _notifCache = data;
+      updateBadge(data.unread_count || 0);
+      // If dropdown is open, refresh its contents in place.
+      const dropdown = document.getElementById("notifDropdown");
+      if (dropdown && !dropdown.hasAttribute("hidden")) {
+        renderNotifications(data.notifications || []);
+      }
+    } catch (err) {
+      // Silent — bell just stays at previous state.
+    }
+  }
+
+  function updateBadge(count) {
+    const badge = document.getElementById("notifBadge");
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count > 9 ? "9+" : String(count);
+      badge.removeAttribute("hidden");
+    } else {
+      badge.setAttribute("hidden", "");
+    }
+  }
+
+  function notifIconFor(kind) {
+    // Returns inline SVG markup matching the notification kind.
+    if (kind === "promise-overdue") return `<svg viewBox="0 0 24 24"><path d="M12 2L1 21h22L12 2zm0 6l7.53 13H4.47L12 8zm-1 4v4h2v-4h-2zm0 6v2h2v-2h-2z"/></svg>`;
+    if (kind === "task-overdue") return `<svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zM7 7h10v2H7V7zm0 4h10v2H7v-2zm0 4h7v2H7v-2z"/></svg>`;
+    if (kind === "task-due-soon") return `<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>`;
+    if (kind === "important-unread") return `<svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>`;
+    return `<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>`;
+  }
+
+  function renderNotifications(items) {
+    const body = document.getElementById("notifDropdownBody");
+    if (!body) return;
+    if (!items || !items.length) {
+      body.innerHTML = `<div class="notif-empty">Nothing to act on right now. Nice.</div>`;
+      return;
+    }
+    body.innerHTML = items.map((n) => `
+      <div class="notif-item severity-${escapeHtml(n.severity || "low")}" data-id="${escapeHtml(n.id)}" data-link="${escapeHtml(JSON.stringify(n.link || {}))}">
+        <div class="notif-icon">${notifIconFor(n.kind)}</div>
+        <div class="notif-body">
+          <div class="notif-title">${escapeHtml(n.title || "")}</div>
+          <div class="notif-snippet">${escapeHtml(n.body || "")}</div>
+          ${n.meta ? `<div class="notif-meta">${escapeHtml(n.meta)}</div>` : ""}
+        </div>
+        <button class="notif-dismiss" title="Dismiss" aria-label="Dismiss">
+          <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </div>
+    `).join("");
+
+    body.querySelectorAll(".notif-item").forEach((row) => {
+      row.addEventListener("click", async (e) => {
+        if (e.target.closest(".notif-dismiss")) return;
+        let link = {};
+        try { link = JSON.parse(row.dataset.link || "{}"); } catch (_) {}
+        if (link.type === "email" && link.message_id) {
+          // Open in the inbox reader (this page).
+          document.getElementById("notifDropdown")?.setAttribute("hidden", "");
+          try { await openMailById(link.message_id); } catch (err) { showToast?.(`Couldn't open: ${err.message}`, "error"); }
+        } else if (link.type === "promises") {
+          window.location.href = "/promises";
+        } else if (link.type === "tasks") {
+          window.location.href = "/tasks";
+        }
+      });
+    });
+
+    body.querySelectorAll(".notif-dismiss").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        const row = btn.closest(".notif-item");
+        const id = row?.dataset.id;
+        if (!id) return;
+        row.style.opacity = "0.4";
+        try {
+          await fetch(`/api/notifications/${encodeURIComponent(id)}/dismiss`, { method: "POST" });
+          row.remove();
+          _notifCache.notifications = (_notifCache.notifications || []).filter((n) => n.id !== id);
+          if (!_notifCache.notifications.length) renderNotifications([]);
+        } catch (err) {
+          row.style.opacity = "1";
+          console.warn("[notif] dismiss failed:", err);
+        }
+      });
+    });
+  }
 
   async function openMessageFromUrlIfPresent() {
     const params = new URLSearchParams(window.location.search);

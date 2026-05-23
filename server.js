@@ -801,6 +801,56 @@ app.post("/api/commitments/:id/fulfill", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Notification center — Phase 5.BB.
+// Aggregates overdue promises, due-soon tasks, important-sender unread mail.
+//   GET    /api/notifications              → list
+//   POST   /api/notifications/seen         → clear unread badge
+//   POST   /api/notifications/:id/dismiss  → hide a single notif (id is dismiss_key)
+//   POST   /api/notifications/dismiss-all  → clear current list
+// ====================================================================
+app.get("/api/notifications", auth.requireAuth, async (req, res) => {
+  try {
+    const notifications = require("./lib/notifications");
+    const result = await notifications.listForUser(req.user.id);
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/notifications] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
+app.post("/api/notifications/seen", auth.requireAuth, async (req, res) => {
+  try {
+    const notifications = require("./lib/notifications");
+    await notifications.setLastSeen(req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: "update_failed", message: err.message });
+  }
+});
+
+app.post("/api/notifications/dismiss-all", auth.requireAuth, async (req, res) => {
+  try {
+    const notifications = require("./lib/notifications");
+    const r = await notifications.dismissAll(req.user.id);
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
+app.post("/api/notifications/:id/dismiss", auth.requireAuth, async (req, res) => {
+  try {
+    const notifications = require("./lib/notifications");
+    // The id param IS the dismiss_key (e.g. "promise-overdue:42").
+    const r = await notifications.dismiss(req.user.id, req.params.id);
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Finance-alert diagnostics — Phase 5.AJ.
 // GET  /api/finance-alerts/status     → { enabled, notify_url, watch_names }
 // GET  /api/finance-alerts/recent     → last 30 alerts sent for this user

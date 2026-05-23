@@ -97,46 +97,89 @@
   .empty-title { font-size: 17px; font-weight: 600; color: var(--navy, #282f39); margin-bottom: 6px; }
   .empty-sub { font-size: 14px; }
 
-  /* Promise card */
+  /* Promise card — redesigned Phase 5.BB */
   .promise {
     background: var(--paper, #fff);
     border: 1px solid var(--line, #e8dfd0);
     border-radius: 10px;
-    padding: 14px 16px;
-    margin-bottom: 12px;
+    padding: 14px 18px;
+    margin-bottom: 14px;
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 14px;
+    grid-template-columns: 1fr 130px;
+    gap: 18px;
     align-items: start;
-    transition: box-shadow .12s ease;
+    transition: box-shadow .12s ease, border-color .12s ease;
   }
   .promise:hover {
     box-shadow: 0 2px 12px rgba(40,47,57,0.06);
+    border-color: rgba(178,142,68,.35);
   }
   .promise.overdue {
-    border-left: 3px solid var(--red, #e92a2e);
+    border-left: 4px solid var(--red, #e92a2e);
   }
   .promise.fulfilled {
-    opacity: .7;
+    opacity: .75;
     background: rgba(46,160,67,0.04);
   }
   .promise-body { min-width: 0; }
-  .promise-text {
-    font-size: 15px; font-weight: 600; color: var(--navy, #282f39);
-    margin-bottom: 4px;
-    line-height: 1.4;
+
+  /* Top row: recipient + date promised */
+  .promise-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
   }
-  .promise-meta {
-    font-size: 13px; color: var(--navy-soft, #5a6470);
-    display: flex; flex-wrap: wrap; gap: 12px;
+  .promise-recipient {
+    font-size: 14px; font-weight: 600; color: var(--gold-dark, #8a6b2a);
+    display: inline-flex; align-items: center; gap: 6px;
   }
-  .promise-meta .recipient { font-weight: 500; color: var(--navy, #282f39); }
-  .promise-meta .deadline { font-style: italic; }
-  .promise-meta .deadline.is-overdue { color: var(--red, #e92a2e); font-weight: 600; }
-  .promise-meta .when-said { color: var(--navy-soft, #5a6470); }
+  .promise-recipient svg { width: 14px; height: 14px; fill: currentColor; flex-shrink: 0; }
+  .promise-date-said {
+    font-size: 12px; color: var(--navy-soft, #5a6470);
+    flex-shrink: 0;
+  }
+
+  /* The actual quote — primary content */
+  .promise-quote {
+    font-size: 15px; color: var(--navy, #282f39);
+    line-height: 1.5;
+    border-left: 3px solid var(--gold, #b28e44);
+    padding: 4px 0 4px 12px;
+    margin-bottom: 10px;
+    font-style: italic;
+  }
+  .promise-quote::before { content: "\201C"; opacity: .4; margin-right: 2px; }
+  .promise-quote::after { content: "\201D"; opacity: .4; margin-left: 2px; }
+
+  /* Footer chips */
+  .promise-chips {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    align-items: center;
+  }
+  .promise-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: rgba(40,47,57,.06);
+    color: var(--navy-soft, #5a6470);
+    font-weight: 500;
+  }
+  .promise-chip svg { width: 11px; height: 11px; fill: currentColor; flex-shrink: 0; }
+  .promise-chip.deadline { background: rgba(178,142,68,.14); color: var(--gold-dark, #8a6b2a); }
+  .promise-chip.deadline.is-overdue { background: rgba(233,42,46,.14); color: var(--red, #e92a2e); font-weight: 600; }
+  .promise-chip.due-text { background: rgba(40,47,57,.04); color: var(--navy-soft, #5a6470); font-style: italic; }
+  .promise-chip.source-email {
+    background: rgba(46,160,67,.10); color: #2ea043;
+    cursor: pointer; text-decoration: none;
+    transition: background .12s ease;
+  }
+  .promise-chip.source-email:hover { background: rgba(46,160,67,.18); }
+  .promise-chip.fulfilled { background: rgba(46,160,67,.12); color: #2ea043; font-weight: 600; }
+
+  /* Action column */
   .promise-actions {
     display: flex; flex-direction: column; gap: 6px;
-    min-width: 110px;
   }
   .promise-actions button {
     background: transparent;
@@ -226,21 +269,61 @@
     return "due " + d.toLocaleDateString(undefined, {weekday:"short", month:"short", day:"numeric"});
   }
 
+  function fmtPromisedDate(p) {
+    if (!p.created_at) return "";
+    const d = new Date(p.created_at);
+    const today = new Date();
+    const sameDay = d.toDateString() === today.toDateString();
+    if (sameDay) return "promised today";
+    const diffDays = Math.round((today - d) / 86400000);
+    if (diffDays === 1) return "promised yesterday";
+    if (diffDays < 7) return `promised ${diffDays} days ago`;
+    return "promised " + d.toLocaleDateString(undefined, {month:"short", day:"numeric", year: d.getFullYear() === today.getFullYear() ? undefined : "numeric"});
+  }
+
   function renderPromise(p, filter) {
     const overdueCls = (filter === "overdue" || (p.is_overdue && filter === "open")) ? "overdue" : "";
     const fulfilledCls = filter === "fulfilled" ? "fulfilled" : "";
     const deadline = fmtDeadline(p);
     const isOverdueDl = p.due_at && new Date(p.due_at) < new Date();
     const showActions = filter === "open" || filter === "overdue";
+    const recipient = p.recipient_name || p.recipient_email || "someone";
+    const promisedDate = fmtPromisedDate(p);
+    const hasDeadline = !!(p.due_at || p.due_text);
+
+    const sourceLink = p.source_message_id
+      ? `<a class="promise-chip source-email" href="/?msg=${encodeURIComponent(p.source_message_id)}" title="Open the original email">
+           <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+           Open original email
+         </a>`
+      : "";
+
     return `
       <div class="promise ${overdueCls} ${fulfilledCls}" data-id="${p.id}">
         <div class="promise-body">
-          <div class="promise-text">${escapeHtml(p.commitment_text)}</div>
-          <div class="promise-meta">
-            <span class="recipient">→ ${escapeHtml(p.recipient_name || p.recipient_email || "someone")}</span>
-            <span class="deadline ${isOverdueDl ? "is-overdue" : ""}">${escapeHtml(deadline)}</span>
-            ${p.due_text ? `<span class="when-said">said: "${escapeHtml(p.due_text)}"</span>` : ""}
-            ${filter === "fulfilled" && p.fulfilled_at ? `<span class="when-said">✓ ${new Date(p.fulfilled_at).toLocaleDateString()}</span>` : ""}
+          <div class="promise-head">
+            <div class="promise-recipient">
+              <svg viewBox="0 0 24 24"><path d="M5 4l14 8-14 8V4z"/></svg>
+              To ${escapeHtml(recipient)}
+            </div>
+            ${promisedDate ? `<div class="promise-date-said">${escapeHtml(promisedDate)}</div>` : ""}
+          </div>
+          <div class="promise-quote">${escapeHtml(p.commitment_text)}</div>
+          <div class="promise-chips">
+            ${hasDeadline ? `
+              <span class="promise-chip deadline ${isOverdueDl ? "is-overdue" : ""}">
+                <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zM12.5 7H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                ${escapeHtml(deadline)}
+              </span>` : `
+              <span class="promise-chip">No deadline mentioned</span>`
+            }
+            ${p.due_text ? `<span class="promise-chip due-text">Their words: "${escapeHtml(p.due_text)}"</span>` : ""}
+            ${sourceLink}
+            ${filter === "fulfilled" && p.fulfilled_at ? `
+              <span class="promise-chip fulfilled">
+                <svg viewBox="0 0 24 24"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+                Closed ${new Date(p.fulfilled_at).toLocaleDateString()}
+              </span>` : ""}
           </div>
         </div>
         <div class="promise-actions">

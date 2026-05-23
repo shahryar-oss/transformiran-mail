@@ -156,6 +156,20 @@
         <button class="refresh-btn" id="refreshInboxBtn" title="Refresh + check Gmail for new state">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A7.958 7.958 0 0 0 12 4a8 8 0 1 0 7.75 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>
         </button>
+        <button class="refresh-btn notif-bell" id="notifBellBtn" title="Notifications">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22c1.1 0 2-.9 2-2h-4a2 2 0 0 0 2 2zm6-6V11c0-3.07-1.63-5.64-4.5-6.32V4a1.5 1.5 0 0 0-3 0v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
+          <span class="notif-badge" id="notifBadge" hidden>0</span>
+        </button>
+      </div>
+      <!-- Notification dropdown (anchored under the list header) -->
+      <div class="notif-dropdown" id="notifDropdown" hidden>
+        <div class="notif-dropdown-head">
+          <span class="notif-dropdown-title">Notifications</span>
+          <button type="button" class="notif-clear-all" id="notifClearAll" title="Dismiss everything below">Clear all</button>
+        </div>
+        <div class="notif-dropdown-body" id="notifDropdownBody">
+          <div class="notif-empty">Nothing to act on right now. Nice.</div>
+        </div>
       </div>
       <div class="list-search">
         <input type="text" id="searchInput" placeholder="Search mail… (e.g. from:lana, subject:budget)">
