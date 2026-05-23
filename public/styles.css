@@ -4071,41 +4071,53 @@ body.delta-panel-open .delta-fab { display: none; }
 
 /* ===================================================================
  * Phase 5.AO — Sources Delta consulted (grounding panel)
+ * Slim FOOTER strip at the bottom of the draft composer frame.
+ * Small font, low contrast — visible without competing with the
+ * email body content above.
  * =================================================================== */
 
 .draft-grounding {
-  margin: 8px 0;
-  background: var(--cream, #f7f3e9);
-  border: 1px solid var(--line, #e8dfd0);
-  border-radius: 8px;
-  font-size: 12.5px;
-  color: var(--navy, #282f39);
-}
-.draft-grounding.empty {
-  padding: 8px 12px;
-  background: rgba(40, 47, 57, 0.04);
+  margin: 6px 0 0 0;
+  background: transparent;
+  border-top: 1px solid var(--line, #e8dfd0);
+  border-radius: 0;
+  font-size: 11px;
   color: var(--navy-soft, #5a6470);
 }
-.draft-grounding.empty .dg-head {
-  display: flex;
+.draft-grounding.empty {
+  padding: 6px 14px;
+  background: transparent;
+  color: var(--navy-soft, #5a6470);
+  font-size: 11px;
+  font-style: italic;
+  opacity: 0.85;
+}
+.draft-grounding.empty .dg-mini {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.draft-grounding.empty .k-logo-inline {
+  width: 11px; height: 11px;
+  opacity: 0.7;
 }
 .draft-grounding summary {
   list-style: none;
   cursor: pointer;
-  padding: 8px 12px;
+  padding: 6px 14px;
   display: flex;
   align-items: center;
   gap: 8px;
   user-select: none;
-  border-radius: 8px;
+  border-radius: 0;
+  font-size: 11px;
 }
 .draft-grounding summary::-webkit-details-marker { display: none; }
 .draft-grounding summary::before {
   content: "▸";
   display: inline-block;
-  width: 12px;
+  width: 10px;
+  font-size: 10px;
   color: var(--navy-soft, #5a6470);
   transition: transform .15s ease;
 }
@@ -4113,31 +4125,35 @@ body.delta-panel-open .delta-fab { display: none; }
   transform: rotate(90deg);
 }
 .draft-grounding summary:hover {
-  background: rgba(178, 142, 68, 0.08);
+  background: rgba(178, 142, 68, 0.06);
 }
 .dg-summary .k-logo-inline {
-  width: 14px; height: 14px;
+  width: 11px; height: 11px;
+  opacity: 0.85;
 }
 .dg-summary strong {
   font-weight: 600;
+  color: var(--navy, #282f39);
 }
 .dg-counts {
   color: var(--navy-soft, #5a6470);
   margin-left: auto;
   font-weight: 400;
+  font-size: 10.5px;
 }
 
 .dg-body {
-  padding: 4px 12px 10px;
-  border-top: 1px solid rgba(232, 223, 208, 0.7);
+  padding: 4px 14px 10px;
+  font-size: 11px;
 }
 .dg-section-label {
-  font-size: 11px;
+  font-size: 9.5px;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   color: var(--navy-soft, #5a6470);
-  margin: 10px 0 4px;
+  margin: 8px 0 3px;
   font-weight: 600;
+  opacity: 0.85;
 }
 .dg-list {
   list-style: none;
@@ -4145,8 +4161,8 @@ body.delta-panel-open .delta-fab { display: none; }
   margin: 0;
 }
 .dg-source {
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(232, 223, 208, 0.5);
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(232, 223, 208, 0.6);
 }
 .dg-source:last-child {
   border-bottom: 0;
@@ -4158,12 +4174,12 @@ body.delta-panel-open .delta-fab { display: none; }
   margin: 0;
   text-align: left;
   display: grid;
-  grid-template-columns: 90px 1fr 2fr;
-  gap: 12px;
+  grid-template-columns: 80px 1fr 2fr;
+  gap: 10px;
   width: 100%;
   cursor: pointer;
   color: var(--navy, #282f39);
-  font-size: 12.5px;
+  font-size: 11px;
   align-items: baseline;
 }
 .dg-open-link:hover .dg-subject {
@@ -4172,7 +4188,7 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .dg-meta {
   color: var(--navy-soft, #5a6470);
-  font-size: 11.5px;
+  font-size: 10.5px;
   white-space: nowrap;
 }
 .dg-from {
@@ -4190,7 +4206,8 @@ body.delta-panel-open .delta-fab { display: none; }
 .dg-attachment {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+  font-size: 11px;
 }
 .dg-att-icon {
   color: var(--navy-soft, #5a6470);
@@ -4200,15 +4217,16 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .dg-att-meta {
   color: var(--navy-soft, #5a6470);
-  font-size: 11.5px;
+  font-size: 10.5px;
   margin-left: auto;
 }
 .dg-foot {
-  margin-top: 10px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(232, 223, 208, 0.5);
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed rgba(232, 223, 208, 0.6);
   color: var(--navy-soft, #5a6470);
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-style: italic;
   line-height: 1.4;
+  opacity: 0.9;
 }

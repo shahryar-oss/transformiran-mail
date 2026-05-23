@@ -801,21 +801,22 @@
   // that any claims in the draft are grounded.
   function renderGroundingPanel(composer, g) {
     if (!composer || !g) return;
-    if (composer.querySelector(".draft-grounding")) return;
+    // Remove any prior panel before re-rendering (e.g. on Re-draft).
+    composer.querySelector(".draft-grounding")?.remove();
 
     const totalSources = (g.relatedThreads?.length || 0) + (g.attachments?.length || 0);
     if (totalSources === 0) {
       // Still show a small "no sources found" note so user knows
-      // Delta tried.
+      // Delta tried. Placed at the BOTTOM of the composer frame.
       const note = document.createElement("div");
       note.className = "draft-grounding empty";
       note.innerHTML = `
-        <div class="dg-head">
-          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;fill:currentColor;vertical-align:text-bottom"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <span class="dg-mini">
+          <img class="k-logo-inline" src="/delta-logo.png" alt="Delta">
           No prior threads found on "<em>${escapeHtml(g.normalizedSubject || "this subject")}</em>" — draft based on the open email only.
-        </div>`;
-      const confEl = composer.querySelector(".draft-confidence");
-      if (confEl) confEl.parentNode.insertBefore(note, confEl.nextSibling);
+        </span>`;
+      // Append at the very bottom of the composer.
+      composer.appendChild(note);
       return;
     }
 
@@ -879,8 +880,10 @@
       });
     });
 
-    const confEl = composer.querySelector(".draft-confidence");
-    if (confEl) confEl.parentNode.insertBefore(panel, confEl.nextSibling);
+    // Place at the BOTTOM of the composer frame, just under the
+    // action row — small font, outside the email body itself,
+    // visible whenever the draft is on screen.
+    composer.appendChild(panel);
   }
 
   // ---------- Smart reply chips (Phase 5.AL) -----------------------
