@@ -3087,24 +3087,43 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     proseHtml = String(bodyHtml);
     proseText = mime.htmlToText(proseHtml);
   } else {
-    // Plain-text body (Delta drafts, replies). Detect the
-    // quoted-history block appended by draftReply:
+    // Plain-text body (Delta drafts, replies). Detect the Outlook-
+    // style quoted-history block draftReply appends:
+    //
     //   <blank line>
-    //   On <date>, <name> wrote:
+    //   ________________________________________   ← separator
+    //   From: ...
+    //   Date: ...
+    //   To: ...
+    //   Cc: ...    (optional)
+    //   Subject: ...
     //   <blank line>
-    //   > line1
-    //   > line2
+    //   <body — plain text, no "> " prefixes>
+    //
+    // We split into (new prose) + (header block) + (quoted body) so
+    // the HTML can render bold labels above a clean body — matching
+    // Outlook's reply format.
     const fullText = String(bodyText || "");
-    const quotedMatch = fullText.match(/\n(On .+? wrote:)\n\n([\s\S]+)$/);
-    let attribution = "";
+    const sepRegex = /\n_{20,}\n/;
+    const sepMatch = fullText.match(sepRegex);
+    let headerBlock = "";
     let quotedBodyText = "";
-    if (quotedMatch) {
-      proseText = fullText.slice(0, quotedMatch.index);
-      attribution = quotedMatch[1];
-      quotedBodyText = quotedMatch[2];
-      // Text variant of the quoted block (keep "> " prefixes — that's
-      // the convention for text/plain replies).
-      quotedText = `\r\n\r\n${attribution}\r\n\r\n${quotedBodyText}`;
+    if (sepMatch) {
+      proseText = fullText.slice(0, sepMatch.index);
+      const afterSep = fullText.slice(sepMatch.index + sepMatch[0].length);
+      // Header block ends at the first blank line after the separator.
+      const blankIdx = afterSep.indexOf("\n\n");
+      if (blankIdx > 0) {
+        headerBlock = afterSep.slice(0, blankIdx);
+        quotedBodyText = afterSep.slice(blankIdx + 2);
+      } else {
+        headerBlock = afterSep;
+        quotedBodyText = "";
+      }
+      // Plain-text variant — preserve the exact same format Outlook
+      // generates (separator + header lines + body, no "> " prefixes).
+      const sep = "________________________________________";
+      quotedText = `\r\n\r\n${sep}\r\n${headerBlock}\r\n\r\n${quotedBodyText}`;
     } else {
       proseText = fullText;
     }
@@ -3119,21 +3138,33 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
       .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
       .join("\n");
 
-    if (quotedBodyText) {
-      // Strip "> " from each line; <blockquote> provides the visual
-      // indentation in HTML.
-      const stripped = quotedBodyText
-        .split(/\r?\n/)
-        .map((l) => l.startsWith("> ") ? l.slice(2) : (l.startsWith(">") ? l.slice(1) : l))
+    if (headerBlock) {
+      // Render header lines with bold labels (Outlook-style).
+      const headerHtml = headerBlock.split(/\r?\n/).map((line) => {
+        const m = line.match(/^([A-Za-z][A-Za-z-]*?):\s*(.*)$/);
+        if (m) {
+          return `<b>${escHtml(m[1])}:</b> ${escHtml(m[2])}`;
+        }
+        return escHtml(line);
+      }).join("<br>");
+
+      // Render the quoted body as normal paragraphs — no blockquote,
+      // no grey-left-border, no "> " prefix. Outlook lets the original
+      // body breathe at its own font size and the recipient can read
+      // it without scrolling through quote markers.
+      const bodyEscaped = escHtml(quotedBodyText)
+        .split(/\n{2,}/)
+        .map((p) => `<p style="margin:0 0 12px 0">${p.replace(/\n/g, "<br>")}</p>`)
         .join("\n");
-      const innerHtml = escHtml(stripped)
-        .split(/\n/)
-        .map((l) => l ? l : "")
-        .join("<br>");
+
+      // Horizontal rule above the header block — Outlook uses a
+      // light-blue border-top. Match the visual cue.
       quotedHtml =
-        `<br><div class="gmail_quote">` +
-        `<div class="gmail_attr" style="color:#5f6368;font-size:12.5px">${escHtml(attribution)}</div>` +
-        `<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;color:#5f6368">${innerHtml}</blockquote>` +
+        `<div>` +
+          `<div style="border-top:solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in;margin-top:16px">` +
+            `<p style="margin:0 0 12px 0;font-family:Calibri,Aptos,sans-serif;font-size:11.0pt">${headerHtml}</p>` +
+          `</div>` +
+          `<div style="font-family:Calibri,Aptos,sans-serif;font-size:11.0pt;color:#000">${bodyEscaped}</div>` +
         `</div>`;
     }
   }
