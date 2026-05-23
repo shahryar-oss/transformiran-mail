@@ -1766,7 +1766,7 @@
         </button>
       </div>
       <div class="draft-body-wrap">
-        <textarea class="draft-body" placeholder="Delta's draft will appear here…" disabled></textarea>
+        <div class="draft-body" contenteditable="false" data-placeholder="Delta's draft will appear here…"></div>
       </div>
       <div class="draft-actions">
         <button class="draft-send btn primary draft-btn-send" disabled>
@@ -1804,8 +1804,10 @@
     attachRecipientAutocomplete(bccInput);
 
     const bodyTa = composer.querySelector(".draft-body");
-    // Phase 5.AP — @mention in body promotes to To (or moves Cc → To).
-    attachMentionMenu(bodyTa, toInput, ccInput);
+    // Phase 5.AP — @mention in body. Original implementation targets
+    // textarea selectionStart API; needs Selection-API port for the
+    // contenteditable composer (Phase 5.AQ). Re-enable after porting.
+    // attachMentionMenu(bodyTa, toInput, ccInput);
     const instr = composer.querySelector(".draft-extra-instructions");
     const regenBtn = composer.querySelector(".draft-regen");
     const sendBtn = composer.querySelector(".draft-send");
@@ -1825,9 +1827,9 @@
       titleEl.textContent = "Delta is drafting a reply…";
       regenBtn.disabled = true;
       saveBtn.disabled = true;
-      bodyTa.disabled = true;
+      setBodyEditable(false);
       statusEl.textContent = "";
-      bodyTa.value = "";
+      bodyTa.innerHTML = "";
 
       try {
         const r = await fetch("/api/assistant/draft", {
@@ -1848,7 +1850,10 @@
           ccRow.hidden = false;
         }
         subjInput.value = data.subject || "";
-        bodyTa.value = data.body || "";
+        // Render Delta's prose as paragraphs + the original styled
+        // quoted history block (preserves sender's signature/colors/
+        // logo via the parent's source HTML).
+        bodyTa.innerHTML = renderInitialDraftHtml(data.body, data.quotedHtml);
         titleEl.textContent = "Draft ready — edit before saving";
 
         // Signature availability indicator
@@ -1886,9 +1891,32 @@
         regenBtn.disabled = false;
         saveBtn.disabled = false;
         sendBtn.disabled = false;
-        bodyTa.disabled = false;
+        setBodyEditable(true);
         instr.value = "";
       }
+    }
+
+    // Phase 5.AQ — helper for the contenteditable .draft-body.
+    // textarea.disabled doesn't exist on a div; use contentEditable +
+    // a CSS class for the visual locked state.
+    function setBodyEditable(yes) {
+      bodyTa.contentEditable = yes ? "true" : "false";
+      bodyTa.classList.toggle("disabled", !yes);
+    }
+
+    // Render initial composer content: Delta's prose as paragraphs +
+    // the parent's HTML quoted block (Outlook-style, with original
+    // sender's signature preserved).
+    function renderInitialDraftHtml(prose, quotedHtml) {
+      const escHtml = (s) => String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      const proseHtml = escHtml(prose || "")
+        .split(/\n{2,}/)
+        .map((p) => `<div>${p.replace(/\n/g, "<br>")}</div>`)
+        .join(`<div><br></div>`);
+      return `${proseHtml}${quotedHtml ? `<div><br></div>${quotedHtml}` : ""}`;
     }
 
     regenBtn.addEventListener("click", () => generate(instr.value.trim()));
@@ -1936,7 +1964,13 @@
             cc: ccInput.value.trim() || undefined,
             bcc: bccInput.value.trim() || undefined,
             subject: subjInput.value,
-            body: bodyTa.value,
+            // Phase 5.AQ — contenteditable composer sends rich HTML
+            // so the recipient sees the parent's original signature/
+            // colors/logo in the quoted block. Server's
+            // buildMultipartMessage auto-generates the text/plain
+            // variant via mime.htmlToText.
+            bodyHtml: bodyTa.innerHTML,
+            body: bodyTa.innerText, // plain-text fallback for text/plain
             threadId: currentDraft.threadId,
             inReplyTo: currentDraft.inReplyTo,
             // Phase 5.AE — Carry Delta's draft id so the server can
@@ -1949,7 +1983,7 @@
         statusEl.className = "draft-status ok";
         statusEl.textContent = data.archived ? "Sent + archived ✓" : "Sent ✓";
         sendBtn.textContent = "Sent";
-        toInput.disabled = true; subjInput.disabled = true; bodyTa.disabled = true;
+        toInput.disabled = true; subjInput.disabled = true; setBodyEditable(false);
         ccInput.disabled = true; bccInput.disabled = true;
         regenBtn.disabled = true;
         showToast(data.archived ? `Sent to ${to} · archived` : `Sent to ${to}`, "ok");
@@ -1981,7 +2015,8 @@
             cc: ccInput.value.trim() || undefined,
             bcc: bccInput.value.trim() || undefined,
             subject: subjInput.value,
-            body: bodyTa.value,
+            bodyHtml: bodyTa.innerHTML,
+            body: bodyTa.innerText,
             threadId: currentDraft.threadId,
             inReplyTo: currentDraft.inReplyTo,
           }),
@@ -1991,7 +2026,7 @@
         statusEl.className = "draft-status ok";
         statusEl.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail Drafts ↗</a>`;
         titleEl.textContent = "Draft saved";
-        bodyTa.disabled = true;
+        setBodyEditable(false);
         toInput.disabled = true;
         subjInput.disabled = true;
         regenBtn.disabled = true;
@@ -2027,9 +2062,11 @@
             toInput.value = data.to || "";
             if (data.cc) { ccInput.value = data.cc; ccRow.hidden = false; }
             subjInput.value = data.subject || "";
-            bodyTa.value = prefill.body;          // ← override with chip
+            // Override Delta's prose with the smart-reply chip's body
+            // while keeping the parent's HTML quoted block.
+            bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, data.quotedHtml);
             titleEl.textContent = `Smart reply ready (${prefill.intent || "commit"})`;
-            regenBtn.disabled = false; saveBtn.disabled = false; bodyTa.disabled = false;
+            regenBtn.disabled = false; saveBtn.disabled = false; setBodyEditable(true);
           })
           .catch(() => {
             // Fall back to normal generate if metadata fetch fails.

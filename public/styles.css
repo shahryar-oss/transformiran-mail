@@ -1738,15 +1738,42 @@ button { font-family: inherit; cursor: pointer; }
 .draft-body {
   width: 100%;
   min-height: 240px;
+  max-height: 600px;
+  overflow-y: auto;
   border: none;
   outline: none;
-  resize: vertical;
   font-family: inherit;
   font-size: 14px;
   line-height: 1.6;
   color: var(--navy);
   padding: 16px 0;
   background: transparent;
+}
+
+/* Phase 5.AQ — contenteditable visual states. */
+.draft-body:focus {
+  outline: none;
+}
+.draft-body.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: not-allowed;
+  user-select: none;
+}
+.draft-body:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted, #9aa0a6);
+  pointer-events: none;
+  display: block;
+}
+/* Preserve original styles inside the editor — don't let the editor's
+ * font override the quoted HTML's signature styling. */
+.draft-body * {
+  max-width: 100%;
+}
+.draft-body img {
+  max-width: 100%;
+  height: auto;
 }
 
 .draft-actions {

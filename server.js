@@ -2742,6 +2742,11 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       // client show a "Sources" panel so the user can verify the
       // grounding instead of trusting the draft on faith.
       grounding: result.grounding || null,
+      // Phase 5.AQ — HTML version of the quoted history (Outlook-style
+      // header + parent's original HTML body). Composer renders this
+      // in a contenteditable so signatures/colors/logos are visible
+      // while the user is drafting.
+      quotedHtml: result.quotedHtml || "",
     });
   } catch (err) {
     console.error("[/api/assistant/draft] failed:", err);
