@@ -636,13 +636,14 @@
         const when = escapeHtml(timeAgo(m.internalDate));
         const unreadCls = m.unread ? "unread" : "";
         const isStarred = Array.isArray(m.labelIds) && m.labelIds.includes("STARRED");
+        const clip = m.hasAttachments ? `<span class="mail-attach-icon" title="Has attachment"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6h-1.5v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6h-1.5z"/></svg></span>` : "";
         return `
           <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}" data-thread-id="${escapeHtml(m.threadId || "")}">
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
                 <div class="mail-sender">${senderLabel}</div>
-                <div class="mail-time">${when}</div>
+                <div class="mail-row-top-right">${clip}<div class="mail-time">${when}</div></div>
               </div>
               <div class="mail-subject">${subj}</div>
               <div class="mail-row-meta">
@@ -3020,13 +3021,14 @@
         const when = escapeHtml(timeAgo(m.internalDate));
         const unreadCls = m.unread ? "unread" : "";
         const isStarred = Array.isArray(m.labelIds) && m.labelIds.includes("STARRED");
+        const clip = m.hasAttachments ? `<span class="mail-attach-icon" title="Has attachment"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 6v11.5a4 4 0 0 1-8 0V5a2.5 2.5 0 0 1 5 0v10.5a1 1 0 0 1-2 0V6h-1.5v9.5a2.5 2.5 0 0 0 5 0V5a4 4 0 0 0-8 0v12.5a5.5 5.5 0 0 0 11 0V6h-1.5z"/></svg></span>` : "";
         return `
           <div class="mail-row ${unreadCls}" data-id="${escapeHtml(m.id)}" data-thread-id="${escapeHtml(m.threadId || "")}">
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
                 <div class="mail-sender">${senderLabel}</div>
-                <div class="mail-time">${when}</div>
+                <div class="mail-row-top-right">${clip}<div class="mail-time">${when}</div></div>
               </div>
               <div class="mail-subject">${subj}</div>
               <div class="mail-row-meta">

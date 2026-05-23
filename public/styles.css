@@ -715,6 +715,28 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 12px;
   flex-shrink: 0;
 }
+/* Paperclip indicator on rows with attachments (Phase 5.BA) */
+.mail-row-top-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.mail-attach-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  color: var(--gold-dark);
+  opacity: .85;
+}
+.mail-attach-icon svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+.mail-row.unread .mail-attach-icon { color: var(--red); opacity: 1; }
 .mail-subject {
   font-size: 13.5px;
   color: var(--navy);
