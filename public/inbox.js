@@ -2305,7 +2305,9 @@
         statusEl.textContent = "Add a recipient first.";
         return;
       }
-      if (!confirm(`Send this reply to ${to}?`)) return;
+      // No confirm() — clicking Send means Send. The Send button is
+      // already explicit + dedicated (not adjacent to anything
+      // destructive), so a second confirmation just adds friction.
       sendBtn.disabled = true;
       saveBtn.disabled = true;
       statusEl.className = "draft-status";
@@ -2605,7 +2607,6 @@
   cmpSend?.addEventListener("click", async () => {
     const to = cmpTo.value.trim();
     if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return; }
-    if (!confirm(`Send this email to ${to}?`)) return;
     cmpSend.disabled = true; cmpSave.disabled = true;
     cmpStatus.className = "compose-status";
     cmpStatus.textContent = "Sending…";
