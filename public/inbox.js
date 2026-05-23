@@ -3308,6 +3308,42 @@
   // Expose for Delta chat panel + any cross-module callers.
   window.openMailById = openMailById;
 
+  // Phase 5.AV — promote a Delta-drafted reply from the chat panel
+  // into the real middle-pane composer. Used by the chat-draft card's
+  // "Open in main composer" button. Pre-fills the composer with the
+  // draft body Delta already produced, so the user lands directly on
+  // the ready-to-edit version (no second LLM call to regenerate).
+  window.openComposerWithDraft = async function(draft) {
+    if (!draft) return;
+    const msgId = draft.messageId;
+    if (!msgId) return;
+    // Set the smart-reply prefill mechanism (Phase 5.AL) so
+    // openDraftComposer uses Delta's existing body instead of
+    // re-fetching from /api/assistant/draft.
+    window._smartReplyPrefill = {
+      messageId: msgId,
+      body: draft.body || "",
+      intent: "chat-drafted",
+    };
+    // Close the Delta side panel so the middle column is unobstructed.
+    document.querySelector(".delta-close")?.click();
+    // Find the message in the list or fetch it.
+    const existing = _allMessages.find((m) => m.id === msgId);
+    if (existing) {
+      // Make sure it's selected (so reader actions wire correctly).
+      onSelect(msgId, _allMessages);
+      // openDraftComposer is closure-scoped — call via the toolbar Reply path.
+      onToolbarAction("reply", existing);
+    } else {
+      // Not in the visible list — open by id (this also selects it).
+      const ok = await openMailById(msgId);
+      if (ok) {
+        const fresh = _allMessages.find((m) => m.id === msgId);
+        if (fresh) onToolbarAction("reply", fresh);
+      }
+    }
+  };
+
   async function openMessageFromUrlIfPresent() {
     const params = new URLSearchParams(window.location.search);
     const msgId = params.get("msg");
