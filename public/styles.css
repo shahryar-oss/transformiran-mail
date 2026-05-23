@@ -2741,6 +2741,51 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .md-content a:hover { color: var(--red-dark); }
 
+/* Tables — Phase 5.AZ.  Categorized, easy to scan. */
+.md-content .md-table {
+  border-collapse: collapse;
+  margin: 10px 0 14px;
+  width: 100%;
+  font-size: 12.5px;
+  background: var(--paper);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 3px rgba(40, 47, 57, .04);
+}
+.md-content .md-table thead {
+  background: var(--cream);
+  border-bottom: 2px solid var(--gold);
+}
+.md-content .md-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  white-space: nowrap;
+}
+.md-content .md-table td {
+  padding: 7px 10px;
+  border-top: 1px solid var(--line);
+  color: var(--navy);
+  vertical-align: top;
+  line-height: 1.45;
+}
+.md-content .md-table tbody tr:nth-child(even) td {
+  background: rgba(247, 243, 233, .55); /* zebra-stripe in cream */
+}
+.md-content .md-table tbody tr:hover td {
+  background: rgba(178, 142, 68, .08);
+}
+.md-content .md-table td strong { color: var(--navy); font-weight: 600; }
+/* Right-align cells that look numeric (digits, %, currency, decimals). */
+.md-content .md-table td:not(:first-child) {
+  font-variant-numeric: tabular-nums;
+}
+
 /* Email reference — inline citation to a real message */
 .md-content .md-email-ref {
   display: inline-flex;
