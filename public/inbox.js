@@ -34,6 +34,330 @@
     return { name: "", email: String(raw || "").trim() };
   }
 
+  // ===== Phase 5.AP — Recipient autocomplete + @mention =================
+  // Shared in-flight cache so a single keystroke doesn't fire ten requests.
+  let _suggestAbort = null;
+  let _suggestCache = new Map(); // q.toLowerCase() → suggestions[]
+
+  async function fetchSuggestions(query, limit = 8) {
+    const key = `${query.toLowerCase()}|${limit}`;
+    if (_suggestCache.has(key)) return _suggestCache.get(key);
+    // Cancel any in-flight earlier request so we don't race.
+    try { _suggestAbort?.abort(); } catch (_) {}
+    _suggestAbort = new AbortController();
+    try {
+      const r = await fetch(
+        `/api/contacts/suggest?q=${encodeURIComponent(query)}&limit=${limit}`,
+        { signal: _suggestAbort.signal }
+      );
+      if (!r.ok) return [];
+      const data = await r.json();
+      const sug = data.suggestions || [];
+      _suggestCache.set(key, sug);
+      // Bound the cache so it doesn't grow forever.
+      if (_suggestCache.size > 60) {
+        const firstKey = _suggestCache.keys().next().value;
+        _suggestCache.delete(firstKey);
+      }
+      return sug;
+    } catch (err) {
+      if (err.name === "AbortError") return [];
+      console.warn("[suggest] fetch failed:", err);
+      return [];
+    }
+  }
+
+  // Returns the prefix the user is currently typing (the substring
+  // after the last "," in the field, trimmed). Empty string when
+  // they're at the start of a new chip.
+  function currentTokenInRecipientField(input) {
+    const v = input.value;
+    const lastComma = v.lastIndexOf(",");
+    return v.slice(lastComma + 1).trim();
+  }
+
+  // Replace the currently-typed token in a recipient field with the
+  // chosen "Name <email>" string, then add a trailing ", " so the
+  // user can keep adding more without retyping.
+  function applyRecipientChoice(input, choice) {
+    const v = input.value;
+    const lastComma = v.lastIndexOf(",");
+    const before = lastComma >= 0 ? v.slice(0, lastComma + 1) + " " : "";
+    const chip = choice.name && choice.name !== choice.email
+      ? `"${choice.name}" <${choice.email}>`
+      : choice.email;
+    input.value = `${before}${chip}, `;
+    input.focus();
+    // Move caret to end so next keystroke appends.
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  function buildSuggestDropdown(input) {
+    let dropdown = input._suggestEl;
+    if (dropdown) return dropdown;
+    dropdown = document.createElement("div");
+    dropdown.className = "rcpt-suggest";
+    dropdown.hidden = true;
+    document.body.appendChild(dropdown);
+    input._suggestEl = dropdown;
+
+    function position() {
+      const rect = input.getBoundingClientRect();
+      dropdown.style.left = rect.left + window.scrollX + "px";
+      dropdown.style.top  = rect.bottom + window.scrollY + 2 + "px";
+      dropdown.style.minWidth = rect.width + "px";
+    }
+    input.addEventListener("focus", position);
+    window.addEventListener("scroll", position, true);
+    window.addEventListener("resize", position);
+    dropdown.position = position;
+    return dropdown;
+  }
+
+  function renderSuggestDropdown(dropdown, suggestions, selectedIdx) {
+    if (!suggestions.length) {
+      dropdown.hidden = true;
+      dropdown.innerHTML = "";
+      return;
+    }
+    dropdown.hidden = false;
+    dropdown.innerHTML = suggestions.map((s, i) => `
+      <div class="rcpt-suggest-item ${i === selectedIdx ? "active" : ""}" data-i="${i}">
+        <span class="rs-name">${escapeHtml(s.name || s.email)}</span>
+        ${s.name && s.name !== s.email ? `<span class="rs-email">${escapeHtml(s.email)}</span>` : ""}
+        ${s.organization ? `<span class="rs-org">${escapeHtml(s.organization)}</span>` : ""}
+        ${s.emailCount ? `<span class="rs-count">${s.emailCount}×</span>` : ""}
+      </div>
+    `).join("");
+  }
+
+  function attachRecipientAutocomplete(input) {
+    if (!input || input._autocompleteAttached) return;
+    input._autocompleteAttached = true;
+
+    const dropdown = buildSuggestDropdown(input);
+    let suggestions = [];
+    let selectedIdx = 0;
+    let debounceTimer = null;
+
+    async function refresh() {
+      const token = currentTokenInRecipientField(input);
+      // Skip if the user already typed a full "Name <email>" — they're done.
+      if (/<[^>]+>/.test(token)) {
+        suggestions = [];
+        renderSuggestDropdown(dropdown, [], 0);
+        return;
+      }
+      suggestions = await fetchSuggestions(token, 8);
+      selectedIdx = 0;
+      dropdown.position?.();
+      renderSuggestDropdown(dropdown, suggestions, selectedIdx);
+    }
+
+    input.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(refresh, 120);
+    });
+    input.addEventListener("focus", () => {
+      // Show recents on first focus when field is empty.
+      if (!currentTokenInRecipientField(input)) refresh();
+    });
+    input.addEventListener("blur", () => {
+      // Delay hide so click on a row registers first.
+      setTimeout(() => { dropdown.hidden = true; }, 150);
+    });
+    input.addEventListener("keydown", (e) => {
+      if (dropdown.hidden || !suggestions.length) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        selectedIdx = (selectedIdx + 1) % suggestions.length;
+        renderSuggestDropdown(dropdown, suggestions, selectedIdx);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        selectedIdx = (selectedIdx - 1 + suggestions.length) % suggestions.length;
+        renderSuggestDropdown(dropdown, suggestions, selectedIdx);
+      } else if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        applyRecipientChoice(input, suggestions[selectedIdx]);
+        suggestions = [];
+        dropdown.hidden = true;
+      } else if (e.key === "Escape") {
+        dropdown.hidden = true;
+      }
+    });
+    dropdown.addEventListener("mousedown", (e) => {
+      // mousedown fires before blur — pick the item BEFORE the input
+      // hides the dropdown.
+      const row = e.target.closest("[data-i]");
+      if (!row) return;
+      e.preventDefault();
+      const idx = Number(row.dataset.i);
+      const choice = suggestions[idx];
+      if (choice) {
+        applyRecipientChoice(input, choice);
+        suggestions = [];
+        dropdown.hidden = true;
+      }
+    });
+  }
+
+  // ---------- @mention promotion in body textarea -------------------
+  // Typing "@" in the body opens a contact menu near the caret. On
+  // select:
+  //   - If the chosen contact's email is in Cc, move them to To.
+  //   - Otherwise if they're not in To either, add them to To.
+  //   - The "@Name" trigger in the textarea is replaced with the
+  //     person's display name (without email), so the body reads
+  //     naturally.
+  function attachMentionMenu(textarea, toInput, ccInput) {
+    if (!textarea || textarea._mentionAttached) return;
+    textarea._mentionAttached = true;
+
+    const menu = document.createElement("div");
+    menu.className = "mention-menu";
+    menu.hidden = true;
+    document.body.appendChild(menu);
+
+    let triggerStart = -1; // index of "@" in textarea.value
+    let suggestions = [];
+    let selectedIdx = 0;
+
+    function close() {
+      menu.hidden = true;
+      menu.innerHTML = "";
+      triggerStart = -1;
+      suggestions = [];
+    }
+
+    function position() {
+      // Best-effort: place menu below the textarea, aligned to its
+      // left edge. Could compute per-caret pixel position but
+      // bottom-of-field is fine for now.
+      const rect = textarea.getBoundingClientRect();
+      menu.style.left = rect.left + window.scrollX + "px";
+      menu.style.top  = rect.bottom + window.scrollY - 200 + "px"; // float over bottom of textarea
+      menu.style.minWidth = Math.min(rect.width, 360) + "px";
+    }
+
+    function render() {
+      if (!suggestions.length) {
+        menu.hidden = true;
+        return;
+      }
+      menu.hidden = false;
+      position();
+      menu.innerHTML = suggestions.map((s, i) => `
+        <div class="mention-item ${i === selectedIdx ? "active" : ""}" data-i="${i}">
+          <span class="mm-name">${escapeHtml(s.name || s.email)}</span>
+          ${s.name && s.name !== s.email ? `<span class="mm-email">${escapeHtml(s.email)}</span>` : ""}
+        </div>
+      `).join("");
+    }
+
+    function promote(choice) {
+      // Remove "@<token>" from textarea where the trigger started.
+      const v = textarea.value;
+      const before = v.slice(0, triggerStart);
+      // find next whitespace or end
+      const after = v.slice(triggerStart);
+      const endMatch = after.match(/^@\S*/);
+      const end = endMatch ? triggerStart + endMatch[0].length : triggerStart + 1;
+      const tail = v.slice(end);
+      // Replace with the display name (just name, not email).
+      const displayName = choice.name || choice.email;
+      textarea.value = `${before}${displayName}${tail}`;
+      textarea.setSelectionRange(before.length + displayName.length, before.length + displayName.length);
+      textarea.focus();
+
+      // Promote into recipient fields.
+      const email = (choice.email || "").toLowerCase();
+      if (!email) return;
+      const ccVal = (ccInput?.value || "").toLowerCase();
+      if (ccVal.includes(email)) {
+        // Remove from Cc.
+        ccInput.value = ccInput.value
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s && !s.toLowerCase().includes(email))
+          .join(", ");
+        if (ccInput.value && !ccInput.value.endsWith(", ")) ccInput.value += ", ";
+      }
+      // Add to To if not already there.
+      const toVal = (toInput?.value || "").toLowerCase();
+      if (!toVal.includes(email)) {
+        const chip = choice.name && choice.name !== choice.email
+          ? `"${choice.name}" <${choice.email}>`
+          : choice.email;
+        const sep = toInput.value.trim() && !toInput.value.trim().endsWith(",") ? ", " : "";
+        toInput.value = (toInput.value.trim() ? toInput.value.trim() + sep : "") + chip + ", ";
+      }
+    }
+
+    textarea.addEventListener("keydown", (e) => {
+      if (!menu.hidden && suggestions.length) {
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          selectedIdx = (selectedIdx + 1) % suggestions.length;
+          render();
+          return;
+        }
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          selectedIdx = (selectedIdx - 1 + suggestions.length) % suggestions.length;
+          render();
+          return;
+        }
+        if (e.key === "Enter" || e.key === "Tab") {
+          e.preventDefault();
+          promote(suggestions[selectedIdx]);
+          close();
+          return;
+        }
+        if (e.key === "Escape") {
+          close();
+          return;
+        }
+      }
+    });
+
+    textarea.addEventListener("input", async () => {
+      const pos = textarea.selectionStart;
+      const before = textarea.value.slice(0, pos);
+      // Find the most recent "@" not preceded by a non-space character.
+      const atMatch = before.match(/(^|\s)@(\S*)$/);
+      if (!atMatch) {
+        if (!menu.hidden) close();
+        return;
+      }
+      triggerStart = before.length - atMatch[0].length + (atMatch[1] === "" ? 0 : 1); // skip preceding ws
+      const token = atMatch[2];
+      if (token.length === 0) {
+        // Just typed "@" — show top recents.
+        suggestions = await fetchSuggestions("", 6);
+      } else if (token.length >= 1) {
+        suggestions = await fetchSuggestions(token, 6);
+      }
+      selectedIdx = 0;
+      render();
+    });
+
+    textarea.addEventListener("blur", () => {
+      setTimeout(close, 150);
+    });
+
+    menu.addEventListener("mousedown", (e) => {
+      const row = e.target.closest("[data-i]");
+      if (!row) return;
+      e.preventDefault();
+      const idx = Number(row.dataset.i);
+      const choice = suggestions[idx];
+      if (choice) {
+        promote(choice);
+        close();
+      }
+    });
+  }
+
   // Format a comma-separated recipient string (To: or Cc:) into pretty
   // "Name <email>" chips. Truncates after 3 names with a "+N more" link.
   function formatRecipients(raw) {
@@ -1473,7 +1797,15 @@
         if (!row.hidden) row.querySelector("input")?.focus();
       });
     });
+
+    // Phase 5.AP — autocomplete on To / Cc / Bcc.
+    attachRecipientAutocomplete(toInput);
+    attachRecipientAutocomplete(ccInput);
+    attachRecipientAutocomplete(bccInput);
+
     const bodyTa = composer.querySelector(".draft-body");
+    // Phase 5.AP — @mention in body promotes to To (or moves Cc → To).
+    attachMentionMenu(bodyTa, toInput, ccInput);
     const instr = composer.querySelector(".draft-extra-instructions");
     const regenBtn = composer.querySelector(".draft-regen");
     const sendBtn = composer.querySelector(".draft-send");
@@ -1734,6 +2066,11 @@
   const cmpSigHint = document.getElementById("cmpSigHint");
   const composeToolbar = document.getElementById("composeToolbar");
   const cmpBackdrop = composeModal?.querySelector(".compose-backdrop");
+
+  // Phase 5.AP — autocomplete on the standalone Compose modal too.
+  if (cmpTo)  attachRecipientAutocomplete(cmpTo);
+  if (cmpCc)  attachRecipientAutocomplete(cmpCc);
+  if (cmpBcc) attachRecipientAutocomplete(cmpBcc);
 
   let cmpSignatureHtml = "";
 

@@ -4230,3 +4230,69 @@ body.delta-panel-open .delta-fab { display: none; }
   line-height: 1.4;
   opacity: 0.9;
 }
+
+/* ===================================================================
+ * Phase 5.AP — Recipient autocomplete + @mention menu
+ * =================================================================== */
+
+.rcpt-suggest,
+.mention-menu {
+  position: absolute;
+  background: var(--paper, #fff);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(40, 47, 57, 0.14);
+  max-height: 320px;
+  overflow-y: auto;
+  z-index: 9999;
+  min-width: 260px;
+}
+
+.rcpt-suggest-item,
+.mention-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(232, 223, 208, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rcpt-suggest-item:last-child,
+.mention-item:last-child {
+  border-bottom: 0;
+}
+.rcpt-suggest-item.active,
+.mention-item.active {
+  background: rgba(178, 142, 68, 0.14);
+}
+.rcpt-suggest-item:hover,
+.mention-item:hover {
+  background: rgba(178, 142, 68, 0.08);
+}
+
+.rs-name, .mm-name {
+  font-weight: 600;
+  color: var(--navy, #282f39);
+}
+.rs-email, .mm-email {
+  color: var(--navy-soft, #5a6470);
+  font-size: 12px;
+}
+.rs-org {
+  color: var(--gold-dark, #8a6b2a);
+  font-size: 11.5px;
+  font-style: italic;
+  margin-left: auto;
+}
+.rs-count {
+  color: var(--navy-soft, #5a6470);
+  font-size: 11px;
+  background: rgba(40, 47, 57, 0.08);
+  padding: 1px 6px;
+  border-radius: 999px;
+  margin-left: auto;
+}

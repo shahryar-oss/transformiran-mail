@@ -1160,6 +1160,66 @@ app.post("/api/delta-bridge/query", async (req, res) => {
 // ====================================================================
 // Contacts API — per-user people directory
 // ====================================================================
+// Phase 5.AP — autocomplete for To/Cc/Bcc + @mention in body.
+// Fast typeahead over the contacts table. Frequency-weighted: the
+// people you email most appear first when the prefix matches. Empty
+// query returns top recents so the dropdown is useful even on focus.
+app.get("/api/contacts/suggest", auth.requireAuth, async (req, res) => {
+  const q = (req.query.q || "").trim().toLowerCase();
+  const limit = Math.min(20, Math.max(1, Number(req.query.limit) || 8));
+  try {
+    let rows;
+    if (!q) {
+      const r = await pool.query(
+        `SELECT id, name, email, email_count, last_seen_at, organization, job_title
+           FROM contacts
+          WHERE user_id = $1
+          ORDER BY email_count DESC NULLS LAST, last_seen_at DESC NULLS LAST
+          LIMIT $2`,
+        [req.user.id, limit]
+      );
+      rows = r.rows;
+    } else {
+      // ILIKE both name + email. Score = (starts-with name) > (starts-with email)
+      // > (contains either). Tiebreak by email_count.
+      const r = await pool.query(
+        `SELECT id, name, email, email_count, last_seen_at, organization, job_title,
+                CASE
+                  WHEN LOWER(name)  LIKE $2 || '%' THEN 100
+                  WHEN LOWER(email) LIKE $2 || '%' THEN 80
+                  WHEN LOWER(name)  LIKE '%' || $2 || '%' THEN 40
+                  WHEN LOWER(email) LIKE '%' || $2 || '%' THEN 20
+                  ELSE 0
+                END AS score
+           FROM contacts
+          WHERE user_id = $1
+            AND ( LOWER(name)  LIKE '%' || $2 || '%'
+               OR LOWER(email) LIKE '%' || $2 || '%' )
+          ORDER BY score DESC, email_count DESC NULLS LAST, last_seen_at DESC NULLS LAST
+          LIMIT $3`,
+        [req.user.id, q, limit]
+      );
+      rows = r.rows;
+    }
+    res.json({
+      ok: true,
+      query: q,
+      suggestions: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        emailCount: r.email_count,
+        lastSeenAt: r.last_seen_at,
+        organization: r.organization || null,
+        jobTitle: r.job_title || null,
+      })),
+    });
+  } catch (err) {
+    console.error("[/api/contacts/suggest] failed:", err);
+    res.status(500).json({ error: "suggest_failed", message: err.message });
+  }
+});
+
 app.get("/api/contacts", auth.requireAuth, async (req, res) => {
   const search = req.query.search ? String(req.query.search).trim() : "";
   const sort = req.query.sort || "name";
