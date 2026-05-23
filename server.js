@@ -3065,53 +3065,64 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo }) {
   const boundary = "delta_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
-  let textForPlain;
-  let htmlForBody;
-  if (bodyHtml && String(bodyHtml).trim()) {
-    // Rich HTML body from the compose editor — use as-is. Plain-text version
-    // generated from HTML so the text/plain part stays meaningful.
-    htmlForBody = String(bodyHtml);
-    textForPlain = mime.htmlToText(htmlForBody);
-  } else {
-    // Plain-text body (Delta drafts, replies) — escape + wrap into <p>s.
-    textForPlain = String(bodyText || "");
+  // Final layout (every email client expects this order):
+  //
+  //   1. New prose (what the user just wrote)
+  //   2. Signature  ← preserves original Gmail styling (font, logo, etc.)
+  //   3. Quoted history (if reply): "On <date>, <name> wrote:" + > lines
+  //
+  // The signature MUST sit between prose and quoted history, not after
+  // the entire thread. And it MUST render standalone — not nested
+  // inside the prose wrapper — so its CSS isn't overridden by the
+  // outer Arial-13.5px styling we set on the prose paragraphs.
 
-    // Detect the Delta-generated quoted-history block:
+  let proseHtml = "";
+  let proseText = "";
+  let quotedHtml = "";
+  let quotedText = "";
+
+  if (bodyHtml && String(bodyHtml).trim()) {
+    // Rich HTML body from the compose editor — use as-is. No quoted
+    // history extraction (compose path doesn't carry one).
+    proseHtml = String(bodyHtml);
+    proseText = mime.htmlToText(proseHtml);
+  } else {
+    // Plain-text body (Delta drafts, replies). Detect the
+    // quoted-history block appended by draftReply:
     //   <blank line>
     //   On <date>, <name> wrote:
     //   <blank line>
     //   > line1
     //   > line2
-    //
-    // Split into (new prose) + (attribution) + (quoted body) so we can
-    // render the quoted part as a proper Gmail-style <blockquote> in
-    // HTML. Recipients on rich-mail clients see nested quoting
-    // indentation, NOT plain "> " soup.
-    const quotedMatch = textForPlain.match(/\n(On .+? wrote:)\n\n([\s\S]+)$/);
-    let newProse = textForPlain;
+    const fullText = String(bodyText || "");
+    const quotedMatch = fullText.match(/\n(On .+? wrote:)\n\n([\s\S]+)$/);
     let attribution = "";
-    let quotedBody = "";
+    let quotedBodyText = "";
     if (quotedMatch) {
-      newProse = textForPlain.slice(0, quotedMatch.index);
+      proseText = fullText.slice(0, quotedMatch.index);
       attribution = quotedMatch[1];
-      quotedBody = quotedMatch[2];
+      quotedBodyText = quotedMatch[2];
+      // Text variant of the quoted block (keep "> " prefixes — that's
+      // the convention for text/plain replies).
+      quotedText = `\r\n\r\n${attribution}\r\n\r\n${quotedBodyText}`;
+    } else {
+      proseText = fullText;
     }
 
-    const escHtml = (s) => s
+    const escHtml = (s) => String(s || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-    const proseHtml = escHtml(newProse)
+    proseHtml = escHtml(proseText)
       .split(/\n{2,}/)
       .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
       .join("\n");
 
-    let quotedHtml = "";
-    if (quotedBody) {
-      // Strip the leading "> " from each line — the <blockquote>
-      // styling will provide the visual indentation instead.
-      const stripped = quotedBody
+    if (quotedBodyText) {
+      // Strip "> " from each line; <blockquote> provides the visual
+      // indentation in HTML.
+      const stripped = quotedBodyText
         .split(/\r?\n/)
         .map((l) => l.startsWith("> ") ? l.slice(2) : (l.startsWith(">") ? l.slice(1) : l))
         .join("\n");
@@ -3125,24 +3136,31 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
         `<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;color:#5f6368">${innerHtml}</blockquote>` +
         `</div>`;
     }
-
-    htmlForBody = proseHtml + quotedHtml;
   }
 
-  // Plain-text part — body, blank line, "--", signature
+  // ---- Plain-text part: prose + signature + quoted ----
+  // Standard separator: "\n-- \n" between prose and signature (the
+  // dash-dash-space-newline is the RFC 3676 signature delimiter many
+  // mail clients respect).
   const textPart = [
-    textForPlain,
+    proseText,
     signatureText ? `\r\n\r\n-- \r\n${signatureText}` : "",
+    quotedText,
   ].join("");
 
-  // HTML part — body HTML + signature HTML (already in HTML form)
+  // ---- HTML part: prose wrapper + signature standalone + quoted ----
+  // CRITICAL: signature is OUTSIDE the prose wrapper so its own
+  // font-family, font-size, image dimensions, HR styling, and
+  // colour scheme are preserved. The prose wrapper only controls
+  // styling of the user's typed reply.
   const htmlPart =
     `<div style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222">` +
-    htmlForBody +
+      proseHtml +
+    `</div>` +
     (signatureHtml
       ? `<br><div class="gmail_signature" data-smartmail="gmail_signature">${signatureHtml}</div>`
       : "") +
-    `</div>`;
+    quotedHtml;
 
   const headers = [
     `To: ${to}`,
