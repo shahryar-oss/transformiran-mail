@@ -264,6 +264,7 @@ app.get("/api/tasks/overdue-count", auth.requireAuth, async (req, res) => {
     const n = await tasks.overdueCount(req.user.id);
     res.json({ count: n });
   } catch (err) {
+    console.error("[/api/tasks/overdue-count] failed:", err);
     res.status(500).json({ error: "fetch_failed", message: err.message });
   }
 });
@@ -275,6 +276,7 @@ app.get("/api/tasks/due-soon", auth.requireAuth, async (req, res) => {
     const rows = await tasks.dueSoon(req.user.id);
     res.json({ tasks: rows, count: rows.length });
   } catch (err) {
+    console.error("[/api/tasks/due-soon] failed:", err);
     res.status(500).json({ error: "fetch_failed", message: err.message });
   }
 });
