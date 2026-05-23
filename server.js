@@ -2658,6 +2658,10 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       // we can capture the user's edits.
       deltaDraftId: result.deltaDraftId || null,
       voiceProfileApplied: !!result.voiceProfileApplied,
+      // Phase 5.AO — what Delta researched before drafting. Lets the
+      // client show a "Sources" panel so the user can verify the
+      // grounding instead of trusting the draft on faith.
+      grounding: result.grounding || null,
     });
   } catch (err) {
     console.error("[/api/assistant/draft] failed:", err);

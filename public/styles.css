@@ -4068,3 +4068,147 @@ body.delta-panel-open .delta-fab { display: none; }
 .src-chip-commit:hover    { background: #2ea043; border-color: #2ea043; }
 .src-chip-clarify:hover   { background: var(--gold, #b28e44); border-color: var(--gold, #b28e44); }
 .src-chip-delegate:hover  { background: var(--navy, #282f39); border-color: var(--navy, #282f39); }
+
+/* ===================================================================
+ * Phase 5.AO — Sources Delta consulted (grounding panel)
+ * =================================================================== */
+
+.draft-grounding {
+  margin: 8px 0;
+  background: var(--cream, #f7f3e9);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--navy, #282f39);
+}
+.draft-grounding.empty {
+  padding: 8px 12px;
+  background: rgba(40, 47, 57, 0.04);
+  color: var(--navy-soft, #5a6470);
+}
+.draft-grounding.empty .dg-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.draft-grounding summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  user-select: none;
+  border-radius: 8px;
+}
+.draft-grounding summary::-webkit-details-marker { display: none; }
+.draft-grounding summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 12px;
+  color: var(--navy-soft, #5a6470);
+  transition: transform .15s ease;
+}
+.draft-grounding[open] summary::before {
+  transform: rotate(90deg);
+}
+.draft-grounding summary:hover {
+  background: rgba(178, 142, 68, 0.08);
+}
+.dg-summary .k-logo-inline {
+  width: 14px; height: 14px;
+}
+.dg-summary strong {
+  font-weight: 600;
+}
+.dg-counts {
+  color: var(--navy-soft, #5a6470);
+  margin-left: auto;
+  font-weight: 400;
+}
+
+.dg-body {
+  padding: 4px 12px 10px;
+  border-top: 1px solid rgba(232, 223, 208, 0.7);
+}
+.dg-section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--navy-soft, #5a6470);
+  margin: 10px 0 4px;
+  font-weight: 600;
+}
+.dg-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.dg-source {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(232, 223, 208, 0.5);
+}
+.dg-source:last-child {
+  border-bottom: 0;
+}
+.dg-open-link {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  display: grid;
+  grid-template-columns: 90px 1fr 2fr;
+  gap: 12px;
+  width: 100%;
+  cursor: pointer;
+  color: var(--navy, #282f39);
+  font-size: 12.5px;
+  align-items: baseline;
+}
+.dg-open-link:hover .dg-subject {
+  color: var(--gold-dark, #8a6b2a);
+  text-decoration: underline;
+}
+.dg-meta {
+  color: var(--navy-soft, #5a6470);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.dg-from {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dg-subject {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--navy-soft, #5a6470);
+}
+.dg-attachment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dg-att-icon {
+  color: var(--navy-soft, #5a6470);
+}
+.dg-filename {
+  font-weight: 500;
+}
+.dg-att-meta {
+  color: var(--navy-soft, #5a6470);
+  font-size: 11.5px;
+  margin-left: auto;
+}
+.dg-foot {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(232, 223, 208, 0.5);
+  color: var(--navy-soft, #5a6470);
+  font-size: 11.5px;
+  font-style: italic;
+  line-height: 1.4;
+}

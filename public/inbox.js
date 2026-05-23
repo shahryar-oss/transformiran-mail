@@ -794,6 +794,95 @@
     });
   }
 
+  // ---------- Sources Delta consulted (Phase 5.AO) -----------------
+  // Renders inside the draft composer just under the confidence
+  // banner. Collapsible. Shows the related threads + attachments
+  // Delta read before generating the draft so the user can verify
+  // that any claims in the draft are grounded.
+  function renderGroundingPanel(composer, g) {
+    if (!composer || !g) return;
+    if (composer.querySelector(".draft-grounding")) return;
+
+    const totalSources = (g.relatedThreads?.length || 0) + (g.attachments?.length || 0);
+    if (totalSources === 0) {
+      // Still show a small "no sources found" note so user knows
+      // Delta tried.
+      const note = document.createElement("div");
+      note.className = "draft-grounding empty";
+      note.innerHTML = `
+        <div class="dg-head">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;fill:currentColor;vertical-align:text-bottom"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          No prior threads found on "<em>${escapeHtml(g.normalizedSubject || "this subject")}</em>" — draft based on the open email only.
+        </div>`;
+      const confEl = composer.querySelector(".draft-confidence");
+      if (confEl) confEl.parentNode.insertBefore(note, confEl.nextSibling);
+      return;
+    }
+
+    const panel = document.createElement("details");
+    panel.className = "draft-grounding";
+    panel.open = false;
+
+    const threadsHtml = (g.relatedThreads || []).map((t) => {
+      const date = t.date ? new Date(t.date).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+      return `
+        <li class="dg-source">
+          <button class="dg-open-link" type="button" data-msg-id="${escapeHtml(t.message_id)}" title="Open this thread">
+            <span class="dg-meta">${escapeHtml(date)}</span>
+            <span class="dg-from">${escapeHtml(parseFrom(t.from).name || parseFrom(t.from).email || t.from)}</span>
+            <span class="dg-subject">${escapeHtml(t.subject || "(no subject)")}</span>
+          </button>
+        </li>
+      `;
+    }).join("");
+
+    const attachmentsHtml = (g.attachments || []).map((a) => `
+      <li class="dg-source dg-attachment">
+        <span class="dg-att-icon">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px;fill:currentColor;vertical-align:text-bottom"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg>
+        </span>
+        <span class="dg-filename">${escapeHtml(a.filename)}</span>
+        <span class="dg-att-meta">${a.parsed ? "read" : (a.mime || "binary")} · ${a.sizeBytes ? Math.round(a.sizeBytes / 1024) + " KB" : "?"}</span>
+      </li>
+    `).join("");
+
+    panel.innerHTML = `
+      <summary class="dg-summary">
+        <img class="k-logo-inline" src="/delta-logo.png" alt="Delta">
+        <strong>Delta consulted ${totalSources} source${totalSources === 1 ? "" : "s"}</strong>
+        <span class="dg-counts">${g.relatedThreads?.length || 0} thread${g.relatedThreads?.length === 1 ? "" : "s"}${g.attachments?.length ? `, ${g.attachments.length} attachment${g.attachments.length === 1 ? "" : "s"}` : ""}</span>
+      </summary>
+      <div class="dg-body">
+        ${g.relatedThreads?.length ? `
+          <div class="dg-section-label">Related threads (used for grounding)</div>
+          <ul class="dg-list">${threadsHtml}</ul>
+        ` : ""}
+        ${g.attachments?.length ? `
+          <div class="dg-section-label">Attachments</div>
+          <ul class="dg-list">${attachmentsHtml}</ul>
+        ` : ""}
+        <div class="dg-foot">
+          Delta is required to base every factual claim on these sources.
+          If something in the draft isn't traceable here, treat it as a
+          guess — Delta should have written "I'll check and revert" instead.
+        </div>
+      </div>
+    `;
+
+    // Wire click-through on related-thread links.
+    panel.querySelectorAll(".dg-open-link").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const id = btn.dataset.msgId;
+        if (id && typeof window.openMailById === "function") {
+          window.openMailById(id);
+        }
+      });
+    });
+
+    const confEl = composer.querySelector(".draft-confidence");
+    if (confEl) confEl.parentNode.insertBefore(panel, confEl.nextSibling);
+  }
+
   // ---------- Smart reply chips (Phase 5.AL) -----------------------
   // Three one-tap reply chips ABOVE the existing draft-reply button.
   // Each chip click opens the standard reply composer pre-filled with
@@ -1451,6 +1540,9 @@
           confEl.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><span>${label}</span>`;
           confEl.style.display = "flex";
         }
+
+        // Phase 5.AO — Sources Delta consulted (research panel)
+        renderGroundingPanel(composer, data.grounding);
       } catch (err) {
         titleEl.textContent = "Couldn't generate a draft";
         statusEl.textContent = err.message || String(err);
