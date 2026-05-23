@@ -1503,9 +1503,7 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
       );
       const items = (await Promise.all(fetches)).filter(Boolean);
       const messages = items.map(({ draftId, message }) => {
-        const headers = Object.fromEntries(
-          (message.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value])
-        );
+        const headers = mime.headersToMap(message.payload?.headers || []);
         return {
           id: message.id,
           threadId: message.threadId,
@@ -1640,9 +1638,7 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
 
     const messages = detailed.map((m) => {
       if (m._error) return { id: m.id, error: m._error };
-      const headers = Object.fromEntries(
-        (m.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value])
-      );
+      const headers = mime.headersToMap(m.payload?.headers || []);
       return {
         id: m.id,
         threadId: m.threadId,
@@ -1949,9 +1945,7 @@ app.get("/api/gmail/recent", auth.requireAuth, async (req, res) => {
 
     const messages = detailed.map((m) => {
       if (m._error) return { id: m.id, error: m._error };
-      const headers = Object.fromEntries(
-        (m.payload?.headers || []).map((h) => [h.name.toLowerCase(), h.value])
-      );
+      const headers = mime.headersToMap(m.payload?.headers || []);
       return {
         id: m.id,
         threadId: m.threadId,
