@@ -209,6 +209,153 @@
   //   - The "@Name" trigger in the textarea is replaced with the
   //     person's display name (without email), so the body reads
   //     naturally.
+  // ---------- Language-mismatch chip (Phase 5.AT) ------------------
+  // Watches the draft body for English (or any-other-Latin) text
+  // when the parent message was in Farsi / Armenian / Russian / etc.
+  // After ~80 chars of mismatched prose, shows a chip in the
+  // composer asking if the user wants Delta to translate the reply
+  // back into the parent's language. One click → Delta translates
+  // the prose section of the body (preserving the quoted history) +
+  // replaces it.
+  function attachLanguageMismatchChip(composer, bodyEditable, parentLang) {
+    if (!composer || !bodyEditable || !parentLang) return;
+    if (composer._langChipAttached) return;
+    composer._langChipAttached = true;
+
+    let dismissed = false;
+    let chip = null;
+
+    const removeChip = () => {
+      if (chip) { chip.remove(); chip = null; }
+    };
+
+    const showChip = () => {
+      if (chip || dismissed) return;
+      chip = document.createElement("div");
+      chip.className = "lang-mismatch-chip";
+      chip.innerHTML = `
+        <span class="lmc-text">
+          <img class="k-logo-inline" src="/delta-logo.png" alt="Delta">
+          The original was in <strong>${escapeHtml(parentLang.name)}</strong>. Send your reply in ${escapeHtml(parentLang.name)}?
+        </span>
+        <button class="lmc-yes" type="button">Yes — translate</button>
+        <button class="lmc-no" type="button" title="Dismiss">×</button>
+      `;
+      // Insert above the body editor, below the To/Cc fields.
+      const fieldsEl = composer.querySelector(".draft-fields") || bodyEditable;
+      fieldsEl.insertAdjacentElement("afterend", chip);
+
+      chip.querySelector(".lmc-no").addEventListener("click", () => {
+        dismissed = true;
+        removeChip();
+      });
+      chip.querySelector(".lmc-yes").addEventListener("click", () => {
+        translateProseToParentLang(chip, bodyEditable, parentLang);
+      });
+    };
+
+    // Extract just the user's prose (before the quoted-history block)
+    // and check if it looks like a different script than parentLang.
+    const checkProse = () => {
+      const fullText = bodyEditable.innerText || "";
+      // Split off the Outlook-style separator if present.
+      const sepIdx = fullText.search(/_{20,}/);
+      const prose = sepIdx > 0 ? fullText.slice(0, sepIdx) : fullText;
+      if (prose.trim().length < 80) { removeChip(); return; }
+      const proseLang = detectScriptLanguage(prose);
+      // If user's prose is in the same language as parent (or both
+      // Latin scripts), no mismatch.
+      if (proseLang && proseLang.code === parentLang.code) {
+        removeChip();
+        return;
+      }
+      // Prose looks Latin / English — parent was non-Latin. Mismatch.
+      if (!proseLang) {
+        showChip();
+      } else {
+        // Prose is some OTHER non-Latin (e.g. user typed Russian, parent
+        // was Farsi) — also a mismatch but uncommon; show chip too.
+        showChip();
+      }
+    };
+
+    let debounceTimer = null;
+    bodyEditable.addEventListener("input", () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(checkProse, 700);
+    });
+  }
+
+  // Call Delta to translate the prose portion of the draft body into
+  // parentLang. Preserves the quoted history (everything from the
+  // _______ separator onwards stays as-is).
+  async function translateProseToParentLang(chip, bodyEditable, parentLang) {
+    const yesBtn = chip.querySelector(".lmc-yes");
+    yesBtn.disabled = true;
+    yesBtn.textContent = "Translating…";
+
+    const fullHtml = bodyEditable.innerHTML || "";
+    const fullText = bodyEditable.innerText || "";
+    const sepIdx = fullText.search(/_{20,}/);
+    const proseText = sepIdx > 0 ? fullText.slice(0, sepIdx).trim() : fullText.trim();
+    if (!proseText) {
+      chip.remove();
+      return;
+    }
+
+    try {
+      const r = await fetch("/api/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: `Translate the following text into natural ${parentLang.name}. Match the tone (warm, professional) and preserve any names / amounts / dates verbatim. Output ONLY the translation, no preamble.\n\nText:\n${proseText}`,
+          history: [],
+        }),
+      });
+      if (!r.ok) throw new Error("translate failed");
+      const data = await r.json();
+      const translated = (data.reply || "").trim();
+      if (!translated) throw new Error("empty translation");
+
+      // Rebuild the body: translated prose + quoted history (if any).
+      // We re-render prose as HTML <div>s + preserve everything from
+      // the separator onwards.
+      const escHtml = (s) => String(s || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      const proseHtml = escHtml(translated)
+        .split(/\n{2,}/)
+        .map((p) => `<div>${p.replace(/\n/g, "<br>")}</div>`)
+        .join(`<div><br></div>`);
+
+      // Extract the quoted-history HTML by finding the separator div
+      // in the original innerHTML and keeping everything from it on.
+      let quotedHtml = "";
+      const sepHtmlIdx = fullHtml.indexOf("_______");
+      if (sepHtmlIdx >= 0) {
+        // Walk back to the nearest <div> start to keep DOM intact.
+        const before = fullHtml.slice(0, sepHtmlIdx);
+        const divStart = before.lastIndexOf("<div");
+        if (divStart >= 0) {
+          quotedHtml = fullHtml.slice(divStart);
+        }
+      }
+
+      bodyEditable.innerHTML = `${proseHtml}${quotedHtml ? `<div><br></div>${quotedHtml}` : ""}`;
+      chip.remove();
+    } catch (err) {
+      yesBtn.disabled = false;
+      yesBtn.textContent = "Yes — translate";
+      const note = document.createElement("span");
+      note.style.cssText = "color: var(--red); font-size: 12px; margin-left: 8px;";
+      note.textContent = "Translate failed";
+      chip.appendChild(note);
+      setTimeout(() => note.remove(), 3000);
+      console.warn("[lang-mismatch] translate failed:", err);
+    }
+  }
+
   function attachMentionMenu(textarea, toInput, ccInput) {
     if (!textarea || textarea._mentionAttached) return;
     textarea._mentionAttached = true;
@@ -1036,6 +1183,72 @@
     // Populate that bar from data.attachments. Each chip is clickable to
     // download via the new /api/gmail/message/:id/attachment/:aId endpoint.
     renderAttachmentsBar(data);
+
+    // Phase 5.AT — inline translate chip for non-English emails.
+    // Detect script of the body. If Farsi / Arabic / Armenian /
+    // Cyrillic / Chinese / Hebrew, append a small "Translate" pill
+    // under the body so the user can flip to English in one click
+    // without going through the toolbar.
+    renderInlineTranslateChip(bodyEl, data, text);
+  }
+
+  // ---------- LANGUAGE DETECTION (Phase 5.AT) ----------------------
+  // Quick script-based language detect — looks for distinctive
+  // Unicode ranges that signal a non-Latin language. Returns a
+  // language code + display name, or null when text looks Latin/EN.
+  function detectScriptLanguage(text) {
+    if (!text) return null;
+    const sample = String(text).slice(0, 2000);
+    // Count distinctive characters per script.
+    const counts = {
+      fa: (sample.match(/[؀-ۿݐ-ݿࢠ-ࣿ]/g) || []).length,
+      hy: (sample.match(/[԰-֏]/g) || []).length,
+      ru: (sample.match(/[Ѐ-ӿ]/g) || []).length,
+      zh: (sample.match(/[一-鿿㐀-䶿]/g) || []).length,
+      he: (sample.match(/[֐-׿יִ-ﭏ]/g) || []).length,
+    };
+    // Need at least 20 chars of a non-Latin script to flag.
+    let best = null;
+    let bestCount = 19;
+    for (const code of Object.keys(counts)) {
+      if (counts[code] > bestCount) {
+        best = code;
+        bestCount = counts[code];
+      }
+    }
+    if (!best) return null;
+    const names = { fa: "Farsi", hy: "Armenian", ru: "Russian", zh: "Chinese", he: "Hebrew" };
+    return { code: best, name: names[best] };
+  }
+
+  // Renders a small "Translate from X" chip under the body when the
+  // email isn't in English / Latin script. Clicking the chip pops a
+  // delta-action-card with the translation.
+  function renderInlineTranslateChip(bodyEl, data, plainText) {
+    if (!bodyEl) return;
+    // Avoid duplicates on re-render.
+    bodyEl.querySelector(".inline-translate-chip")?.remove();
+    // Sample both plain text and (stripped) HTML.
+    const sample = plainText
+      || (data?.body?.html ? data.body.html.replace(/<[^>]+>/g, " ") : "")
+      || data?.snippet || "";
+    const lang = detectScriptLanguage(sample);
+    if (!lang) return;
+
+    const wrap = document.createElement("div");
+    wrap.className = "inline-translate-chip";
+    wrap.innerHTML = `
+      <button class="itc-btn" type="button" title="Translate to English">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.87 15.07l-2.54-2.51.03-.03A17.52 17.52 0 0 0 14.07 6H17V4h-7V2H8v2H1v2h11.17C11.5 7.92 10.44 9.75 9 11.35 8.07 10.32 7.3 9.19 6.69 8h-2c.73 1.63 1.73 3.17 2.98 4.56l-5.09 5.02L4 19l5-5 3.11 3.11.76-2.04zM18.5 10h-2L12 22h2l1.12-3h4.75L21 22h2l-4.5-12zm-2.62 7l1.62-4.33L19.12 17h-3.24z"/></svg>
+        Translate from ${escapeHtml(lang.name)}
+      </button>
+    `;
+    bodyEl.appendChild(wrap);
+    wrap.querySelector(".itc-btn").addEventListener("click", () => {
+      const stub = _allMessages.find((m) => m.id === data.id) || { id: data.id, threadId: data.threadId, subject: data.headers?.subject || "", from: data.headers?.from || "" };
+      // Reuse the standard Delta action card.
+      openDeltaActionCard("translate", stub);
+    });
   }
 
   // ---------- Action items card (Phase 5.AL) -----------------------
@@ -1943,6 +2156,13 @@
     // textarea selectionStart API; needs Selection-API port for the
     // contenteditable composer (Phase 5.AQ). Re-enable after porting.
     // attachMentionMenu(bodyTa, toInput, ccInput);
+
+    // Phase 5.AT — language mismatch detector. Parent message's
+    // language vs the user's typed prose. If they differ (e.g.
+    // received Farsi, typing English), show a chip offering to
+    // translate the prose to the parent's language before sending.
+    const parentLang = detectScriptLanguage(msg.snippet || "");
+    attachLanguageMismatchChip(composer, bodyTa, parentLang);
     const instr = composer.querySelector(".draft-extra-instructions");
     const regenBtn = composer.querySelector(".draft-regen");
     const sendBtn = composer.querySelector(".draft-send");

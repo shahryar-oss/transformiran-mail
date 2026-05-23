@@ -4548,3 +4548,95 @@ body.delta-panel-open .delta-fab { display: none; }
   border-color: var(--gold, #b28e44);
   color: var(--gold-dark, #8a6b2a);
 }
+
+/* ===================================================================
+ * Phase 5.AT — Translation UX (inbound + outbound)
+ * =================================================================== */
+
+/* Inline translate chip under non-English emails. */
+.inline-translate-chip {
+  margin: 16px 0 8px;
+  display: flex;
+  justify-content: flex-start;
+}
+.itc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--cream, #f7f3e9);
+  border: 1px solid var(--line, #e8dfd0);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--navy, #282f39);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+.itc-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: var(--gold-dark, #8a6b2a);
+}
+.itc-btn:hover {
+  background: var(--gold, #b28e44);
+  border-color: var(--gold, #b28e44);
+  color: white;
+}
+.itc-btn:hover svg {
+  fill: white;
+}
+
+/* Language-mismatch chip in the reply composer. */
+.lang-mismatch-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 16px 0;
+  padding: 8px 12px;
+  background: rgba(178, 142, 68, 0.08);
+  border: 1px solid var(--gold, #b28e44);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--navy, #282f39);
+}
+.lmc-text {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lmc-text .k-logo-inline {
+  width: 14px;
+  height: 14px;
+}
+.lmc-text strong {
+  color: var(--gold-dark, #8a6b2a);
+}
+.lmc-yes {
+  background: var(--gold, #b28e44);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lmc-yes:hover { background: var(--gold-dark, #8a6b2a); }
+.lmc-yes:disabled { opacity: 0.6; cursor: wait; }
+.lmc-no {
+  background: transparent;
+  border: none;
+  color: var(--navy-soft, #5a6470);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.lmc-no:hover {
+  background: rgba(40, 47, 57, 0.08);
+  color: var(--navy, #282f39);
+}
