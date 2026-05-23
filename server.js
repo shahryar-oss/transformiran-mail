@@ -801,6 +801,39 @@ app.post("/api/commitments/:id/fulfill", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Diagnostic — dump raw character codes of a cached subject so we can
+// see exactly what mojibake pattern the decoder is failing on.
+//   GET /api/diag/subject-bytes?messageId=<gmailId>
+// ====================================================================
+app.get("/api/diag/subject-bytes", auth.requireAuth, async (req, res) => {
+  const messageId = String(req.query.messageId || "");
+  if (!messageId) return res.status(400).json({ error: "messageId required" });
+  try {
+    const r = await pool.query(
+      `SELECT subject, from_header FROM inbox_cache WHERE user_id = $1 AND message_id = $2`,
+      [req.user.id, messageId]
+    );
+    if (!r.rows.length) return res.status(404).json({ error: "not in cache" });
+    const subj = r.rows[0].subject || "";
+    const from = r.rows[0].from_header || "";
+    const dump = (s) => ({
+      length: s.length,
+      preview: s.slice(0, 120),
+      codes: [...s].slice(0, 60).map((c) => "U+" + c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")),
+    });
+    // Now try the decoder.
+    const decoded = mime.decodeMimeHeader(subj);
+    res.json({
+      ok: true,
+      raw: { subject: dump(subj), from: dump(from) },
+      decoded: { subject: decoded, equal: decoded === subj, codes: [...decoded].slice(0, 60).map((c) => "U+" + c.codePointAt(0).toString(16).toUpperCase().padStart(4, "0")) },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ====================================================================
 // Notification center — Phase 5.BB.
 // Aggregates overdue promises, due-soon tasks, important-sender unread mail.
 //   GET    /api/notifications              → list
