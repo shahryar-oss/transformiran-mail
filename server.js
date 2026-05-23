@@ -2874,6 +2874,82 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
     const sigHtml = useSig && sig?.html ? sig.html : "";
     const sigText = useSig && sig ? gmail.signatureToPlainText(sig.html) : "";
 
+    // Fetch the parent message's ORIGINAL HTML body so we can preserve
+    // its signature, fonts, logo, and colours in the quoted-history
+    // portion of the outgoing HTML. Without this, the parent's
+    // signature gets flattened to plain text (just "ILSE VISSER /
+    // Bible Translation Manager / T: +31..."), losing the red lines,
+    // gold colours, and Transform logo. Pass through to
+    // buildMultipartMessage which uses it for the HTML quoted block
+    // when present, falls back to plain-text rendering otherwise.
+    let parentHtmlSnapshot = null;
+    let parentHeaderSnapshot = null;
+    if (threadId && !bodyHtml /* compose path handles its own quoting */) {
+      try {
+        const tRes = await g.users.threads.get({ userId: "me", id: threadId, format: "full" });
+        const tMsgs = tRes.data.messages || [];
+        // Find the message that matches inReplyTo (RFC822 Message-ID),
+        // else fall back to the most recent non-SENT message.
+        let parent = null;
+        if (inReplyTo) {
+          parent = tMsgs.find((m) => {
+            const hdrs = mime.headersToMap(m.payload?.headers || []);
+            const mid = (hdrs["message-id"] || "").trim();
+            return mid && (mid === inReplyTo || mid === `<${inReplyTo}>` || mid === inReplyTo.replace(/[<>]/g, ""));
+          });
+        }
+        if (!parent) {
+          const userEmailLower = (req.user.email || "").toLowerCase();
+          for (let i = tMsgs.length - 1; i >= 0; i--) {
+            const hdrs = mime.headersToMap(tMsgs[i].payload?.headers || []);
+            const from = (hdrs.from || "").toLowerCase();
+            if (!from.includes(userEmailLower)) { parent = tMsgs[i]; break; }
+          }
+          if (!parent) parent = tMsgs[tMsgs.length - 1];
+        }
+        if (parent) {
+          const phdrs = mime.headersToMap(parent.payload?.headers || []);
+          const pbody = mime.pickBody(parent.payload);
+          let safeHtml = mime.sanitizeHtml(pbody.html || "");
+          // Resolve inline cid: images → data: URIs so they render in
+          // the recipient's view (cid: references would dangle).
+          if (safeHtml && pbody.inlineImages?.length) {
+            for (const img of pbody.inlineImages) {
+              try {
+                let bytes = null;
+                if (img.inlineData) {
+                  bytes = Buffer.from(img.inlineData, "binary");
+                } else if (img.attachmentId) {
+                  const a = await g.users.messages.attachments.get({
+                    userId: "me",
+                    messageId: parent.id,
+                    id: img.attachmentId,
+                  });
+                  const b64 = (a.data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+                  bytes = Buffer.from(b64, "base64");
+                }
+                if (!bytes || !img.contentId) continue;
+                const dataUri = `data:${img.mimeType};base64,${bytes.toString("base64")}`;
+                const cidEscaped = img.contentId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                const re = new RegExp(`cid:${cidEscaped}`, "gi");
+                safeHtml = safeHtml.replace(re, dataUri);
+              } catch (_) {}
+            }
+          }
+          parentHtmlSnapshot = safeHtml || null;
+          parentHeaderSnapshot = {
+            from: phdrs.from || "",
+            date: phdrs.date || "",
+            to: phdrs.to || "",
+            cc: phdrs.cc || "",
+            subject: phdrs.subject || "",
+          };
+        }
+      } catch (err) {
+        console.warn("[/api/gmail/send] parent HTML fetch failed (non-fatal):", err.message);
+      }
+    }
+
     const raw = buildMultipartMessage({
       to,
       cc, bcc,
@@ -2883,6 +2959,8 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       signatureText: sigText,
       signatureHtml: sigHtml,
       inReplyTo,
+      parentHtmlSnapshot,
+      parentHeaderSnapshot,
     });
 
     const sendRes = await g.users.messages.send({
@@ -3062,7 +3140,7 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 //   - bodyText (plain text — auto-escaped and wrapped into HTML), OR
 //   - bodyHtml (already-rich HTML from the rich-text compose editor)
 // Always emits BOTH a text/plain and a text/html part so any client renders OK.
-function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo }) {
+function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo, parentHtmlSnapshot, parentHeaderSnapshot }) {
   const boundary = "delta_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
   // Final layout (every email client expects this order):
@@ -3148,23 +3226,37 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
         return escHtml(line);
       }).join("<br>");
 
-      // Render the quoted body as normal paragraphs — no blockquote,
-      // no grey-left-border, no "> " prefix. Outlook lets the original
-      // body breathe at its own font size and the recipient can read
-      // it without scrolling through quote markers.
-      const bodyEscaped = escHtml(quotedBodyText)
-        .split(/\n{2,}/)
-        .map((p) => `<p style="margin:0 0 12px 0">${p.replace(/\n/g, "<br>")}</p>`)
-        .join("\n");
+      // Body rendering: prefer the ORIGINAL HTML snapshot of the parent
+      // message (with its signature, fonts, colours, logo intact) over
+      // the plain-text-derived HTML. The plain-text version flattens
+      // signatures into anaemic monospace prose; the HTML snapshot
+      // preserves every span, image, hr, and inline-style the original
+      // author set.
+      let bodyForQuoted;
+      if (parentHtmlSnapshot) {
+        bodyForQuoted = parentHtmlSnapshot;
+      } else {
+        bodyForQuoted = escHtml(quotedBodyText)
+          .split(/\n{2,}/)
+          .map((p) => `<p style="margin:0 0 12px 0">${p.replace(/\n/g, "<br>")}</p>`)
+          .join("\n");
+      }
 
-      // Horizontal rule above the header block — Outlook uses a
-      // light-blue border-top. Match the visual cue.
+      // Outlook-style header block: light-blue horizontal rule above
+      // bold From / Date / To / Cc / Subject lines, then the body
+      // verbatim. When parentHtmlSnapshot is available the body
+      // section already carries its own font-family / colour from the
+      // original email — no outer wrapper that could override it.
       quotedHtml =
         `<div>` +
           `<div style="border-top:solid #B5C4DF 1.0pt;padding:3.0pt 0in 0in 0in;margin-top:16px">` +
             `<p style="margin:0 0 12px 0;font-family:Calibri,Aptos,sans-serif;font-size:11.0pt">${headerHtml}</p>` +
           `</div>` +
-          `<div style="font-family:Calibri,Aptos,sans-serif;font-size:11.0pt;color:#000">${bodyEscaped}</div>` +
+          // Wrapper around the parent body. No font-family forced here
+          // — the parent's own inline CSS wins. Only colour + default
+          // font fallback for the case where parent had no inline
+          // styles at all.
+          `<div style="color:#000">${bodyForQuoted}</div>` +
         `</div>`;
     }
   }
