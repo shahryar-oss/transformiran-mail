@@ -789,6 +789,10 @@ button { font-family: inherit; cursor: pointer; }
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
+  /* Positioning context for .compose-modal.docked (Phase 5.AR) so
+   * the docked compose card's position:absolute anchors here and not
+   * to the viewport. */
+  position: relative;
 }
 
 /* ====================================================================
@@ -1317,6 +1321,29 @@ button { font-family: inherit; cursor: pointer; }
    over the browser's default 'hidden→display:none', leaving the modal
    visible on page load until JS removes the attribute. */
 .compose-modal[hidden] { display: none; }
+
+/* Phase 5.AR — when docked inside the reader column, drop the
+ * overlay treatment and stretch to fill the section. Lots more
+ * writing space, plus the email list remains visible on the left. */
+.compose-modal.docked {
+  position: absolute;
+  inset: 0;
+  z-index: auto;
+  display: block;
+  background: var(--paper, #fff);
+}
+.compose-modal.docked .compose-backdrop {
+  display: none;
+}
+.compose-modal.docked .compose-card {
+  position: static;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  border-radius: 0;
+  box-shadow: none;
+}
 .compose-backdrop {
   position: absolute;
   inset: 0;

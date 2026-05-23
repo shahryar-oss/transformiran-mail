@@ -2111,8 +2111,21 @@
 
   let cmpSignatureHtml = "";
 
+  // Phase 5.AR — dock the New-Email compose inside the reader column
+  // instead of as a floating modal overlay. More writing space + matches
+  // how the reply composer already lives in the reader pane.
+  const readerSection = document.getElementById("reader");
+  let _composeOriginalParent = null; // restore on close
+
   function openCompose() {
     if (!composeModal) return;
+    // Move into the reader column + flag as docked. CSS strips the
+    // backdrop / fixed positioning and stretches the card to fill.
+    if (readerSection && composeModal.parentElement !== readerSection) {
+      _composeOriginalParent = composeModal.parentElement;
+      readerSection.appendChild(composeModal);
+    }
+    composeModal.classList.add("docked");
     composeModal.hidden = false;
     cmpStatus.className = "compose-status";
     cmpStatus.textContent = "";
@@ -2137,6 +2150,11 @@
     const dirty = cmpTo.value || cmpSubject.value || (cmpBodyRich.textContent || "").trim() || cmpCc.value || cmpBcc.value;
     if (dirty && !force && !confirm("Discard this draft?")) return;
     composeModal.hidden = true;
+    composeModal.classList.remove("docked");
+    // Restore to the original DOM location so re-opens are clean.
+    if (_composeOriginalParent && composeModal.parentElement !== _composeOriginalParent) {
+      _composeOriginalParent.appendChild(composeModal);
+    }
     cmpTo.value = ""; cmpCc.value = ""; cmpBcc.value = "";
     cmpSubject.value = ""; cmpBodyRich.innerHTML = "";
     cmpCcRow.hidden = true; cmpBccRow.hidden = true;
@@ -2147,7 +2165,10 @@
   composeBtn?.addEventListener("click", openCompose);
   cmpClose?.addEventListener("click", () => closeCompose());
   cmpDiscard?.addEventListener("click", () => closeCompose(true));
-  cmpBackdrop?.addEventListener("click", () => closeCompose());
+  // Backdrop click only matters in floating-modal mode (when not docked).
+  cmpBackdrop?.addEventListener("click", () => {
+    if (!composeModal.classList.contains("docked")) closeCompose();
+  });
 
   // Cc / Bcc toggle
   cmpCcToggle?.addEventListener("click", () => {
