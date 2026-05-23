@@ -3326,6 +3326,65 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
 }
 
 // ====================================================================
+// Delta chat — POST /api/assistant/stream  (Phase 5.AU)
+// Server-sent-events variant of /api/assistant. Emits live progress
+// updates as Delta thinks + calls tools so the chat panel's loading
+// indicator can show "Delta is searching…" / "Delta is drafting…"
+// / etc. in real time instead of always "thinking…".
+//
+// Events:
+//   event: progress  data: { type: "thinking" }
+//   event: progress  data: { type: "tool_start", tool: "search_inbox" }
+//   event: progress  data: { type: "tool_end",   tool: "search_inbox", ok: true }
+//   event: done      data: { reply, toolEvents, usage, ... }
+//   event: error     data: { error }
+// ====================================================================
+app.post("/api/assistant/stream", auth.requireAuth, async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // tell proxies not to buffer
+  res.flushHeaders?.();
+
+  const send = (event, data) => {
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch (_) {}
+  };
+
+  const { message, history, openMessageId, model } = req.body || {};
+  if (!message || typeof message !== "string") {
+    send("error", { error: "empty_message" });
+    res.end();
+    return;
+  }
+
+  try {
+    const result = await assistant.chat({
+      user: req.user,
+      history: Array.isArray(history) ? history : [],
+      userMessage: message,
+      openMessageId,
+      model,
+      onProgress: (ev) => send("progress", ev),
+    });
+    send("done", {
+      reply: result.reply,
+      toolEvents: result.toolEvents,
+      usage: result.usage,
+      model: result.model,
+      stopReason: result.stopReason,
+      hops: result.hops,
+    });
+  } catch (err) {
+    console.error("[/api/assistant/stream] failed:", err);
+    send("error", { error: err.message || "chat_failed" });
+  } finally {
+    res.end();
+  }
+});
+
+// ====================================================================
 // Delta chat — POST /api/assistant
 // Stateless: client passes the conversation history each turn.
 // ====================================================================
