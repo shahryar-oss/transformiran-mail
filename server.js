@@ -28,6 +28,24 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: "1mb" }));
+
+// Phase 5.AQ — Request-level timing middleware. Logs path + method +
+// status + duration for every API request, so we can pinpoint slow
+// endpoints. Suppresses noise for health checks and static assets.
+app.use((req, res, next) => {
+  if (req.path === "/healthz" || req.path.startsWith("/favicon")) return next();
+  const start = Date.now();
+  res.on("finish", () => {
+    const ms = Date.now() - start;
+    // Only log API + auth paths, and only when slow OR error.
+    const isApi = req.path.startsWith("/api/") || req.path.startsWith("/auth/");
+    const shouldLog = isApi && (ms > 500 || res.statusCode >= 400);
+    if (shouldLog) {
+      console.log(`[req] ${req.method} ${req.path} → ${res.statusCode} ${ms}ms`);
+    }
+  });
+  next();
+});
 app.use(cookieParser());
 app.use(auth.attachUser);
 
