@@ -3325,12 +3325,15 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
   // font-family, font-size, image dimensions, HR styling, and
   // colour scheme are preserved. The prose wrapper only controls
   // styling of the user's typed reply.
+  // Phase 5.BD — dir="auto" + unicode-bidi:plaintext so recipients'
+  // mail clients render each paragraph in the right direction
+  // (English signatures stay LTR, Farsi/Arabic body flips to RTL).
   const htmlPart =
-    `<div style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222">` +
+    `<div dir="auto" style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222;unicode-bidi:plaintext">` +
       proseHtml +
     `</div>` +
     (signatureHtml
-      ? `<br><div class="gmail_signature" data-smartmail="gmail_signature">${signatureHtml}</div>`
+      ? `<br><div class="gmail_signature" data-smartmail="gmail_signature" dir="auto">${signatureHtml}</div>`
       : "") +
     quotedHtml;
 

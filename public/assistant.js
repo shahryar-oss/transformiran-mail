@@ -1461,9 +1461,9 @@ window.renderMarkdown = renderMarkdown;
       </div>
       <div class="chat-draft-fields">
         <div class="cd-field"><label>To</label><input class="cd-to" type="text" value="${escapeHtml(draft.to || "")}"></div>
-        <div class="cd-field"><label>Subject</label><input class="cd-subject" type="text" value="${escapeHtml(draft.subject || "")}"></div>
+        <div class="cd-field"><label>Subject</label><input class="cd-subject" type="text" dir="auto" value="${escapeHtml(draft.subject || "")}"></div>
       </div>
-      <textarea class="chat-draft-body" rows="6">${escapeHtml(draft.body || "")}</textarea>
+      <textarea class="chat-draft-body" rows="6" dir="auto">${escapeHtml(draft.body || "")}</textarea>
       <div class="chat-draft-actions">
         <button class="cd-open btn primary" title="Open in the main reply composer with this draft pre-loaded">
           <svg viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;fill:currentColor;vertical-align:text-bottom;margin-right:4px"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7z"/></svg>

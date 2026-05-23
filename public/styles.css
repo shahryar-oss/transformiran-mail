@@ -1728,6 +1728,14 @@ button { font-family: inherit; cursor: pointer; }
   overflow-y: auto;
   box-sizing: border-box;
   position: relative;
+  /* Phase 5.BD — auto bidi per paragraph */
+  unicode-bidi: plaintext;
+}
+.compose-body-rich div,
+.compose-body-rich p,
+.compose-body-rich li,
+.compose-body-rich blockquote {
+  unicode-bidi: plaintext;
 }
 .compose-body-rich:empty::before {
   content: attr(data-placeholder);
@@ -1942,6 +1950,18 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--navy);
   padding: 16px 0;
   background: transparent;
+  /* Phase 5.BD — auto bidi per paragraph.
+   * `unicode-bidi: plaintext` tells the browser to look at the first
+   * strong character of each block and pick LTR or RTL accordingly.
+   * That way the user can switch keyboards mid-draft (English greeting,
+   * Farsi body, English signature) and every paragraph aligns correctly. */
+  unicode-bidi: plaintext;
+}
+.draft-body div,
+.draft-body p,
+.draft-body li,
+.draft-body blockquote {
+  unicode-bidi: plaintext;
 }
 
 /* Phase 5.AQ — contenteditable visual states. */
@@ -2755,6 +2775,7 @@ body.delta-panel-open .delta-fab { display: none; }
   color: var(--navy);
   resize: vertical;
   outline: none;
+  unicode-bidi: plaintext;
 }
 .chat-draft-body:focus { border-color: var(--red); }
 

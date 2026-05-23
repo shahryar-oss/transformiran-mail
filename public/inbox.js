@@ -642,13 +642,13 @@
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
-                <div class="mail-sender">${senderLabel}</div>
+                <div class="mail-sender" dir="auto">${senderLabel}</div>
                 <div class="mail-row-top-right">${clip}<div class="mail-time">${when}</div></div>
               </div>
-              <div class="mail-subject">${subj}</div>
+              <div class="mail-subject" dir="auto">${subj}</div>
               <div class="mail-row-meta">
                 <span class="mail-tag-slot" data-tag-for="${escapeHtml(m.id)}"></span>
-                <span class="mail-snippet">${snip}</span>
+                <span class="mail-snippet" dir="auto">${snip}</span>
               </div>
             </div>
             <div class="mail-row-actions" data-actions-for="${escapeHtml(m.id)}">
@@ -1030,7 +1030,7 @@
       </div>
 
       <div class="reader-head">
-        <div class="reader-subject">${escapeHtml(stub.subject)}</div>
+        <div class="reader-subject" dir="auto">${escapeHtml(stub.subject)}</div>
         <div class="reader-headers">
           <div class="rh-row">
             <span class="rh-label">From</span>
@@ -1570,16 +1570,24 @@
     // Minimal wrapper so links open in the parent window (target=_top) and
     // styling matches our reader. Sandbox blocks scripts even if anything
     // sneaks past the server-side sanitizer.
-    return `<!doctype html><html><head><base target="_blank">
+    // Phase 5.BD — RTL support.
+    // `dir="auto"` on body + on every block-level child tells the browser
+    // to pick direction from the first strong character per paragraph.
+    // That gets Farsi/Arabic emails right-aligned automatically while
+    // still letting an English signature in the same message stay LTR.
+    return `<!doctype html><html dir="auto"><head><base target="_blank">
 <style>
-  body { margin: 0; padding: 0; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #282F39; }
+  body { margin: 0; padding: 0; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #282F39; unicode-bidi: plaintext; }
+  body, p, div, blockquote, li, td, th { unicode-bidi: plaintext; }
   img { max-width: 100%; height: auto; }
   a { color: #8E6F35; }
   blockquote { border-left: 3px solid #E2DBC8; margin: 8px 0; padding: 4px 12px; color: #4A5260; }
   pre { white-space: pre-wrap; word-wrap: break-word; background: #F7F3E9; padding: 10px; border-radius: 6px; }
   table { border-collapse: collapse; max-width: 100%; }
+  /* Reverse the blockquote bar for RTL paragraphs */
+  [dir="rtl"] blockquote, blockquote[dir="rtl"] { border-left: none; border-right: 3px solid #E2DBC8; padding: 4px 12px 4px 4px; }
 </style>
-</head><body>${html}</body></html>`;
+</head><body dir="auto">${html}</body></html>`;
   }
 
   function fmtSize(bytes) {
@@ -2095,7 +2103,7 @@
           <label>Bcc</label>
           <input class="draft-bcc" type="text" placeholder="bcc@example.com">
         </div>
-        <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text"></div>
+        <div class="draft-field"><label>Subject</label><input class="draft-subject" type="text" dir="auto"></div>
       </div>
       <div class="draft-tones">
         <span class="draft-tones-label">Tone:</span>
@@ -2115,7 +2123,7 @@
         </button>
       </div>
       <div class="draft-body-wrap">
-        <div class="draft-body" contenteditable="false" data-placeholder="Delta's draft will appear here…"></div>
+        <div class="draft-body" contenteditable="false" dir="auto" data-placeholder="Delta's draft will appear here…"></div>
       </div>
       <div class="draft-actions">
         <button class="draft-send btn primary draft-btn-send" disabled>
@@ -3027,13 +3035,13 @@
             <div class="mail-avatar">${escapeHtml(initial)}</div>
             <div class="mail-body">
               <div class="mail-row-top">
-                <div class="mail-sender">${senderLabel}</div>
+                <div class="mail-sender" dir="auto">${senderLabel}</div>
                 <div class="mail-row-top-right">${clip}<div class="mail-time">${when}</div></div>
               </div>
-              <div class="mail-subject">${subj}</div>
+              <div class="mail-subject" dir="auto">${subj}</div>
               <div class="mail-row-meta">
                 <span class="mail-tag-slot" data-tag-for="${escapeHtml(m.id)}"></span>
-                <span class="mail-snippet">${snip}</span>
+                <span class="mail-snippet" dir="auto">${snip}</span>
               </div>
             </div>
             <div class="mail-row-actions" data-actions-for="${escapeHtml(m.id)}">

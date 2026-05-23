@@ -461,7 +461,7 @@
       </div>
       <div class="compose-field">
         <label>Subject</label>
-        <input type="text" id="cmpSubject" placeholder="Subject">
+        <input type="text" id="cmpSubject" placeholder="Subject" dir="auto">
       </div>
     </div>
 
@@ -514,9 +514,11 @@
       <button type="button" data-cmd="removeFormat" title="Clear formatting"><svg viewBox="0 0 24 24"><path d="M3.27 5L2 6.27l6.97 6.97L6.5 19h3l1.57-3.66L16.73 21 18 19.73 3.55 5.27 3.27 5zM6 5v.18L8.82 8h2.4l-.72 1.68 2.1 2.1L14.21 8H20V5H6z"/></svg></button>
     </div>
 
-    <!-- Rich-text body -->
+    <!-- Rich-text body. dir="auto" + unicode-bidi:plaintext (in CSS) so
+         each paragraph auto-picks LTR / RTL from its first strong char. -->
     <div id="cmpBodyRich" class="compose-body-rich"
          contenteditable="true"
+         dir="auto"
          data-placeholder="Write your message…"></div>
 
     <!-- Footer (status + signature hint) -->
