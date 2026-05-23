@@ -3075,13 +3075,58 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
   } else {
     // Plain-text body (Delta drafts, replies) — escape + wrap into <p>s.
     textForPlain = String(bodyText || "");
-    htmlForBody = textForPlain
+
+    // Detect the Delta-generated quoted-history block:
+    //   <blank line>
+    //   On <date>, <name> wrote:
+    //   <blank line>
+    //   > line1
+    //   > line2
+    //
+    // Split into (new prose) + (attribution) + (quoted body) so we can
+    // render the quoted part as a proper Gmail-style <blockquote> in
+    // HTML. Recipients on rich-mail clients see nested quoting
+    // indentation, NOT plain "> " soup.
+    const quotedMatch = textForPlain.match(/\n(On .+? wrote:)\n\n([\s\S]+)$/);
+    let newProse = textForPlain;
+    let attribution = "";
+    let quotedBody = "";
+    if (quotedMatch) {
+      newProse = textForPlain.slice(0, quotedMatch.index);
+      attribution = quotedMatch[1];
+      quotedBody = quotedMatch[2];
+    }
+
+    const escHtml = (s) => s
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
+      .replace(/>/g, "&gt;");
+
+    const proseHtml = escHtml(newProse)
       .split(/\n{2,}/)
       .map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`)
       .join("\n");
+
+    let quotedHtml = "";
+    if (quotedBody) {
+      // Strip the leading "> " from each line — the <blockquote>
+      // styling will provide the visual indentation instead.
+      const stripped = quotedBody
+        .split(/\r?\n/)
+        .map((l) => l.startsWith("> ") ? l.slice(2) : (l.startsWith(">") ? l.slice(1) : l))
+        .join("\n");
+      const innerHtml = escHtml(stripped)
+        .split(/\n/)
+        .map((l) => l ? l : "")
+        .join("<br>");
+      quotedHtml =
+        `<br><div class="gmail_quote">` +
+        `<div class="gmail_attr" style="color:#5f6368;font-size:12.5px">${escHtml(attribution)}</div>` +
+        `<blockquote class="gmail_quote" style="margin:0 0 0 .8ex;border-left:1px #ccc solid;padding-left:1ex;color:#5f6368">${innerHtml}</blockquote>` +
+        `</div>`;
+    }
+
+    htmlForBody = proseHtml + quotedHtml;
   }
 
   // Plain-text part — body, blank line, "--", signature
