@@ -2309,11 +2309,23 @@ app.get("/api/gmail/message/:id/attachment/:attachmentId", auth.requireAuth, asy
     const b64 = (r.data.data || "").replace(/-/g, "+").replace(/_/g, "/");
     const buffer = Buffer.from(b64, "base64");
 
+    // Phase 5.BO — let the client request inline preview (so PDFs and
+    // images open in a new tab via the browser's native viewer instead
+    // of triggering a download). Query: ?disposition=inline
+    const wantsInline = String(req.query.disposition || "").toLowerCase() === "inline";
+    // Only allow inline for safe-to-preview mime types. Everything else
+    // forces download to avoid clickjacking / executable surprises.
+    const previewable =
+      mimeType === "application/pdf" ||
+      /^image\//i.test(mimeType) ||
+      /^text\/plain/i.test(mimeType);
+    const disposition = (wantsInline && previewable) ? "inline" : "attachment";
+
     res.setHeader("Content-Type", mimeType);
     res.setHeader("Content-Length", buffer.length);
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`
+      `${disposition}; filename*=UTF-8''${encodeURIComponent(filename)}`
     );
     res.setHeader("Cache-Control", "private, max-age=3600");
     res.send(buffer);

@@ -1170,7 +1170,12 @@
       // Render HTML in a sandboxed iframe to neutralize scripts.
       const iframe = document.createElement("iframe");
       iframe.className = "reader-iframe";
-      iframe.sandbox = "allow-same-origin";
+      // Phase 5.BO — allow-popups lets links inside the email body open
+      // in a new tab when clicked (`<base target="_blank">` in
+      // wrapHtmlBody routes them there). allow-popups-to-escape-sandbox
+      // means the popup tab is a normal browser tab, not stuck in the
+      // sandbox. Scripts are still blocked (no allow-scripts).
+      iframe.sandbox = "allow-same-origin allow-popups allow-popups-to-escape-sandbox";
       iframe.srcdoc = wrapHtmlBody(data.body.html);
       bodyEl.innerHTML = "";
       bodyEl.appendChild(iframe);
@@ -1501,14 +1506,17 @@
         : ""}
     `;
 
-    // Wire click → trigger download via hidden anchor
+    // Phase 5.BO — left click opens the attachment in a new tab
+    // (preview via the browser's PDF/image viewer when supported).
+    // Right-click → "Save link as…" still works for explicit download.
+    // The chip's href already points to the inline-disposition URL, so
+    // we just let the browser handle the default <a target="_blank">
+    // navigation instead of preventing it.
     bar.querySelectorAll(".rab-chip").forEach((chip) => {
-      chip.addEventListener("click", (e) => {
-        e.preventDefault();
-        const url = chip.dataset.url;
-        const fn = chip.dataset.filename || "attachment";
-        triggerDownload(url, fn);
-      });
+      // The anchor already has target=_blank + the inline URL — no JS
+      // intervention needed. (Removed the e.preventDefault + forced
+      // download from before; that fought against the browser's PDF
+      // viewer.)
     });
     const dlAll = bar.querySelector("#rabDownloadAll");
     if (dlAll) {
@@ -1527,10 +1535,21 @@
   function attachmentChipHtml(messageId, a, idx) {
     const filename = a.filename || "(unnamed)";
     const mimeType = a.mimeType || "application/octet-stream";
-    const url = `/api/gmail/message/${encodeURIComponent(messageId)}/attachment/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(filename)}&mimeType=${encodeURIComponent(mimeType)}`;
+    const baseUrl = `/api/gmail/message/${encodeURIComponent(messageId)}/attachment/${encodeURIComponent(a.attachmentId)}?filename=${encodeURIComponent(filename)}&mimeType=${encodeURIComponent(mimeType)}`;
+    // Phase 5.BO — PDFs / images / text get an inline-disposition URL
+    // so left-click opens them in a new tab using the browser's native
+    // viewer (no download dialog). Other types still force download
+    // because there's no useful in-browser preview for them.
+    const lower = (filename || "").toLowerCase();
+    const previewable =
+      mimeType === "application/pdf" || /\.pdf$/.test(lower) ||
+      /^image\//i.test(mimeType) || /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(lower) ||
+      /^text\/plain/i.test(mimeType) || /\.(txt|md|log)$/.test(lower);
+    const url = previewable ? `${baseUrl}&disposition=inline` : baseUrl;
     const iconSvg = attachmentIconFor(mimeType, filename);
+    const target = previewable ? ` target="_blank" rel="noopener"` : ` download="${escapeHtml(filename)}"`;
     return `
-      <a class="rab-chip" href="${url}" data-url="${url}" data-filename="${escapeHtml(filename)}" title="${escapeHtml(filename)}">
+      <a class="rab-chip" href="${url}"${target} data-url="${url}" data-filename="${escapeHtml(filename)}" title="${escapeHtml(filename)}">
         <span class="rab-icon">${iconSvg}</span>
         <span class="rab-info">
           <span class="rab-name">${escapeHtml(filename)}</span>
