@@ -889,6 +889,9 @@ window.renderMarkdown = renderMarkdown;
       setTimeout(() => inputChat?.focus(), 60);
     }
   }
+  // Expose for voice.js — when a voice session ends, the transcript
+  // flush needs to switch out of welcome state if we're still there.
+  window.__deltaShowChatState = ensureChatState;
 
   function resetToWelcome() {
     history = [];

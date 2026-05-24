@@ -1097,6 +1097,70 @@ app.post("/api/voice/distill", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Realtime voice mode — Phase 5.BF.
+//   GET  /api/voice/realtime-status  → { available, model }
+//   POST /api/voice/realtime-session → { ok, value, expires_at, model }
+//                                       — ephemeral key for browser WebRTC
+//   POST /api/voice/tool-call        → server-side tool execution proxy
+//                                       (browser forwards function_call args)
+// ====================================================================
+app.get("/api/voice/realtime-status", auth.requireAuth, async (req, res) => {
+  const realtime = require("./lib/realtime");
+  res.json({ ok: true, available: realtime.isConfigured(), model: realtime.REALTIME_MODEL });
+});
+
+app.post("/api/voice/realtime-session", auth.requireAuth, async (req, res) => {
+  try {
+    const realtime = require("./lib/realtime");
+    if (!realtime.isConfigured()) {
+      return res.status(503).json({ ok: false, error: "OPENAI_API_KEY not configured on server" });
+    }
+    const voice = (req.body?.voice || "").toString();
+    const result = await realtime.mintClientSecret(req.user, {
+      voice: voice || undefined,
+    });
+    if (!result.ok) {
+      console.error("[/api/voice/realtime-session] mint failed:", result.error);
+      return res.status(502).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error("[/api/voice/realtime-session] failed:", err);
+    res.status(500).json({ ok: false, error: err.message || "session_failed" });
+  }
+});
+
+// Voice → tool-call proxy. The browser hears a function_call event from
+// OpenAI, forwards { name, arguments } here, we run the tool with the
+// real user context (server has the gmail credentials, not the browser),
+// return the JSON result, and the browser sends it back to OpenAI as a
+// function_call_output. This keeps all the auth + DB access on the server.
+app.post("/api/voice/tool-call", auth.requireAuth, async (req, res) => {
+  try {
+    const { name, arguments: argsRaw, callId } = req.body || {};
+    if (!name) return res.status(400).json({ ok: false, error: "name required" });
+    let input;
+    try {
+      input = typeof argsRaw === "string" ? JSON.parse(argsRaw || "{}") : (argsRaw || {});
+    } catch (_) {
+      input = {};
+    }
+    const assistantLib = require("./lib/assistant");
+    const ctx = await assistantLib.buildContext(req.user, { openMessageId: req.body?.openMessageId || null });
+    const result = await assistantLib.executeTool(name, input, {
+      user: req.user,
+      ctx,
+      userMessage: "",
+      bridgeMode: null,
+    });
+    res.json({ ok: true, callId, name, result });
+  } catch (err) {
+    console.error("[/api/voice/tool-call] failed:", err);
+    res.status(500).json({ ok: false, error: err.message || "tool_call_failed" });
+  }
+});
+
+// ====================================================================
 // Delta Bridge — peer-to-peer with Finance Delta. Added 2026-05-21.
 //
 // POST /api/delta-bridge/query

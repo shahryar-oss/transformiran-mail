@@ -3226,6 +3226,12 @@
     try {
       const me = await loadMe();
       renderUser(me);
+      // Phase 5.BF — expose user info for voice.js. The realtime greeting
+      // needs the first name so it can open with "Hi Shahryar, …" rather
+      // than a generic "Hi there".
+      const fullName = me?.display_name || me?.name || me?.email || "";
+      const firstName = String(fullName).split(/[ @]/)[0] || "there";
+      window.__deltaUser = { email: me?.email, firstName, fullName };
     } catch (err) {
       // Not signed in — bounce to landing.
       window.location.href = "/";
