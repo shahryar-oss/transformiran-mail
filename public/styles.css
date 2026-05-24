@@ -5413,3 +5413,157 @@ body.delta-panel-open .delta-fab { display: none; }
   100% { box-shadow: 0 0 0 0 rgba(255, 150, 80, 0),
                      0 0 0 rgba(255, 150, 80, 0); }
 }
+
+/* ============================================================
+ * INLINE ATTACHMENT PREVIEW — Phase 5.BP
+ * Outlook-style: click an attachment → it opens INSIDE the inbox
+ * (full-screen modal with PDF/image viewer), no new tab, no
+ * download dialog. Download + Open-externally are buttons in the
+ * header bar for the cases where the user does want those actions.
+ * ============================================================ */
+.att-preview {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.att-preview[hidden] { display: none !important; }
+
+.att-preview-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 22, 30, .68);
+  backdrop-filter: blur(6px);
+}
+
+.att-preview-card {
+  position: relative;
+  width: min(92vw, 1100px);
+  height: min(92vh, 900px);
+  background: var(--paper);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: att-preview-in .22s ease-out;
+}
+@keyframes att-preview-in {
+  from { opacity: 0; transform: scale(.96); }
+  to   { opacity: 1; transform: scale(1);   }
+}
+
+.att-preview-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  background: var(--cream);
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.att-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+.att-preview-icon {
+  flex-shrink: 0;
+  width: 32px; height: 32px;
+  border-radius: 6px;
+  background: var(--red);
+  color: white;
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.att-preview-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.att-preview-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--navy);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.att-preview-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.att-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.att-preview-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background .12s, border-color .12s;
+}
+.att-preview-btn:hover {
+  background: rgba(178, 142, 68, .12);
+  border-color: rgba(178, 142, 68, .35);
+}
+.att-preview-btn svg { width: 14px; height: 14px; fill: currentColor; }
+.att-preview-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 22px;
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: inline-grid;
+  place-items: center;
+  margin-left: 4px;
+}
+.att-preview-close:hover { background: rgba(0, 0, 0, .06); color: var(--navy); }
+
+.att-preview-body {
+  flex: 1;
+  min-height: 0;
+  background: #2a2a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.att-preview-body iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+}
+.att-preview-body img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.att-preview-body .att-fallback {
+  color: white;
+  text-align: center;
+  padding: 32px;
+  font-size: 14px;
+  line-height: 1.6;
+}

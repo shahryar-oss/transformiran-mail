@@ -564,6 +564,39 @@
   </div>
 </div>
 
+<!-- Phase 5.BP — inline PDF / image preview overlay. Click any
+     attachment chip in the reader to open the file here, with the
+     browser's native viewer, without spawning a new tab or download
+     dialog. -->
+<div id="attachmentPreview" class="att-preview" hidden>
+  <div class="att-preview-backdrop"></div>
+  <div class="att-preview-card">
+    <header class="att-preview-head">
+      <div class="att-preview-title">
+        <span class="att-preview-icon" id="attPreviewIcon"></span>
+        <div class="att-preview-text">
+          <div class="att-preview-name" id="attPreviewName"></div>
+          <div class="att-preview-meta" id="attPreviewMeta"></div>
+        </div>
+      </div>
+      <div class="att-preview-actions">
+        <a class="att-preview-btn" id="attPreviewDownload" download>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+          Download
+        </a>
+        <a class="att-preview-btn" id="attPreviewExternal" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>
+          Open externally
+        </a>
+        <button class="att-preview-close" id="attPreviewClose" aria-label="Close" title="Close">×</button>
+      </div>
+    </header>
+    <div class="att-preview-body" id="attPreviewBody">
+      <!-- iframe or img inserted here at open time -->
+    </div>
+  </div>
+</div>
+
 <script src="/inbox.js"></script>
 <script src="/inbox-rightpanel.js"></script>
 <script src="/task-notifier.js"></script>

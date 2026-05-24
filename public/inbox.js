@@ -1506,17 +1506,23 @@
         : ""}
     `;
 
-    // Phase 5.BO — left click opens the attachment in a new tab
-    // (preview via the browser's PDF/image viewer when supported).
-    // Right-click → "Save link as…" still works for explicit download.
-    // The chip's href already points to the inline-disposition URL, so
-    // we just let the browser handle the default <a target="_blank">
-    // navigation instead of preventing it.
+    // Phase 5.BP — left click opens the file INSIDE the inbox (modal
+    // PDF/image viewer). No new tab, no download dialog. Holding the
+    // modifier key still opens in a new tab (default browser
+    // behaviour). The chip's anchor href is the inline-disposition
+    // URL so the "Open externally" button in the modal works too.
     bar.querySelectorAll(".rab-chip").forEach((chip) => {
-      // The anchor already has target=_blank + the inline URL — no JS
-      // intervention needed. (Removed the e.preventDefault + forced
-      // download from before; that fought against the browser's PDF
-      // viewer.)
+      chip.addEventListener("click", (e) => {
+        // Cmd/Ctrl/middle-click → let browser open in new tab.
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+        e.preventDefault();
+        openAttachmentPreview({
+          url: chip.dataset.url,
+          filename: chip.dataset.filename,
+          mimeType: chip.dataset.mime || "",
+          sizeBytes: Number(chip.dataset.size || 0),
+        });
+      });
     });
     const dlAll = bar.querySelector("#rabDownloadAll");
     if (dlAll) {
@@ -1549,7 +1555,12 @@
     const iconSvg = attachmentIconFor(mimeType, filename);
     const target = previewable ? ` target="_blank" rel="noopener"` : ` download="${escapeHtml(filename)}"`;
     return `
-      <a class="rab-chip" href="${url}"${target} data-url="${url}" data-filename="${escapeHtml(filename)}" title="${escapeHtml(filename)}">
+      <a class="rab-chip" href="${url}"${target}
+         data-url="${url}"
+         data-filename="${escapeHtml(filename)}"
+         data-mime="${escapeHtml(mimeType)}"
+         data-size="${a.size || 0}"
+         title="${escapeHtml(filename)}">
         <span class="rab-icon">${iconSvg}</span>
         <span class="rab-info">
           <span class="rab-name">${escapeHtml(filename)}</span>
@@ -1593,6 +1604,121 @@
     a.click();
     setTimeout(() => a.remove(), 0);
   }
+
+  // Phase 5.BP — Outlook-style inline attachment preview modal.
+  // Opens PDFs / images right inside the inbox via an <iframe> or
+  // <img>, with no new browser tab and no download dialog. The user
+  // still gets explicit Download + Open-externally buttons in the
+  // modal header for the cases where they want those actions.
+  function openAttachmentPreview({ url, filename, mimeType, sizeBytes }) {
+    const modal = document.getElementById("attachmentPreview");
+    if (!modal) {
+      // Fallback: open in a new tab if the modal markup is missing.
+      window.open(url, "_blank", "noopener");
+      return;
+    }
+    const lower = (filename || "").toLowerCase();
+    const isPdf =
+      /pdf/.test(mimeType || "") || lower.endsWith(".pdf");
+    const isImg =
+      /^image\//i.test(mimeType || "") ||
+      /\.(png|jpe?g|gif|webp|svg|bmp)$/.test(lower);
+    const isText =
+      /^text\/(plain|markdown|csv)/i.test(mimeType || "") ||
+      /\.(txt|md|csv|log)$/.test(lower);
+
+    // Build the inline-disposition URL (forced inline for the iframe
+    // even if the chip's data-url already had it; defensive).
+    let inlineUrl = url || "";
+    if (!/[?&]disposition=/.test(inlineUrl) && (isPdf || isImg || isText)) {
+      inlineUrl += (inlineUrl.includes("?") ? "&" : "?") + "disposition=inline";
+    }
+
+    // Strip ?disposition=inline for the Download button so it forces
+    // a download via the server's default Content-Disposition: attachment.
+    const downloadUrl = (url || "").replace(/([?&])disposition=inline(&|$)/, "$1").replace(/[?&]$/, "");
+
+    // Header populate
+    const nameEl = document.getElementById("attPreviewName");
+    const metaEl = document.getElementById("attPreviewMeta");
+    const iconEl = document.getElementById("attPreviewIcon");
+    const dlEl = document.getElementById("attPreviewDownload");
+    const exEl = document.getElementById("attPreviewExternal");
+    const bodyEl = document.getElementById("attPreviewBody");
+    if (nameEl) nameEl.textContent = filename || "Attachment";
+    if (metaEl) {
+      const parts = [];
+      if (mimeType) parts.push(mimeType);
+      if (sizeBytes) parts.push(fmtSize(sizeBytes));
+      metaEl.textContent = parts.join(" · ");
+    }
+    if (iconEl) {
+      const label = isPdf ? "PDF" : isImg ? "IMG" : isText ? "TXT" : "FILE";
+      iconEl.textContent = label;
+      iconEl.style.background =
+        isPdf  ? "var(--red)"           :
+        isImg  ? "#5b8def"              :
+        isText ? "var(--navy)"          : "var(--gold-dark)";
+    }
+    if (dlEl) {
+      dlEl.href = downloadUrl;
+      dlEl.setAttribute("download", filename || "attachment");
+    }
+    if (exEl) {
+      exEl.href = inlineUrl;
+    }
+
+    // Body content
+    if (!bodyEl) return;
+    bodyEl.innerHTML = "";
+    if (isPdf || isText) {
+      const iframe = document.createElement("iframe");
+      iframe.src = inlineUrl;
+      iframe.title = filename || "attachment";
+      bodyEl.appendChild(iframe);
+    } else if (isImg) {
+      const img = document.createElement("img");
+      img.src = inlineUrl;
+      img.alt = filename || "image";
+      bodyEl.appendChild(img);
+    } else {
+      // Unknown / unsupported — surface a friendly fallback with a
+      // big Download button (no in-browser preview available).
+      const fallback = document.createElement("div");
+      fallback.className = "att-fallback";
+      fallback.innerHTML = `
+        <div style="font-size:42px;margin-bottom:14px">📎</div>
+        <div style="font-size:16px;margin-bottom:6px"><strong>${escapeHtml(filename || "Attachment")}</strong></div>
+        <div style="opacity:.7;margin-bottom:18px">In-browser preview isn't available for this file type. Download or open externally to view.</div>
+      `;
+      bodyEl.appendChild(fallback);
+    }
+
+    modal.hidden = false;
+  }
+
+  function closeAttachmentPreview() {
+    const modal = document.getElementById("attachmentPreview");
+    if (!modal) return;
+    modal.hidden = true;
+    // Clear the iframe src so the file stops streaming + frees memory.
+    const bodyEl = document.getElementById("attPreviewBody");
+    if (bodyEl) bodyEl.innerHTML = "";
+  }
+
+  // Wire close handlers once on boot.
+  (function wireAttachmentPreview() {
+    const closeBtn = document.getElementById("attPreviewClose");
+    closeBtn?.addEventListener("click", closeAttachmentPreview);
+    const modal = document.getElementById("attachmentPreview");
+    modal?.querySelector(".att-preview-backdrop")?.addEventListener("click", closeAttachmentPreview);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        const m = document.getElementById("attachmentPreview");
+        if (m && !m.hidden) closeAttachmentPreview();
+      }
+    });
+  })();
 
   function wrapHtmlBody(html) {
     // Minimal wrapper so links open in the parent window (target=_top) and
