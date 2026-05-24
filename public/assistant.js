@@ -1079,6 +1079,7 @@ window.renderMarkdown = renderMarkdown;
     const TOOL_LABELS = {
       search_inbox:          "Delta is searching your inbox",
       draft_reply:           "Delta is drafting a reply",
+      compose_email:         "Delta is composing a new email",
       propose_inbox_cleanup: "Delta is analysing your inbox",
       start_inbox_routine:   "Delta is running your inbox routine",
       create_task:           "Delta is adding to your tasks",
@@ -1211,6 +1212,21 @@ window.renderMarkdown = renderMarkdown;
         renderChatDraftCard(ev.result.draft, ev.result.styleExamples);
       }
 
+      // Phase 5.BM — compose_email auto-opens the NEW EMAIL composer
+      // (not a reply). Skipping the chat-card route since the New Email
+      // composer is itself the editable card.
+      if (ev.name === "compose_email" && ev.result?.ok && ev.result.draft) {
+        if (typeof window.openNewEmailComposer === "function") {
+          window.openNewEmailComposer({
+            to: ev.result.draft.to,
+            cc: ev.result.draft.cc,
+            bcc: ev.result.draft.bcc,
+            subject: ev.result.draft.subject,
+            body: ev.result.draft.body,
+          });
+        }
+      }
+
       // For propose_inbox_cleanup, render each batch as an interactive card.
       if (ev.name === "propose_inbox_cleanup" && ev.result?.ok && ev.result.batches) {
         for (const batch of ev.result.batches) {
@@ -1256,6 +1272,10 @@ window.renderMarkdown = renderMarkdown;
         return `Found <strong>${se.count}</strong> writing example${se.count === 1 ? "" : "s"} to ${escapeHtml(recipient)}`;
       }
       return `Drafting reply to ${escapeHtml(recipient)} (no past examples found — using general tone)`;
+    }
+    if (ev.name === "compose_email") {
+      const recipient = ev.result?.draft?.to || ev.input?.to || "(no recipient yet)";
+      return `Composed new email to <strong>${escapeHtml(recipient)}</strong> — opened in the composer`;
     }
     if (ev.name === "search_inbox") {
       const n = ev.result?.count || 0;

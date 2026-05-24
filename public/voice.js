@@ -205,7 +205,14 @@
     // then re-open the draft in the (now unobstructed) middle pane.
     if (draftToReopen) {
       setTimeout(() => {
-        if (typeof window.__reopenVoiceDraft === "function") {
+        if (draftToReopen.kind === "new-email") {
+          if (typeof window.openNewEmailComposer === "function") {
+            window.openNewEmailComposer({
+              to: draftToReopen.to, cc: draftToReopen.cc, bcc: draftToReopen.bcc,
+              subject: draftToReopen.subject, body: draftToReopen.body,
+            });
+          }
+        } else if (typeof window.__reopenVoiceDraft === "function") {
           window.__reopenVoiceDraft(draftToReopen);
         } else if (typeof window.openComposerWithDraft === "function") {
           window.openComposerWithDraft(draftToReopen, { keepDeltaOpen: false });
@@ -428,12 +435,19 @@
   function surfaceToolEffect(name, result) {
     if (!result || !result.ok) return;
 
-    // draft_reply → pop the main composer in the middle column with
-    // Delta's body pre-loaded. Store the draft on voiceMode so we can
-    // re-open it if the composer dies mid-session and so we can fall
-    // back to opening it on session exit if needed.
+    // draft_reply → pop the REPLY composer in the middle column.
     if (name === "draft_reply" && result.draft) {
-      voiceMode._lastDraft = result.draft;
+      voiceMode._lastDraft = { kind: "reply", ...result.draft };
+      reopenLatestDraft();
+      setDraftChipVisible(true);
+      return;
+    }
+
+    // compose_email → pop the NEW EMAIL composer (NOT a reply).
+    // Phase 5.BM. The compose_email tool produces a draft with
+    // kind="new-email" so reopenLatestDraft can route correctly.
+    if (name === "compose_email" && result.draft) {
+      voiceMode._lastDraft = { kind: "new-email", ...result.draft };
       reopenLatestDraft();
       setDraftChipVisible(true);
       return;
@@ -443,14 +457,29 @@
   // Re-open or refresh the composer with voiceMode._lastDraft. Safe to
   // call multiple times — the underlying function detects an already-
   // open composer for the same message and updates the body in place.
+  // Phase 5.BM — routes new-email drafts to a different composer than
+  // reply drafts (different DOM mount points and prefill mechanisms).
   function reopenLatestDraft() {
     const d = voiceMode._lastDraft;
     if (!d) return;
-    if (typeof window.__reopenVoiceDraft === "function") {
-      try { window.__reopenVoiceDraft(d); }
-      catch (err) { console.warn("[voice] reopen draft failed:", err); }
-    } else if (typeof window.openComposerWithDraft === "function") {
-      window.openComposerWithDraft(d, { keepDeltaOpen: true });
+    try {
+      if (d.kind === "new-email") {
+        if (typeof window.openNewEmailComposer === "function") {
+          window.openNewEmailComposer({
+            to: d.to, cc: d.cc, bcc: d.bcc,
+            subject: d.subject, body: d.body, bodyHtml: d.bodyHtml,
+          });
+        }
+        return;
+      }
+      // Reply drafts — use existing 5.BL path.
+      if (typeof window.__reopenVoiceDraft === "function") {
+        window.__reopenVoiceDraft(d);
+      } else if (typeof window.openComposerWithDraft === "function") {
+        window.openComposerWithDraft(d, { keepDeltaOpen: true });
+      }
+    } catch (err) {
+      console.warn("[voice] reopen draft failed:", err);
     }
   }
 

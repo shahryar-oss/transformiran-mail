@@ -2534,6 +2534,38 @@
   }
 
   composeBtn?.addEventListener("click", openCompose);
+
+  // Phase 5.BM — Voice/chat Delta can programmatically open the
+  // New-Email composer (NOT a reply) with a prefilled draft. Used
+  // when the user says "draft a brand-new email to Lazarus" etc.
+  window.openNewEmailComposer = function (prefill = {}) {
+    openCompose();
+    // openCompose() does an async settings fetch, but the DOM fields
+    // are available immediately — populate them now.
+    if (prefill.to)      cmpTo.value      = prefill.to;
+    if (prefill.cc)      { cmpCc.value    = prefill.cc;  cmpCcRow.hidden  = false; }
+    if (prefill.bcc)     { cmpBcc.value   = prefill.bcc; cmpBccRow.hidden = false; }
+    if (prefill.subject) cmpSubject.value = prefill.subject;
+    if (prefill.bodyHtml) {
+      cmpBodyRich.innerHTML = prefill.bodyHtml;
+    } else if (prefill.body) {
+      // Convert plain-text body into paragraphs so the rich editor
+      // doesn't collapse the whitespace.
+      const escaped = String(prefill.body)
+        .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      cmpBodyRich.innerHTML = escaped
+        .split(/\n\n+/)
+        .map((para) => `<div>${para.replace(/\n/g, "<br>")}</div>`)
+        .join("<div><br></div>");
+    }
+    // Flash the composer so the user notices it pop in (matches the
+    // voice-draft path for reply drafts).
+    requestAnimationFrame(() => {
+      composeModal.scrollIntoView({ behavior: "smooth", block: "center" });
+      composeModal.classList.add("voice-draft-flash");
+      setTimeout(() => composeModal.classList.remove("voice-draft-flash"), 1800);
+    });
+  };
   cmpClose?.addEventListener("click", () => closeCompose());
   cmpDiscard?.addEventListener("click", () => closeCompose(true));
   // Backdrop click only matters in floating-modal mode (when not docked).
