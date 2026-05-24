@@ -1611,9 +1611,10 @@
   // still gets explicit Download + Open-externally buttons in the
   // modal header for the cases where they want those actions.
   function openAttachmentPreview({ url, filename, mimeType, sizeBytes }) {
+    console.log("[att-preview] open:", { filename, mimeType, sizeBytes, url });
     const modal = document.getElementById("attachmentPreview");
     if (!modal) {
-      // Fallback: open in a new tab if the modal markup is missing.
+      console.warn("[att-preview] modal markup missing — falling back to new-tab");
       window.open(url, "_blank", "noopener");
       return;
     }

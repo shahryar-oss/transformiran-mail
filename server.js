@@ -331,7 +331,20 @@ app.delete("/api/tasks/:taskId/steps/:stepId", auth.requireAuth, async (req, res
 });
 
 // Static (after the / route so we control the landing/inbox swap).
-app.use(express.static(path.join(__dirname, "public")));
+// Phase 5.BQ — set no-cache on HTML and JS so Safari/Chrome always
+// revalidate against the server. The Express defaults rely on ETag
+// but Safari can stick with a stale copy for hours; explicit
+// `no-cache` forces a conditional GET on every request. Images
+// and stylesheets still get the default short-lived cache.
+app.use(express.static(path.join(__dirname, "public"), {
+  setHeaders(res, filePath) {
+    if (/\.(html|js)$/i.test(filePath)) {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    } else if (/\.css$/i.test(filePath)) {
+      res.setHeader("Cache-Control", "no-cache, must-revalidate");
+    }
+  },
+}));
 
 // ====================================================================
 // Authed API — me, gmail
