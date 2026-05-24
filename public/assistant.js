@@ -1080,6 +1080,8 @@ window.renderMarkdown = renderMarkdown;
       search_inbox:          "Delta is searching your inbox",
       draft_reply:           "Delta is drafting a reply",
       compose_email:         "Delta is composing a new email",
+      forward_email:         "Delta is forwarding the email",
+      email_action:          "Delta is updating the email",
       propose_inbox_cleanup: "Delta is analysing your inbox",
       start_inbox_routine:   "Delta is running your inbox routine",
       create_task:           "Delta is adding to your tasks",
@@ -1227,6 +1229,27 @@ window.renderMarkdown = renderMarkdown;
         }
       }
 
+      // Phase 5.BN — forward_email also opens the New-Email composer
+      // (the forwarded content + intro note is in result.draft.body).
+      if (ev.name === "forward_email" && ev.result?.ok && ev.result.draft) {
+        if (typeof window.openNewEmailComposer === "function") {
+          window.openNewEmailComposer({
+            to: ev.result.draft.to,
+            cc: ev.result.draft.cc,
+            subject: ev.result.draft.subject,
+            body: ev.result.draft.body,
+          });
+        }
+      }
+
+      // Phase 5.BN — email_action server already did the change; refresh
+      // the inbox list so the row disappears / updates.
+      if (ev.name === "email_action" && ev.result?.ok) {
+        if (typeof window.__refreshInboxList === "function") {
+          window.__refreshInboxList();
+        }
+      }
+
       // For propose_inbox_cleanup, render each batch as an interactive card.
       if (ev.name === "propose_inbox_cleanup" && ev.result?.ok && ev.result.batches) {
         for (const batch of ev.result.batches) {
@@ -1276,6 +1299,26 @@ window.renderMarkdown = renderMarkdown;
     if (ev.name === "compose_email") {
       const recipient = ev.result?.draft?.to || ev.input?.to || "(no recipient yet)";
       return `Composed new email to <strong>${escapeHtml(recipient)}</strong> — opened in the composer`;
+    }
+    if (ev.name === "forward_email") {
+      const recipient = ev.result?.draft?.to || ev.input?.to || "recipient";
+      return `Forwarded to <strong>${escapeHtml(recipient)}</strong> — opened in the composer`;
+    }
+    if (ev.name === "email_action") {
+      const a = ev.result?.action || ev.input?.action || "(unknown)";
+      const labels = {
+        archive: "Archived the email",
+        trash: "Moved the email to trash",
+        mark_read: "Marked as read",
+        mark_unread: "Marked as unread",
+        star: "Starred the email",
+        unstar: "Removed star",
+        mark_done: "Marked as done + archived",
+        snooze: ev.result?.wake_at
+          ? `Snoozed until ${new Date(ev.result.wake_at).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}`
+          : "Snoozed",
+      };
+      return labels[a] || `Did ${escapeHtml(a)}`;
     }
     if (ev.name === "search_inbox") {
       const n = ev.result?.count || 0;

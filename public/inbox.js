@@ -593,6 +593,10 @@
     trash:   "Trash",
   };
 
+  // Phase 5.BN — voice.js calls this after email_action so the inbox
+  // list reflects archived / trashed / read-state changes immediately.
+  window.__refreshInboxList = () => loadInbox({ forceFresh: true }).catch(() => {});
+
   async function loadInbox(opts = {}) {
     const folder = opts.folder || _currentFolder;
     const q = opts.q !== undefined ? opts.q : _currentQuery;

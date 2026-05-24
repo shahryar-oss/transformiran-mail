@@ -452,6 +452,28 @@
       setDraftChipVisible(true);
       return;
     }
+
+    // forward_email — same surface path as compose_email since the
+    // result is also a new-email draft (with the original message
+    // quoted in the body). Phase 5.BN.
+    if (name === "forward_email" && result.draft) {
+      voiceMode._lastDraft = { kind: "new-email", ...result.draft };
+      reopenLatestDraft();
+      setDraftChipVisible(true);
+      return;
+    }
+
+    // email_action — server already applied the change. Just refresh
+    // the inbox list so the row disappears / updates visually. Phase 5.BN.
+    if (name === "email_action" && result.message_id) {
+      try {
+        // Pull the most-recent inbox; the row will be gone / updated.
+        if (typeof window.__refreshInboxList === "function") {
+          window.__refreshInboxList();
+        }
+      } catch (_) {}
+      return;
+    }
   }
 
   // Re-open or refresh the composer with voiceMode._lastDraft. Safe to
