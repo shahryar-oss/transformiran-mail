@@ -1145,8 +1145,17 @@ app.post("/api/voice/tool-call", auth.requireAuth, async (req, res) => {
     } catch (_) {
       input = {};
     }
+    // Phase 5.BK — voice mode can't reliably get the user to dictate a
+    // Gmail message_id. If draft_reply / read_attachments / extract is
+    // called without one, fall back to whatever email is open in the
+    // reader pane right now.
+    const openMessageId = req.body?.openMessageId || null;
+    if (openMessageId && !input.message_id &&
+        ["draft_reply", "read_attachments"].includes(name)) {
+      input.message_id = openMessageId;
+    }
     const assistantLib = require("./lib/assistant");
-    const ctx = await assistantLib.buildContext(req.user, { openMessageId: req.body?.openMessageId || null });
+    const ctx = await assistantLib.buildContext(req.user, { openMessageId });
     const result = await assistantLib.executeTool(name, input, {
       user: req.user,
       ctx,

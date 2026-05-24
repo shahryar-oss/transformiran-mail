@@ -344,7 +344,14 @@
         }),
       });
       const data = await resp.json();
-      const output = data.ok ? data.result : { ok: false, error: data.error || "tool_failed" };
+      const result = data.ok ? data.result : { ok: false, error: data.error || "tool_failed" };
+
+      // Phase 5.BK — surface visible side-effects in the UI BEFORE
+      // returning the result to OpenAI, so the user sees what Delta
+      // did (instead of just hearing "I made a draft" with nothing
+      // appearing anywhere).
+      surfaceToolEffect(name, result);
+
       const dc = voiceMode.dc;
       if (!dc || dc.readyState !== "open") return;
       dc.send(JSON.stringify({
@@ -352,7 +359,7 @@
         item: {
           type: "function_call_output",
           call_id: callId,
-          output: JSON.stringify(output),
+          output: JSON.stringify(result),
         },
       }));
       // Ask the model to continue with the tool result available.
@@ -362,6 +369,34 @@
     } finally {
       voiceMode._pendingTools.delete(callId);
     }
+  }
+
+  // When voice-mode Delta calls a tool that has a visible artifact
+  // (a draft, a created task, a saved memory) we need to surface it
+  // in the inbox UI — otherwise the user hears Delta confirm "I made
+  // the draft" but sees nothing change. This is the bridge between
+  // the realtime call (server-side tool execution) and the inbox UI.
+  function surfaceToolEffect(name, result) {
+    if (!result || !result.ok) return;
+
+    // draft_reply → pop the main composer in the middle column with
+    // Delta's body pre-loaded. User can review + send + revise from
+    // there (or keep talking to Delta to refine the draft).
+    if (name === "draft_reply" && result.draft) {
+      if (typeof window.openComposerWithDraft === "function") {
+        try {
+          window.openComposerWithDraft(result.draft, { keepDeltaOpen: true });
+        } catch (err) {
+          console.warn("[voice] failed to open composer:", err);
+        }
+      }
+      return;
+    }
+
+    // create_task / remember / propose_inbox_cleanup → toast hint.
+    // (These already write to their respective stores server-side,
+    // we just want the user to know it happened.)
+    // Future: render small inline confirmation cards on the overlay.
   }
 
   // ---------------------- TRANSCRIPT FLUSH ---------------------------

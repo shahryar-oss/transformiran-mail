@@ -994,6 +994,11 @@
 
     const stub = messages.find((m) => m.id === id);
     if (!stub) return;
+
+    // Phase 5.BK — surface the open message id so voice mode can pass
+    // it to draft_reply / read_attachments without the user having to
+    // dictate a Gmail message id out loud.
+    window.__deltaOpenMessageId = id;
     const f = parseFrom(stub.from);
 
     const isStarred = (stub.labelIds || []).includes("STARRED");
@@ -3332,7 +3337,7 @@
   // "Open in main composer" button. Pre-fills the composer with the
   // draft body Delta already produced, so the user lands directly on
   // the ready-to-edit version (no second LLM call to regenerate).
-  window.openComposerWithDraft = async function(draft) {
+  window.openComposerWithDraft = async function(draft, opts = {}) {
     if (!draft) return;
     const msgId = draft.messageId;
     if (!msgId) return;
@@ -3344,8 +3349,13 @@
       body: draft.body || "",
       intent: "chat-drafted",
     };
-    // Close the Delta side panel so the middle column is unobstructed.
-    document.querySelector(".delta-close")?.click();
+    // Optionally close the Delta side panel. Voice mode (Phase 5.BK)
+    // passes keepDeltaOpen=true so the user can keep talking after a
+    // draft is created (e.g. "make it shorter") — the composer still
+    // appears in the middle column even with the Delta panel up.
+    if (!opts.keepDeltaOpen) {
+      document.querySelector(".delta-close")?.click();
+    }
     // Find the message in the list or fetch it.
     const existing = _allMessages.find((m) => m.id === msgId);
     if (existing) {
