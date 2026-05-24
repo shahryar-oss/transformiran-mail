@@ -171,6 +171,10 @@
     // Order matters: flush transcript BEFORE clearing buffers.
     flushVoiceTranscriptToChat();
 
+    // If a draft was created during this session, make sure the
+    // composer is open for it BEFORE we tear everything down.
+    const draftToReopen = voiceMode._lastDraft;
+
     if (voiceMode._closeTimer) {
       clearTimeout(voiceMode._closeTimer);
       voiceMode._closeTimer = null;
@@ -196,6 +200,19 @@
     voiceMode._pendingTools.clear();
 
     hideOverlay();
+
+    // After the overlay closes, give the layout a moment to settle
+    // then re-open the draft in the (now unobstructed) middle pane.
+    if (draftToReopen) {
+      setTimeout(() => {
+        if (typeof window.__reopenVoiceDraft === "function") {
+          window.__reopenVoiceDraft(draftToReopen);
+        } else if (typeof window.openComposerWithDraft === "function") {
+          window.openComposerWithDraft(draftToReopen, { keepDeltaOpen: false });
+        }
+      }, 250);
+    }
+    voiceMode._lastDraft = null;
   }
 
   function resetTranscript() {
@@ -204,8 +221,40 @@
     voiceMode._currentAssistantToolsUsed = [];
     voiceMode._pendingClose = false;
     voiceMode._pendingTools.clear();
+    voiceMode._lastDraft = null;
     const partial = $("dvoPartial");
     if (partial) partial.textContent = "";
+    setDraftChipVisible(false);
+  }
+
+  // Phase 5.BL — visible chip in the overlay that flashes when a draft
+  // is created. User can click it to re-open the composer if it got
+  // closed or scrolled away. Lives in the bottom-left of the overlay.
+  function ensureDraftChip() {
+    let chip = document.getElementById("dvoDraftChip");
+    if (chip) return chip;
+    chip = document.createElement("button");
+    chip.type = "button";
+    chip.id = "dvoDraftChip";
+    chip.className = "dvo-draft-chip";
+    chip.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/>
+      </svg>
+      <span>Draft ready — open</span>`;
+    chip.addEventListener("click", reopenLatestDraft);
+    const overlay = $("deltaVoiceOverlay");
+    overlay?.appendChild(chip);
+    return chip;
+  }
+  function setDraftChipVisible(yes) {
+    const chip = document.getElementById("dvoDraftChip");
+    if (!chip) {
+      if (yes) ensureDraftChip().classList.add("visible");
+      return;
+    }
+    chip.classList.toggle("visible", !!yes);
   }
 
   // ---------------------- REALTIME EVENT HANDLER ---------------------
@@ -380,23 +429,29 @@
     if (!result || !result.ok) return;
 
     // draft_reply → pop the main composer in the middle column with
-    // Delta's body pre-loaded. User can review + send + revise from
-    // there (or keep talking to Delta to refine the draft).
+    // Delta's body pre-loaded. Store the draft on voiceMode so we can
+    // re-open it if the composer dies mid-session and so we can fall
+    // back to opening it on session exit if needed.
     if (name === "draft_reply" && result.draft) {
-      if (typeof window.openComposerWithDraft === "function") {
-        try {
-          window.openComposerWithDraft(result.draft, { keepDeltaOpen: true });
-        } catch (err) {
-          console.warn("[voice] failed to open composer:", err);
-        }
-      }
+      voiceMode._lastDraft = result.draft;
+      reopenLatestDraft();
+      setDraftChipVisible(true);
       return;
     }
+  }
 
-    // create_task / remember / propose_inbox_cleanup → toast hint.
-    // (These already write to their respective stores server-side,
-    // we just want the user to know it happened.)
-    // Future: render small inline confirmation cards on the overlay.
+  // Re-open or refresh the composer with voiceMode._lastDraft. Safe to
+  // call multiple times — the underlying function detects an already-
+  // open composer for the same message and updates the body in place.
+  function reopenLatestDraft() {
+    const d = voiceMode._lastDraft;
+    if (!d) return;
+    if (typeof window.__reopenVoiceDraft === "function") {
+      try { window.__reopenVoiceDraft(d); }
+      catch (err) { console.warn("[voice] reopen draft failed:", err); }
+    } else if (typeof window.openComposerWithDraft === "function") {
+      window.openComposerWithDraft(d, { keepDeltaOpen: true });
+    }
   }
 
   // ---------------------- TRANSCRIPT FLUSH ---------------------------

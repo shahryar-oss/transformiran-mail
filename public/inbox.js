@@ -3356,21 +3356,71 @@
     if (!opts.keepDeltaOpen) {
       document.querySelector(".delta-close")?.click();
     }
-    // Find the message in the list or fetch it.
-    const existing = _allMessages.find((m) => m.id === msgId);
-    if (existing) {
-      // Make sure it's selected (so reader actions wire correctly).
-      onSelect(msgId, _allMessages);
-      // openDraftComposer is closure-scoped — call via the toolbar Reply path.
-      onToolbarAction("reply", existing);
+    // Find the message — fetch if not in the visible inbox cache.
+    let existing = _allMessages.find((m) => m.id === msgId);
+    if (!existing) {
+      const ok = await openMailById(msgId); // also selects + renders reader
+      if (!ok) return;
+      existing = _allMessages.find((m) => m.id === msgId);
+      if (!existing) return;
     } else {
-      // Not in the visible list — open by id (this also selects it).
-      const ok = await openMailById(msgId);
-      if (ok) {
-        const fresh = _allMessages.find((m) => m.id === msgId);
-        if (fresh) onToolbarAction("reply", fresh);
+      // Phase 5.BL — AWAIT onSelect. Without this the reader re-render
+      // races the composer mount, and the composer ends up attached to
+      // a stale DOM node that gets replaced, so it "blinks and goes".
+      // Only re-select if the message isn't already the currently-
+      // displayed one (avoid an unnecessary re-render that kills the
+      // composer when the user just re-asks Delta to revise).
+      const currentlySelected = document.querySelector(".mail-row.selected")?.dataset?.id;
+      if (currentlySelected !== msgId) {
+        await onSelect(msgId, _allMessages);
       }
     }
+
+    // Now open the composer inside the fresh reader DOM.
+    onToolbarAction("reply", existing);
+
+    // Scroll the composer into view + flash a subtle highlight so the
+    // user can't miss it when it pops up behind the Delta panel.
+    requestAnimationFrame(() => {
+      const composer =
+        document.querySelector(".compose-modal:not([hidden])") ||
+        document.querySelector(".draft-composer") ||
+        document.querySelector(".draft-composer-docked");
+      if (composer) {
+        composer.scrollIntoView({ behavior: "smooth", block: "center" });
+        composer.classList.add("voice-draft-flash");
+        setTimeout(() => composer.classList.remove("voice-draft-flash"), 1800);
+      }
+    });
+  };
+
+  // Phase 5.BL — keep voice-created drafts alive. If the composer dies
+  // for any reason while voice is still running, this re-opens it.
+  // Voice mode calls window.__reopenVoiceDraft(draft) on its tool-call
+  // success path, and exitVoiceMode also calls it once on close.
+  window.__reopenVoiceDraft = async function(draft) {
+    if (!draft || !draft.messageId) return;
+    // If the composer is already visible AND showing the same message,
+    // just refresh the body. Otherwise re-open via openComposerWithDraft.
+    const openComposer =
+      document.querySelector(".compose-modal:not([hidden])") ||
+      document.querySelector(".draft-composer");
+    const currentMsg = openComposer?.dataset?.messageId;
+    if (openComposer && currentMsg === draft.messageId) {
+      // Refresh body in place — used when user says "make it shorter"
+      // and the model returns a new draft for the same email.
+      const bodyEl = openComposer.querySelector(".draft-body") ||
+                     openComposer.querySelector(".compose-body-rich") ||
+                     openComposer.querySelector("textarea");
+      if (bodyEl) {
+        if (bodyEl.tagName === "TEXTAREA") bodyEl.value = draft.body || "";
+        else bodyEl.innerHTML = draft.body || "";
+        openComposer.classList.add("voice-draft-flash");
+        setTimeout(() => openComposer.classList.remove("voice-draft-flash"), 1500);
+      }
+      return;
+    }
+    return window.openComposerWithDraft(draft, { keepDeltaOpen: true });
   };
 
   // -------- Notification center (Phase 5.BB) ----------------------------

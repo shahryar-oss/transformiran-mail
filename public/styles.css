@@ -5360,3 +5360,56 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .voice-copy-btn:hover { background: rgba(178,142,68,.18); border-color: var(--gold-dark); }
 .voice-copy-btn.copied { background: rgba(46,160,67,.14); border-color: #2ea043; color: #2ea043; }
+
+/* ============================================================
+ * VOICE DRAFT CHIP + FLASH — Phase 5.BL
+ * ============================================================ */
+.dvo-draft-chip {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  opacity: 0;
+  pointer-events: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 220, 200, .35);
+  border-radius: 999px;
+  color: rgba(255, 240, 220, .95);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: opacity .25s ease, transform .25s ease, background .12s ease;
+  z-index: 3;
+}
+.dvo-draft-chip.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+  animation: dvo-chip-pulse 2s ease-in-out 2;
+}
+.dvo-draft-chip:hover {
+  background: rgba(255, 220, 200, .25);
+  border-color: rgba(255, 220, 200, .6);
+}
+.dvo-draft-chip svg { width: 14px; height: 14px; }
+@keyframes dvo-chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 200, 140, 0); }
+  50%      { box-shadow: 0 0 0 6px rgba(255, 200, 140, .25); }
+}
+
+/* Flash highlight on the composer when voice opens / refreshes it,
+ * so the user notices it pop into the middle pane. */
+.voice-draft-flash {
+  animation: dvo-composer-flash 1.8s ease-out;
+}
+@keyframes dvo-composer-flash {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 150, 80, .8),
+                     0 6px 32px rgba(255, 150, 80, .35); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 150, 80, 0),
+                     0 0 0 rgba(255, 150, 80, 0); }
+}
