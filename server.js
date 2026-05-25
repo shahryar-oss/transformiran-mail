@@ -2618,41 +2618,437 @@ app.patch("/api/me", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
-// Compose prefs — Markdown shortcuts toggle (Phase 5.CH, 2026-05-25).
-// Stored in users.compose_settings JSONB so future knobs (undo-send,
-// snippets defaults, etc.) can be added without further migrations.
+// Settings prefs — full mirror of NexaMails settings infrastructure.
+// makePrefsRoutes is a shared factory: takes a route path + a JSONB
+// column name + the default-values object + per-field validators, and
+// returns GET + PATCH handlers. Each PATCH MERGES into the existing
+// JSONB so unset fields keep their value. Phase 5.CI, 2026-05-25.
 // ====================================================================
-const COMPOSE_DEFAULTS = { markdownEnabled: false };
-app.get("/api/me/compose-prefs", auth.requireAuth, async (req, res) => {
+function makePrefsRoutes({ path, column, defaults, validators }) {
+  function merge(stored) { return { ...defaults, ...(stored || {}) }; }
+  app.get(path, auth.requireAuth, async (req, res) => {
+    try {
+      const r = await pool.query(
+        `SELECT ${column} AS s FROM users WHERE id = $1`,
+        [req.user.id]
+      );
+      res.json({ ok: true, settings: merge(r.rows[0]?.s) });
+    } catch (err) {
+      console.error(`[${path}] GET failed:`, err);
+      res.status(500).json({ error: "load_failed", message: err.message });
+    }
+  });
+  app.patch(path, auth.requireAuth, async (req, res) => {
+    try {
+      const p = req.body || {};
+      const clean = {};
+      for (const [k, validate] of Object.entries(validators)) {
+        if (Object.prototype.hasOwnProperty.call(p, k)) {
+          const v = validate(p[k]);
+          if (v !== undefined) clean[k] = v;
+        }
+      }
+      if (!Object.keys(clean).length) {
+        return res.status(400).json({ error: "no_valid_keys" });
+      }
+      const r = await pool.query(
+        `UPDATE users
+            SET ${column} = COALESCE(${column}, '{}'::JSONB) || $2::JSONB
+          WHERE id = $1
+          RETURNING ${column} AS s`,
+        [req.user.id, JSON.stringify(clean)]
+      );
+      res.json({ ok: true, settings: merge(r.rows[0]?.s) });
+    } catch (err) {
+      console.error(`[${path}] PATCH failed:`, err);
+      res.status(500).json({ error: "save_failed", message: err.message });
+    }
+  });
+}
+
+// Compose prefs — Markdown shortcuts + undo-send delay.
+makePrefsRoutes({
+  path: "/api/me/compose-prefs",
+  column: "compose_settings",
+  defaults: { undoSendSeconds: 10, markdownEnabled: false },
+  validators: {
+    undoSendSeconds: (v) => ([0, 5, 10, 20, 30].includes(Number(v)) ? Number(v) : undefined),
+    markdownEnabled: (v) => (typeof v === "boolean" ? v : undefined),
+  },
+});
+
+// Calendar prefs — focus blocks + buffer + meeting prep + default meeting link.
+makePrefsRoutes({
+  path: "/api/me/calendar-prefs",
+  column: "calendar_settings",
+  defaults: {
+    focusBlocks: [], meetingBufferMinutes: 10, meetingPrep: true,
+    meetingPrepMinutes: 15, defaultMeetingProvider: "zoom",
+    defaultMeetingLink: null, watchedCalendars: null,
+  },
+  validators: {
+    focusBlocks: (v) => {
+      if (!Array.isArray(v)) return undefined;
+      return v
+        .filter((b) =>
+          b && typeof b === "object"
+          && typeof b.label === "string" && b.label.length <= 80
+          && Array.isArray(b.days)
+          && typeof b.startHHMM === "string" && /^\d{1,2}:\d{2}$/.test(b.startHHMM)
+          && typeof b.endHHMM   === "string" && /^\d{1,2}:\d{2}$/.test(b.endHHMM)
+        )
+        .map((b) => ({
+          label: b.label.slice(0, 80),
+          days: b.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6),
+          startHHMM: b.startHHMM, endHHMM: b.endHHMM,
+        }))
+        .slice(0, 20);
+    },
+    meetingBufferMinutes: (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 0 && n <= 120 ? Math.round(n) : undefined;
+    },
+    meetingPrep: (v) => (typeof v === "boolean" ? v : undefined),
+    meetingPrepMinutes: (v) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n >= 1 && n <= 60 ? Math.round(n) : undefined;
+    },
+    defaultMeetingProvider: (v) =>
+      (["zoom","meet","teams","whereby","none"].includes(v) ? v : undefined),
+    defaultMeetingLink: (v) => {
+      if (typeof v !== "string") return undefined;
+      const s = v.trim();
+      if (!s) return ""; // explicit clear
+      if (s.length > 512) return undefined;
+      if (!/^https?:\/\//i.test(s)) return undefined;
+      return s;
+    },
+    watchedCalendars: (v) => {
+      if (v === null) return null;
+      if (!Array.isArray(v)) return undefined;
+      return v.filter((s) => typeof s === "string" && s.length <= 256).slice(0, 50);
+    },
+  },
+});
+
+// Appearance prefs — theme + accent + density + font.
+makePrefsRoutes({
+  path: "/api/me/appearance-prefs",
+  column: "appearance_settings",
+  defaults: { theme: "system", accent: "sunset", density: "comfortable", bodyFontSize: "default" },
+  validators: {
+    theme:        (v) => (["system","light","dark"].includes(v) ? v : undefined),
+    accent:       (v) => (["sunset","glacier","forest","amethyst","berry"].includes(v) ? v : undefined),
+    density:      (v) => (["comfortable","compact"].includes(v) ? v : undefined),
+    bodyFontSize: (v) => (["small","default","large","xl"].includes(v) ? v : undefined),
+  },
+});
+
+// Snooze defaults — five time-of-day shortcuts.
+const SNOOZE_DEFAULT_FALLBACK = { morning:"08:00", afternoon:"13:00", evening:"18:00", later:"+3h", nextWeek:"MON 08:00" };
+app.get("/api/me/snooze-defaults", auth.requireAuth, async (req, res) => {
   try {
-    const r = await pool.query(
-      `SELECT compose_settings FROM users WHERE id = $1`,
-      [req.user.id]
-    );
-    const settings = { ...COMPOSE_DEFAULTS, ...(r.rows[0]?.compose_settings || {}) };
-    res.json({ ok: true, settings });
+    const r = await pool.query(`SELECT snooze_defaults FROM users WHERE id = $1`, [req.user.id]);
+    const sd = r.rows[0]?.snooze_defaults || SNOOZE_DEFAULT_FALLBACK;
+    res.json({ ok: true, snooze_defaults: { ...SNOOZE_DEFAULT_FALLBACK, ...sd } });
   } catch (err) {
-    console.error("[/api/me/compose-prefs] load failed:", err);
-    res.status(500).json({ ok: false, error: "load_failed", message: err.message });
+    console.error("[/api/me/snooze-defaults] failed:", err);
+    res.status(500).json({ error: "load_failed", message: err.message });
   }
 });
-app.patch("/api/me/compose-prefs", auth.requireAuth, async (req, res) => {
+app.patch("/api/me/snooze-defaults", auth.requireAuth, async (req, res) => {
   try {
-    const patch = {};
-    if (typeof req.body?.markdownEnabled === "boolean") patch.markdownEnabled = req.body.markdownEnabled;
-    if (!Object.keys(patch).length) return res.status(400).json({ ok: false, error: "no_valid_fields" });
+    const patch = req.body || {};
+    const allowed = ["morning","afternoon","evening","later","nextWeek"];
+    const clean = {};
+    for (const k of allowed) {
+      if (typeof patch[k] === "string" && patch[k].length <= 16) clean[k] = patch[k];
+    }
+    if (!Object.keys(clean).length) return res.status(400).json({ error: "no_valid_keys" });
     const r = await pool.query(
-      `UPDATE users
-          SET compose_settings = COALESCE(compose_settings, '{}'::JSONB) || $2::JSONB
-        WHERE id = $1
-        RETURNING compose_settings`,
-      [req.user.id, JSON.stringify(patch)]
+      `UPDATE users SET snooze_defaults = COALESCE(snooze_defaults, '{}'::JSONB) || $2::JSONB
+        WHERE id = $1 RETURNING snooze_defaults`,
+      [req.user.id, JSON.stringify(clean)]
     );
-    const settings = { ...COMPOSE_DEFAULTS, ...(r.rows[0]?.compose_settings || {}) };
-    res.json({ ok: true, settings });
+    res.json({ ok: true, snooze_defaults: { ...SNOOZE_DEFAULT_FALLBACK, ...(r.rows[0]?.snooze_defaults || {}) } });
   } catch (err) {
-    console.error("[/api/me/compose-prefs] save failed:", err);
-    res.status(500).json({ ok: false, error: "save_failed", message: err.message });
+    console.error("[/api/me/snooze-defaults] PATCH failed:", err);
+    res.status(500).json({ error: "save_failed", message: err.message });
+  }
+});
+
+// Notify settings + dry-run.
+const NOTIFY_DEFAULTS = {
+  mode: "smart", sound: true, preview: true,
+  quietHours: { enabled: false, startHHMM: "18:00", endHHMM: "09:00", days: [1,2,3,4,5] },
+  budgetPerHour: 3, alwaysContacts: [], neverContacts: [],
+};
+function mergeNotifySettings(stored) {
+  const s = stored || {};
+  return {
+    ...NOTIFY_DEFAULTS, ...s,
+    quietHours: { ...NOTIFY_DEFAULTS.quietHours, ...(s.quietHours || {}) },
+    alwaysContacts: Array.isArray(s.alwaysContacts) ? s.alwaysContacts : [],
+    neverContacts:  Array.isArray(s.neverContacts)  ? s.neverContacts  : [],
+  };
+}
+app.get("/api/me/notify-settings", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`SELECT notify_settings FROM users WHERE id = $1`, [req.user.id]);
+    res.json({ ok: true, notify_settings: mergeNotifySettings(r.rows[0]?.notify_settings) });
+  } catch (err) {
+    console.error("[/api/me/notify-settings] failed:", err);
+    res.status(500).json({ error: "load_failed", message: err.message });
+  }
+});
+app.patch("/api/me/notify-settings", auth.requireAuth, async (req, res) => {
+  try {
+    const p = req.body || {};
+    const clean = {};
+    if (["smart","custom","off"].includes(p.mode)) clean.mode = p.mode;
+    if (typeof p.sound === "boolean") clean.sound = p.sound;
+    if (typeof p.preview === "boolean") clean.preview = p.preview;
+    if (Number.isFinite(p.budgetPerHour) && p.budgetPerHour >= 0 && p.budgetPerHour <= 60) {
+      clean.budgetPerHour = Math.round(p.budgetPerHour);
+    }
+    if (p.quietHours && typeof p.quietHours === "object") {
+      const q = p.quietHours; const qh = {};
+      if (typeof q.enabled === "boolean") qh.enabled = q.enabled;
+      if (typeof q.startHHMM === "string" && /^\d{1,2}:\d{2}$/.test(q.startHHMM)) qh.startHHMM = q.startHHMM;
+      if (typeof q.endHHMM === "string" && /^\d{1,2}:\d{2}$/.test(q.endHHMM)) qh.endHHMM = q.endHHMM;
+      if (Array.isArray(q.days)) qh.days = q.days.filter((d) => Number.isInteger(d) && d >= 0 && d <= 6);
+      if (Object.keys(qh).length) clean.quietHours = qh;
+    }
+    if (Array.isArray(p.alwaysContacts)) {
+      clean.alwaysContacts = p.alwaysContacts.filter((s) => typeof s === "string" && s.includes("@")).slice(0, 50);
+    }
+    if (Array.isArray(p.neverContacts)) {
+      clean.neverContacts = p.neverContacts.filter((s) => typeof s === "string" && s.includes("@")).slice(0, 50);
+    }
+    if (!Object.keys(clean).length) return res.status(400).json({ error: "no_valid_keys" });
+    const r = await pool.query(
+      `UPDATE users SET notify_settings = COALESCE(notify_settings, '{}'::JSONB) || $2::JSONB
+        WHERE id = $1 RETURNING notify_settings`,
+      [req.user.id, JSON.stringify(clean)]
+    );
+    res.json({ ok: true, notify_settings: mergeNotifySettings(r.rows[0]?.notify_settings) });
+  } catch (err) {
+    console.error("[/api/me/notify-settings] PATCH failed:", err);
+    res.status(500).json({ error: "save_failed", message: err.message });
+  }
+});
+
+// Dry-run — how many would I have received in the last 7 days under
+// these settings? Reads inbox_cache + classifications.
+app.get("/api/me/notify-dry-run", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`SELECT notify_settings FROM users WHERE id = $1`, [req.user.id]);
+    const s = mergeNotifySettings(r.rows[0]?.notify_settings);
+    const sinceMs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const rows = await pool.query(
+      `SELECT ic.message_id, ic.from_header, ic.internal_date,
+              ec.category, ec.urgency
+         FROM inbox_cache ic
+    LEFT JOIN email_classifications ec
+           ON ec.user_id = ic.user_id AND ec.message_id = ic.message_id
+        WHERE ic.user_id = $1
+          AND ic.internal_date >= $2
+          AND ic.in_inbox = TRUE`,
+      [req.user.id, sinceMs]
+    );
+    let wouldNotify = 0;
+    let suppressedByBudget = 0;
+    const seenAtHour = new Map();
+    const emailFromHeader = (raw) => {
+      if (!raw) return "";
+      const m = String(raw).match(/<([^>]+)>/);
+      return (m ? m[1] : String(raw)).toLowerCase().trim();
+    };
+    const always = new Set(s.alwaysContacts.map((e) => e.toLowerCase()));
+    const never  = new Set(s.neverContacts.map((e) => e.toLowerCase()));
+    for (const m of rows.rows) {
+      const from = emailFromHeader(m.from_header);
+      if (never.has(from)) continue;
+      let pass = false;
+      if (always.has(from)) pass = true;
+      else if (s.mode === "off") pass = false;
+      else if (s.mode === "smart") {
+        const cat = (m.category || "").toUpperCase();
+        const urg = (m.urgency  || "").toLowerCase();
+        pass = (cat === "URGENT") || (cat === "REPLY_NEEDED" && urg !== "low");
+      } else {
+        const cat = (m.category || "").toUpperCase();
+        pass = !["NEWSLETTER","AUTO","RECEIPT"].includes(cat);
+      }
+      if (!pass) continue;
+      const hourKey = new Date(Number(m.internal_date)).toISOString().slice(0, 13);
+      const n = seenAtHour.get(hourKey) || 0;
+      if (s.budgetPerHour > 0 && n >= s.budgetPerHour) { suppressedByBudget++; continue; }
+      seenAtHour.set(hourKey, n + 1);
+      wouldNotify++;
+    }
+    res.json({ ok: true, windowDays: 7, totalCandidates: rows.rows.length, wouldNotify, suppressedByBudget });
+  } catch (err) {
+    console.error("[/api/me/notify-dry-run] failed:", err);
+    res.status(500).json({ error: "dry_run_failed", message: err.message });
+  }
+});
+
+// Classifier sensitivity — 1..5.
+app.get("/api/me/classifier-sensitivity", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`SELECT classifier_sensitivity FROM users WHERE id = $1`, [req.user.id]);
+    res.json({ ok: true, sensitivity: Number(r.rows[0]?.classifier_sensitivity ?? 3) });
+  } catch (err) { res.status(500).json({ error: "load_failed", message: err.message }); }
+});
+app.patch("/api/me/classifier-sensitivity", auth.requireAuth, async (req, res) => {
+  try {
+    const n = Number(req.body?.sensitivity);
+    if (!Number.isInteger(n) || n < 1 || n > 5) return res.status(400).json({ error: "sensitivity must be integer 1..5" });
+    await pool.query(`UPDATE users SET classifier_sensitivity = $2 WHERE id = $1`, [req.user.id, n]);
+    res.json({ ok: true, sensitivity: n });
+  } catch (err) { res.status(500).json({ error: "save_failed", message: err.message }); }
+});
+
+// Smart folders — CRUD.
+app.get("/api/smart-folders", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, label, query, color, position, created_at FROM smart_folders
+        WHERE user_id = $1 ORDER BY position, created_at`,
+      [req.user.id]
+    );
+    res.json({ ok: true, folders: r.rows });
+  } catch (err) { res.status(500).json({ error: "load_failed", message: err.message }); }
+});
+app.post("/api/smart-folders", auth.requireAuth, async (req, res) => {
+  try {
+    const { label, query, color } = req.body || {};
+    if (!label || !query) return res.status(400).json({ error: "label_and_query_required" });
+    const posRes = await pool.query(`SELECT COALESCE(MAX(position) + 1, 0) AS p FROM smart_folders WHERE user_id = $1`, [req.user.id]);
+    const r = await pool.query(
+      `INSERT INTO smart_folders (user_id, label, query, color, position)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, label, query, color, position, created_at`,
+      [req.user.id, String(label).slice(0, 80), String(query).slice(0, 256), color ? String(color).slice(0, 32) : null, posRes.rows[0].p]
+    );
+    res.json({ ok: true, folder: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: "add_failed", message: err.message }); }
+});
+app.delete("/api/smart-folders/:id", auth.requireAuth, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM smart_folders WHERE user_id = $1 AND id = $2`, [req.user.id, Number(req.params.id)]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "delete_failed", message: err.message }); }
+});
+
+// Snippets — CRUD.
+app.get("/api/snippets", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT id, title, body, use_count, last_used_at, created_at FROM snippets
+        WHERE user_id = $1 ORDER BY last_used_at DESC NULLS LAST, created_at DESC`,
+      [req.user.id]
+    );
+    res.json({ ok: true, snippets: r.rows });
+  } catch (err) { res.status(500).json({ error: "load_failed", message: err.message }); }
+});
+app.post("/api/snippets", auth.requireAuth, async (req, res) => {
+  try {
+    const { title, body } = req.body || {};
+    if (!title || !body) return res.status(400).json({ error: "title_and_body_required" });
+    const r = await pool.query(
+      `INSERT INTO snippets (user_id, title, body) VALUES ($1, $2, $3)
+       RETURNING id, title, body, use_count, last_used_at, created_at`,
+      [req.user.id, String(title).slice(0, 120), String(body).slice(0, 8000)]
+    );
+    res.json({ ok: true, snippet: r.rows[0] });
+  } catch (err) { res.status(500).json({ error: "add_failed", message: err.message }); }
+});
+app.delete("/api/snippets/:id", auth.requireAuth, async (req, res) => {
+  try {
+    await pool.query(`DELETE FROM snippets WHERE user_id = $1 AND id = $2`, [req.user.id, Number(req.params.id)]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "delete_failed", message: err.message }); }
+});
+app.post("/api/snippets/:id/used", auth.requireAuth, async (req, res) => {
+  try {
+    await pool.query(
+      `UPDATE snippets SET use_count = use_count + 1, last_used_at = NOW()
+        WHERE user_id = $1 AND id = $2`,
+      [req.user.id, Number(req.params.id)]
+    );
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: "update_failed", message: err.message }); }
+});
+
+// Bug reports — submit + admin list.
+app.post("/api/support/bug", auth.requireAuth, async (req, res) => {
+  try {
+    const { description, url } = req.body || {};
+    const ua = req.headers["user-agent"] || null;
+    if (!description || String(description).trim().length < 5) {
+      return res.status(400).json({ error: "description_required", message: "Tell us at least a few words about what went wrong." });
+    }
+    const r = await pool.query(
+      `INSERT INTO bug_reports (user_id, user_email, description, url, user_agent)
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`,
+      [req.user.id, req.user.email || null, String(description).slice(0, 4000), url ? String(url).slice(0, 512) : null, ua]
+    );
+    res.json({ ok: true, id: r.rows[0].id, created_at: r.rows[0].created_at });
+  } catch (err) {
+    console.error("[/api/support/bug] failed:", err);
+    res.status(500).json({ error: "save_failed", message: err.message });
+  }
+});
+app.get("/api/admin/bug-reports", auth.requireAuth, async (req, res) => {
+  try {
+    // Gate to admin emails defined via env (comma-separated).
+    const admins = (process.env.ADMIN_EMAILS || "").toLowerCase().split(",").map(s => s.trim()).filter(Boolean);
+    if (!admins.includes((req.user.email || "").toLowerCase())) return res.status(403).json({ error: "forbidden" });
+    const r = await pool.query(
+      `SELECT id, user_id, user_email, description, url, user_agent, status, created_at
+         FROM bug_reports ORDER BY created_at DESC LIMIT 200`
+    );
+    res.json({ ok: true, reports: r.rows });
+  } catch (err) {
+    res.status(500).json({ error: "load_failed", message: err.message });
+  }
+});
+
+// Account export + delete (Settings → Support).
+app.get("/api/me/account/export", auth.requireAuth, async (req, res) => {
+  try {
+    const u = await pool.query(`SELECT id, email, display_name, role_label, picture_url, welcomed_at, compose_settings, calendar_settings, appearance_settings, notify_settings, snooze_defaults, classifier_sensitivity FROM users WHERE id = $1`, [req.user.id]);
+    const memories = await pool.query(`SELECT * FROM delta_memory WHERE user_id = $1`, [req.user.id]);
+    const folders = await pool.query(`SELECT * FROM smart_folders WHERE user_id = $1`, [req.user.id]);
+    const snippets = await pool.query(`SELECT * FROM snippets WHERE user_id = $1`, [req.user.id]);
+    const prompts = await pool.query(`SELECT * FROM saved_prompts WHERE user_id = $1`, [req.user.id]).catch(() => ({ rows: [] }));
+    const importantContacts = await pool.query(`SELECT * FROM important_contacts WHERE user_id = $1`, [req.user.id]).catch(() => ({ rows: [] }));
+    res.setHeader("Content-Disposition", `attachment; filename="ti-mail-export-${new Date().toISOString().slice(0,10)}.json"`);
+    res.json({
+      exported_at: new Date().toISOString(),
+      user: u.rows[0] || null,
+      memories: memories.rows,
+      smart_folders: folders.rows,
+      snippets: snippets.rows,
+      saved_prompts: prompts.rows,
+      important_contacts: importantContacts.rows,
+    });
+  } catch (err) {
+    console.error("[/api/me/account/export] failed:", err);
+    res.status(500).json({ error: "export_failed", message: err.message });
+  }
+});
+app.delete("/api/me/account", auth.requireAuth, async (req, res) => {
+  try {
+    // ON DELETE CASCADE on every per-user table handles the cleanup.
+    await pool.query(`DELETE FROM users WHERE id = $1`, [req.user.id]);
+    res.clearCookie?.("ti_session");
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/me/account] DELETE failed:", err);
+    res.status(500).json({ error: "delete_failed", message: err.message });
   }
 });
 
