@@ -1205,6 +1205,34 @@ app.post("/api/slack/disconnect", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Admin bootstrap — manually seed a workspace bot token without going
+// through the OAuth install flow. Useful when the bot is already
+// installed in Slack and you have the xoxb-... token from the
+// "Install to Workspace" step. Validates the token via auth.test +
+// pulls team metadata before saving.
+app.post("/api/slack/admin/seed-workspace", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    const { botToken } = req.body || {};
+    if (!botToken || !String(botToken).startsWith("xoxb-")) {
+      return res.status(400).json({ error: "bot_token_required (must start with xoxb-)" });
+    }
+    const test = await slack.callSlackApi("auth.test", {}, botToken);
+    if (!test.ok) return res.status(400).json({ error: "auth.test_failed", detail: test });
+    const fakeOauthResponse = {
+      access_token: botToken,
+      bot_user_id: test.user_id,
+      scope: "", // unknown without re-OAuth; will be filled on next install
+      team: { id: test.team_id, name: test.team },
+    };
+    const saved = await slack.saveWorkspaceInstall(fakeOauthResponse, req.user.id);
+    res.json({ ok: true, ...saved, team_id: test.team_id, bot_user_id: test.user_id });
+  } catch (err) {
+    console.error("[/api/slack/admin/seed-workspace] failed:", err);
+    res.status(500).json({ error: "seed_failed", message: err.message });
+  }
+});
+
 // ====================================================================
 // Realtime voice mode — Phase 5.BF.
 //   GET  /api/voice/realtime-status  → { available, model }
