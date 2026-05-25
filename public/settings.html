@@ -7,6 +7,14 @@
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" type="image/png" href="/delta-logo.png">
 <style>
+  /* Override the inbox-shared overflow:hidden so the settings page can
+     actually scroll. The inbox layout uses fixed 3-pane columns and
+     hides body overflow; settings is a single tall flowing column.
+     (Phase 5.CF) */
+  html, body {
+    height: auto;
+    overflow: auto;
+  }
   body { background: var(--cream); }
   .settings-wrap {
     max-width: 920px;
