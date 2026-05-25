@@ -1205,6 +1205,55 @@ app.post("/api/slack/disconnect", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Admin — kick a sync pass right now (out of cycle). Useful for testing.
+app.post("/api/slack/admin/sync-now", auth.requireAuth, async (req, res) => {
+  try {
+    const slackSync = require("./lib/slackSync");
+    const result = await slackSync.syncAll();
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("[/api/slack/admin/sync-now] failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Stats — how much Slack content do we have in the DB?
+app.get("/api/slack/admin/stats", auth.requireAuth, async (req, res) => {
+  try {
+    const slackSync = require("./lib/slackSync");
+    const stats = await slackSync.stats(req.query.team_id || null);
+    res.json({ ok: true, stats });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin/diagnostic — list all currently-connected users + the
+// workspace install state. Auth-gated but doesn't expose tokens.
+app.get("/api/slack/admin/status", auth.requireAuth, async (req, res) => {
+  try {
+    const { pool } = require("./lib/db");
+    const ws = await pool.query(
+      `SELECT team_id, team_name, bot_user_id, installed_at FROM slack_workspaces`,
+    );
+    const users = await pool.query(
+      `SELECT u.email AS ti_email, sut.team_id, sut.slack_user_id, sut.slack_user_name,
+              sut.slack_email, sut.connected_at, sut.scope
+         FROM slack_user_tokens sut
+         JOIN users u ON u.id = sut.user_id
+         ORDER BY sut.connected_at DESC`,
+    );
+    res.json({
+      ok: true,
+      configured: !!(process.env.SLACK_CLIENT_ID && process.env.SLACK_CLIENT_SECRET),
+      workspaces: ws.rows,
+      connected_users: users.rows,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin bootstrap — manually seed a workspace bot token without going
 // through the OAuth install flow. Useful when the bot is already
 // installed in Slack and you have the xoxb-... token from the
@@ -3771,6 +3820,7 @@ dbReady
     startVoiceDistillWorker();
     startDecisionRuleMinerWorker();
     startGmailPushRenewerWorker();
+    startSlackSyncWorker();
     // Resolve pilot bridge user id at boot (logs a warning if missing).
     resolveBridgeUserId().catch(() => {});
   })
@@ -3868,6 +3918,37 @@ function startInboxCacheWorker() {
   setTimeout(cycle, 5_000);
   setInterval(cycle, 30_000);
   console.log("[boot] inbox cache worker scheduled (cycle 30s, per-user 90s freshness, 12s gmail timeout, 3min stuck-grace)");
+}
+
+// ====================================================================
+// SLACK SYNC WORKER — Phase 5.BS. Hourly pass over every workspace +
+// every TI user with a connected Slack. Each run pulls only NEW messages
+// since the last cursor. First run for a fresh install pulls a 90-day
+// backfill, then incremental from there.
+// ====================================================================
+function startSlackSyncWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    try {
+      const slack = require("./lib/slack");
+      if (!slack.isConfigured()) return;
+    } catch (_) { return; }
+    running = true;
+    try {
+      const slackSync = require("./lib/slackSync");
+      await slackSync.syncAll();
+    } catch (err) {
+      console.warn("[slack-sync] cycle failed:", err.message);
+    } finally {
+      running = false;
+    }
+  };
+  // First run 60s after boot, then hourly. Manual /api/slack/admin/sync-now
+  // kicks an out-of-cycle run for testing.
+  setTimeout(cycle, 60_000);
+  setInterval(cycle, 60 * 60 * 1000);
+  console.log("[boot] slack sync worker scheduled (cycle 60min, first run T+60s)");
 }
 
 // ====================================================================
