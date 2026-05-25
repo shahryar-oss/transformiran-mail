@@ -410,6 +410,22 @@
       and click <em>Refresh from Gmail</em> below.
     </p>
 
+    <!-- Markdown shortcuts toggle (Phase 5.CH) -->
+    <div class="compose-section" style="display:flex;align-items:flex-start;gap:14px;justify-content:space-between;flex-wrap:wrap">
+      <div style="flex:1;min-width:260px">
+        <h3 class="compose-h" style="margin:0 0 4px">Markdown shortcuts</h3>
+        <p class="card-sub" style="margin:0">When sending, typing patterns become formatting: <code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>~~strike~~</code>, <code>[text](url)</code>, <code># heading</code>, lists with <code>-</code> or <code>1.</code>. Quoted replies left untouched. Off by default.</p>
+      </div>
+      <label style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--navy)">
+        <input type="checkbox" id="markdownToggle" style="width:16px;height:16px;accent-color:var(--gold)">
+        Convert on send
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin:6px 0 14px">
+      <span id="markdownHint" class="snooze-save-hint" style="margin-right:10px;font-size:12px;color:var(--muted)"></span>
+      <button id="markdownSave" class="btn primary" type="button" disabled>Save</button>
+    </div>
+
     <div class="compose-section">
       <div class="compose-section-head">
         <h3 class="compose-h">Aliases</h3>
@@ -752,6 +768,49 @@
   });
 
   loadCompose(false);
+
+  // ---------- Markdown shortcuts (Phase 5.CH) ---------------
+  const mdToggle = document.getElementById("markdownToggle");
+  const mdSaveBtn = document.getElementById("markdownSave");
+  const mdHint = document.getElementById("markdownHint");
+  let _mdOriginal = null;
+  async function loadMarkdownPref() {
+    try {
+      const r = await fetch("/api/me/compose-prefs");
+      if (!r.ok) return;
+      const { settings } = await r.json();
+      mdToggle.checked = !!settings.markdownEnabled;
+      _mdOriginal = mdToggle.checked;
+      mdSaveBtn.disabled = true;
+      mdHint.textContent = "";
+    } catch (_) {}
+  }
+  mdToggle.addEventListener("change", () => {
+    const dirty = mdToggle.checked !== _mdOriginal;
+    mdSaveBtn.disabled = !dirty;
+    mdHint.textContent = dirty ? "Unsaved" : "";
+  });
+  mdSaveBtn.addEventListener("click", async () => {
+    mdSaveBtn.disabled = true;
+    mdSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/compose-prefs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ markdownEnabled: mdToggle.checked }),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      _mdOriginal = mdToggle.checked;
+      mdHint.textContent = "Saved ✓";
+      setTimeout(() => { mdHint.textContent = ""; }, 1800);
+    } catch (_) {
+      mdHint.textContent = "Save failed";
+      mdSaveBtn.disabled = false;
+    } finally {
+      mdSaveBtn.textContent = "Save";
+    }
+  });
+  loadMarkdownPref();
 
   // ---------- Slack — Phase 5.BR ----------------------------
   // Polls /api/slack/status on load + on focus, paints the two

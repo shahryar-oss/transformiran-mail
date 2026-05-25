@@ -2333,6 +2333,27 @@
     showToast(reason, "ok");
   }
 
+  // --- Markdown shortcuts (Phase 5.CH, 2026-05-25) ----------------
+  // Loaded from /api/me/compose-prefs. When ON, the markdown patterns
+  // (**bold**, *italic*, `code`, lists, headings, links) get converted
+  // to real HTML at SEND time. Quoted history is left untouched.
+  let _markdownEnabled = false;
+  fetch("/api/me/compose-prefs")
+    .then((r) => r.ok ? r.json() : null)
+    .then((d) => {
+      if (d && d.settings && typeof d.settings.markdownEnabled === "boolean") {
+        _markdownEnabled = d.settings.markdownEnabled;
+      }
+    })
+    .catch(() => {});
+  function maybeApplyMarkdown(rootEl) {
+    if (!_markdownEnabled) return false;
+    if (!window.NexaMarkdown || typeof window.NexaMarkdown.applyInPlace !== "function") return false;
+    try { return window.NexaMarkdown.applyInPlace(rootEl); }
+    catch (err) { console.warn("markdown apply failed:", err); return false; }
+  }
+  window.DeltaMaybeApplyMarkdown = maybeApplyMarkdown;
+
   function showToast(text, kind = "ok") {
     let toast = document.getElementById("delta-toast");
     if (!toast) {
@@ -2653,6 +2674,9 @@
       saveBtn.disabled = true;
       statusEl.className = "draft-status";
       statusEl.textContent = "Sending…";
+      // Markdown shortcuts — convert **bold**, lists, etc. before
+      // serialising the body so the recipient sees rendered HTML.
+      maybeApplyMarkdown(bodyTa);
       try {
         const r = await fetch("/api/gmail/send", {
           method: "POST",
@@ -2712,6 +2736,8 @@
       saveBtn.disabled = true;
       statusEl.className = "draft-status";
       statusEl.textContent = "Saving to Gmail Drafts…";
+      // Apply markdown shortcuts so the saved Gmail draft matches Send.
+      maybeApplyMarkdown(bodyTa);
       try {
         const r = await fetch("/api/gmail/draft", {
           method: "POST",
@@ -2971,6 +2997,8 @@
   async function postCompose(endpoint) {
     const to = cmpTo.value.trim();
     if (!to) { cmpStatus.className = "compose-status error"; cmpStatus.textContent = "Add a recipient first."; return false; }
+    // Markdown shortcuts: convert **bold**, lists, etc. before reading innerHTML
+    maybeApplyMarkdown(cmpBodyRich);
     const bodyHtml = cmpBodyRich.innerHTML.trim();
     if (!bodyHtml || bodyHtml === "<br>" || bodyHtml === "<p></p>") {
       cmpStatus.className = "compose-status error";

@@ -2618,6 +2618,45 @@ app.patch("/api/me", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Compose prefs — Markdown shortcuts toggle (Phase 5.CH, 2026-05-25).
+// Stored in users.compose_settings JSONB so future knobs (undo-send,
+// snippets defaults, etc.) can be added without further migrations.
+// ====================================================================
+const COMPOSE_DEFAULTS = { markdownEnabled: false };
+app.get("/api/me/compose-prefs", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT compose_settings FROM users WHERE id = $1`,
+      [req.user.id]
+    );
+    const settings = { ...COMPOSE_DEFAULTS, ...(r.rows[0]?.compose_settings || {}) };
+    res.json({ ok: true, settings });
+  } catch (err) {
+    console.error("[/api/me/compose-prefs] load failed:", err);
+    res.status(500).json({ ok: false, error: "load_failed", message: err.message });
+  }
+});
+app.patch("/api/me/compose-prefs", auth.requireAuth, async (req, res) => {
+  try {
+    const patch = {};
+    if (typeof req.body?.markdownEnabled === "boolean") patch.markdownEnabled = req.body.markdownEnabled;
+    if (!Object.keys(patch).length) return res.status(400).json({ ok: false, error: "no_valid_fields" });
+    const r = await pool.query(
+      `UPDATE users
+          SET compose_settings = COALESCE(compose_settings, '{}'::JSONB) || $2::JSONB
+        WHERE id = $1
+        RETURNING compose_settings`,
+      [req.user.id, JSON.stringify(patch)]
+    );
+    const settings = { ...COMPOSE_DEFAULTS, ...(r.rows[0]?.compose_settings || {}) };
+    res.json({ ok: true, settings });
+  } catch (err) {
+    console.error("[/api/me/compose-prefs] save failed:", err);
+    res.status(500).json({ ok: false, error: "save_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Delta Memory — persistent facts Delta has been told to remember
 // ====================================================================
 app.get("/api/memory", auth.requireAuth, async (req, res) => {
