@@ -1288,15 +1288,52 @@
       <ul class="ai-card-list">
         ${items.map((it, i) => `
           <li class="ai-item ai-item-${escapeHtml(it.urgency || "low")}" data-i="${i}">
-            <div class="ai-item-text">
-              <span class="ai-item-bullet"></span>
-              <span class="ai-item-label">${escapeHtml(it.text)}</span>
-              ${it.due_text ? `<span class="ai-item-due">${escapeHtml(it.due_text)}</span>` : ""}
+            <div class="ai-item-row">
+              <div class="ai-item-text">
+                <span class="ai-item-bullet"></span>
+                <span class="ai-item-label" dir="auto">${escapeHtml(it.text)}</span>
+                ${it.due_text ? `<span class="ai-item-due">${escapeHtml(it.due_text)}</span>` : ""}
+              </div>
+              <div class="ai-item-actions">
+                <button class="ai-item-reply" data-i="${i}" title="Draft a reply">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                  Reply
+                </button>
+                <button class="ai-item-add" data-i="${i}" title="Add to To Do">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+                  Add
+                </button>
+              </div>
             </div>
-            <button class="ai-item-add" data-i="${i}" title="Add to To Do">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
-              Add
-            </button>
+            <div class="ai-item-picker" data-picker="${i}" hidden>
+              <div class="ai-picker-label">Pick a response — Delta will draft it:</div>
+              <div class="ai-picker-options">
+                <button class="ai-picker-opt" data-intent="confirm">
+                  <span class="ai-picker-opt-icon">✓</span>
+                  <span>Confirm — agree</span>
+                </button>
+                <button class="ai-picker-opt" data-intent="push-back">
+                  <span class="ai-picker-opt-icon">↺</span>
+                  <span>Push back politely</span>
+                </button>
+                <button class="ai-picker-opt" data-intent="more-info">
+                  <span class="ai-picker-opt-icon">?</span>
+                  <span>Need more info</span>
+                </button>
+                <button class="ai-picker-opt" data-intent="delay">
+                  <span class="ai-picker-opt-icon">⏱</span>
+                  <span>Defer — get back later</span>
+                </button>
+                <button class="ai-picker-opt ai-picker-opt-other" data-intent="other">
+                  <span class="ai-picker-opt-icon">✎</span>
+                  <span>Other — type your own</span>
+                </button>
+              </div>
+              <div class="ai-picker-custom" hidden>
+                <input type="text" class="ai-picker-custom-input" placeholder="e.g. 'Yes but only after Friday, and add Pia to Cc'">
+                <button class="ai-picker-custom-go btn primary">Draft</button>
+              </div>
+            </div>
           </li>
         `).join("")}
       </ul>
@@ -1312,7 +1349,68 @@
       fetch(`/api/messages/${encodeURIComponent(messageId)}/extract/dismiss`, { method: "POST" }).catch(() => {});
     });
 
-    // Wire each Add-to-tasks button.
+    // Phase 5.CB — Reply button reveals the response picker inline.
+    card.querySelectorAll(".ai-item-reply").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const i = btn.dataset.i;
+        const picker = card.querySelector(`.ai-item-picker[data-picker="${i}"]`);
+        if (!picker) return;
+        const isOpen = !picker.hasAttribute("hidden");
+        // Close any other open pickers first (only one at a time).
+        card.querySelectorAll(".ai-item-picker").forEach((p) => p.setAttribute("hidden", ""));
+        if (!isOpen) picker.removeAttribute("hidden");
+      });
+    });
+
+    // Wire each picker option → triggers the reply composer with a
+    // tailored instruction for Delta.
+    card.querySelectorAll(".ai-picker-opt").forEach((opt) => {
+      opt.addEventListener("click", () => {
+        const intent = opt.dataset.intent;
+        const picker = opt.closest(".ai-item-picker");
+        const i = Number(picker.dataset.picker);
+        const item = items[i];
+        if (!item) return;
+        if (intent === "other") {
+          // Show the custom input row, focus it.
+          const custom = picker.querySelector(".ai-picker-custom");
+          custom.removeAttribute("hidden");
+          custom.querySelector(".ai-picker-custom-input").focus();
+          return;
+        }
+        triggerReplyForIntent(messageId, stub, item, intent);
+        picker.setAttribute("hidden", "");
+      });
+    });
+
+    // Custom-text "Draft" button + Enter key.
+    card.querySelectorAll(".ai-picker-custom").forEach((custom) => {
+      const input = custom.querySelector(".ai-picker-custom-input");
+      const go = custom.querySelector(".ai-picker-custom-go");
+      const submit = () => {
+        const text = input.value.trim();
+        if (!text) return;
+        const picker = custom.closest(".ai-item-picker");
+        const i = Number(picker.dataset.picker);
+        const item = items[i];
+        if (!item) return;
+        triggerReplyForIntent(messageId, stub, item, "other", text);
+        picker.setAttribute("hidden", "");
+        input.value = "";
+        custom.setAttribute("hidden", "");
+      };
+      go.addEventListener("click", submit);
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); submit(); }
+      });
+    });
+
+    // Phase 5.CB — fixed Add. The previous client called
+    // /api/inbox/add-to-todo with the wrong shape (single-task fields
+    // instead of items[] bulk shape), which is why every Add returned
+    // "x failed". Now uses POST /api/tasks directly with the action
+    // text as the task title + the open email as source link, so
+    // 5.CA's auto-complete kicks in when the user replies.
     card.querySelectorAll(".ai-item-add").forEach((btn) => {
       btn.addEventListener("click", async () => {
         const i = Number(btn.dataset.i);
@@ -1321,22 +1419,23 @@
         btn.disabled = true;
         btn.innerHTML = `<span class="ai-spinner"></span>`;
         try {
-          const r = await fetch(`/api/inbox/add-to-todo`, {
+          const r = await fetch(`/api/tasks`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              source_message_id: messageId,
-              source_thread_id: stub?.threadId || null,
-              source_subject: stub?.subject || "",
-              source_from: stub?.from || "",
               title: item.text,
               due_at: item.due_at_iso || null,
               important: item.urgency === "high",
+              in_my_day: item.urgency === "high",
+              source_message_id: messageId,
+              source_thread_id: stub?.threadId || null,
+              notes: stub?.subject ? `From email: ${stub.subject}` : null,
             }),
           });
           if (!r.ok) throw new Error("HTTP " + r.status);
           btn.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:currentColor;vertical-align:text-bottom"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg> Added`;
           btn.classList.add("ai-item-added");
+          if (typeof showToast === "function") showToast("Added to To Do", "ok");
         } catch (err) {
           btn.innerHTML = "× failed";
           btn.disabled = false;
@@ -1344,6 +1443,42 @@
         }
       });
     });
+  }
+
+  // Phase 5.CB — open the reply composer for the current email, with
+  // an `intent` instruction injected so Delta drafts the right tone.
+  // Used by the action-item picker's preset options + Other custom path.
+  function triggerReplyForIntent(messageId, stub, item, intent, customText) {
+    // Map intent to an instruction Delta understands. The strings are
+    // human-readable so the model can interpret them naturally.
+    const intents = {
+      "confirm":    `Confirm and agree with what they're asking: "${item.text}". Reply warmly and concisely.`,
+      "push-back":  `Politely push back / decline on what they're asking: "${item.text}". Stay diplomatic but firm; offer a brief reason.`,
+      "more-info":  `Reply asking for the specific information needed before answering "${item.text}". List what details I need.`,
+      "delay":      `Acknowledge "${item.text}" and tell them I'll get back to them with a proper answer by a specific date. Suggest a reasonable timeframe.`,
+      "other":      customText || "",
+    };
+    const instruction = intents[intent] || customText || "";
+    if (!instruction) return;
+
+    // Stash so openDraftComposer picks it up as the instruction seed
+    // (instead of the user manually typing in the "extra instructions"
+    // field after the composer opens).
+    window._smartReplyPrefill = {
+      messageId,
+      intent: `action-item-${intent}`,
+      instructions: instruction,
+    };
+
+    // Find the existing message stub in the inbox cache so the toolbar
+    // Reply action wires up correctly; if it's not in the cache yet,
+    // fall back to a synthetic stub with at least the messageId.
+    const existing = _allMessages.find((m) => m.id === messageId) || {
+      ...stub,
+      id: messageId,
+      threadId: stub?.threadId,
+    };
+    onToolbarAction("reply", existing);
   }
 
   // ---------- Sources Delta consulted (Phase 5.AO) -----------------
@@ -2612,7 +2747,16 @@
     // Phase 5.AL — if a Smart Reply chip set a pre-fill for THIS
     // message, skip the Claude regenerate hop entirely and populate
     // the composer directly with the chip's draft body.
+    // Phase 5.CB — if prefill has INSTRUCTIONS only (no body), pass
+    // them to generate() so Delta drafts a tailored reply from the
+    // action-item picker's intent (Confirm / Push back / etc.).
     const prefill = window._smartReplyPrefill;
+    if (prefill && prefill.messageId === msg.id && !prefill.body && prefill.instructions) {
+      const instr = prefill.instructions;
+      window._smartReplyPrefill = null;
+      generate(instr);
+      return;
+    }
     if (prefill && prefill.messageId === msg.id && prefill.body) {
       // Wait one tick so the DOM is fully mounted before we touch fields.
       setTimeout(() => {
