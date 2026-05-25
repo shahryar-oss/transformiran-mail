@@ -3404,6 +3404,50 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // Phase 5.CA — auto-complete tasks that came from this email.
+    // When the user added a task linked to a message ("Reply to Russ
+    // about Azeri trip"), the moment they actually reply we mark that
+    // task done. Matches BOTH the exact message they replied to AND
+    // any other message in the same thread (covers the case where
+    // they added the task on an older message in the conversation).
+    let autoCompletedTasks = [];
+    try {
+      const ids = new Set();
+      if (inReplyTo) ids.add(inReplyTo);
+      // Pull thread message ids so a reply auto-closes tasks linked to
+      // any prior message in the same conversation.
+      const finalThreadId = sendRes.data.threadId || threadId;
+      if (finalThreadId) {
+        try {
+          const t = await g.users.threads.get({
+            userId: "me", id: finalThreadId, format: "minimal",
+          });
+          for (const m of (t.data.messages || [])) {
+            if (m.id) ids.add(m.id);
+          }
+        } catch (_) {}
+      }
+      if (ids.size) {
+        const idList = Array.from(ids);
+        const r = await pool.query(
+          `UPDATE tasks
+              SET completed_at = NOW(),
+                  updated_at   = NOW()
+            WHERE user_id = $1
+              AND completed_at IS NULL
+              AND source_message_id = ANY($2::text[])
+            RETURNING id, title, list_id`,
+          [req.user.id, idList],
+        );
+        autoCompletedTasks = r.rows;
+        if (autoCompletedTasks.length) {
+          console.log(`[send] auto-completed ${autoCompletedTasks.length} task(s) for user ${req.user.id} (thread ${finalThreadId})`);
+        }
+      }
+    } catch (err) {
+      console.warn("[/api/gmail/send] auto-complete tasks failed:", err.message);
+    }
+
     res.json({
       ok: true,
       sentMessageId: sendRes.data.id,
@@ -3413,6 +3457,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       archivedThreadId,
       markedDone,
       voiceRecorded,
+      autoCompletedTasks,
     });
   } catch (err) {
     console.error("[/api/gmail/send] failed:", err);

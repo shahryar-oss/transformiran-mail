@@ -2212,6 +2212,48 @@
     showToast._t = setTimeout(() => { toast.classList.remove("show"); }, 2400);
   }
 
+  // Phase 5.CA — task auto-complete toast.
+  // When a reply auto-closes a linked To Do task, show a richer toast
+  // with the task title + an Undo button so the user can re-open it
+  // if Delta got the wrong task. Stays visible for 6 seconds.
+  function showTaskAutoCompletedToast(task) {
+    const wrap = document.createElement("div");
+    wrap.className = "delta-task-toast show";
+    wrap.innerHTML = `
+      <span class="dtt-check">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg>
+      </span>
+      <div class="dtt-body">
+        <div class="dtt-title">Done ✓ <strong></strong></div>
+        <div class="dtt-sub">Marked complete because you replied.</div>
+      </div>
+      <button type="button" class="dtt-undo">Undo</button>
+    `;
+    wrap.querySelector("strong").textContent = task.title || "task";
+    document.body.appendChild(wrap);
+    // Stagger so multiple toasts don't overlap.
+    const existing = document.querySelectorAll(".delta-task-toast").length;
+    wrap.style.bottom = (24 + (existing - 1) * 78) + "px";
+    const dismiss = () => {
+      wrap.classList.remove("show");
+      setTimeout(() => wrap.remove(), 250);
+    };
+    wrap.querySelector(".dtt-undo").addEventListener("click", async () => {
+      try {
+        await fetch(`/api/tasks/${task.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ completed: false }),
+        });
+        showToast(`Re-opened: ${task.title}`, "ok");
+      } catch (err) {
+        showToast(`Undo failed: ${err.message || err}`, "error");
+      }
+      dismiss();
+    });
+    setTimeout(dismiss, 6000);
+  }
+
   // ---------- DRAFT COMPOSER -------------------------------------------
   // Inserts a compose card at the top of the reader body, shows a loading
   // spinner while Delta drafts, then lets the user edit and save to Gmail
@@ -2508,6 +2550,14 @@
         ccInput.disabled = true; bccInput.disabled = true;
         regenBtn.disabled = true;
         showToast(data.archived ? `Sent to ${to} · archived` : `Sent to ${to}`, "ok");
+        // Phase 5.CA — surface any tasks that auto-completed when this
+        // reply went out. Show one toast per task so the user sees the
+        // exact list, with the option to undo if Delta got it wrong.
+        if (Array.isArray(data.autoCompletedTasks) && data.autoCompletedTasks.length) {
+          for (const t of data.autoCompletedTasks) {
+            showTaskAutoCompletedToast(t);
+          }
+        }
         if (data.archived) {
           // The original thread is gone from inbox now. Remove the row + clear reader.
           setTimeout(() => removeFromList(msg.id, "Replied + archived"), 1200);
@@ -2812,6 +2862,10 @@
       cmpStatus.className = "compose-status ok";
       cmpStatus.textContent = `Sent ✓`;
       showToast(`Sent to ${to}`, "ok");
+      // Phase 5.CA — same auto-complete toast as the reply path.
+      if (Array.isArray(data.autoCompletedTasks) && data.autoCompletedTasks.length) {
+        for (const t of data.autoCompletedTasks) showTaskAutoCompletedToast(t);
+      }
       setTimeout(() => closeCompose(true), 1200);
     } catch (err) {
       cmpStatus.className = "compose-status error";
