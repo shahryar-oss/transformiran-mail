@@ -364,6 +364,36 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
   });
 });
 
+// Phase 5.CI — version / uptime for the Settings "About" panel.
+// Reuses the existing BOOT_TIME_MS constant defined later in the file
+// (const hoisting is fine here — both are initialised before any
+// handler runs). Reads the build SHA from the standard Render env var
+// (RENDER_GIT_COMMIT) which is always set; falls back to a local git
+// call in dev.
+const BUILD_SHA_VERSION = (() => {
+  if (process.env.RENDER_GIT_COMMIT) return String(process.env.RENDER_GIT_COMMIT).slice(0, 8);
+  try {
+    return require("child_process").execSync("git rev-parse --short HEAD", { cwd: __dirname }).toString().trim();
+  } catch (_) {
+    return "dev";
+  }
+})();
+app.get("/api/me/version", auth.requireAuth, (req, res) => {
+  const uptimeMs = Date.now() - BOOT_TIME_MS;
+  const seconds = Math.floor(uptimeMs / 1000);
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const human = d > 0 ? `${d}d ${h}h ${m}m` : h > 0 ? `${h}h ${m}m` : `${m}m`;
+  res.json({
+    commit: BUILD_SHA_VERSION,
+    booted_at: new Date(BOOT_TIME_MS).toISOString(),
+    uptime_ms: uptimeMs,
+    uptime: human,
+    node_version: process.version,
+  });
+});
+
 // ====================================================================
 // Calendar API — Google Calendar via the calendar.events OAuth scope.
 // ====================================================================

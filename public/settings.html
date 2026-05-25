@@ -2147,7 +2147,7 @@
   async function loadImportant() {
     impListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
     try {
-      const r = await fetch("/api/contacts/important-contacts");
+      const r = await fetch("/api/important-contacts");
       if (!r.ok) throw new Error("load_failed");
       const { contacts } = await r.json();
       const list = contacts || [];
@@ -2174,7 +2174,7 @@
         btn.addEventListener("click", async () => {
           const id = btn.dataset.impDel;
           if (!confirm("Remove this important contact?")) return;
-          const r = await fetch(`/api/contacts/important-contacts/${id}`, { method: "DELETE" });
+          const r = await fetch(`/api/important-contacts/${id}`, { method: "DELETE" });
           if (r.ok) loadImportant();
         });
       });
@@ -2190,7 +2190,7 @@
       email: $("impEmail").value.trim(),
     };
     if (!body.name || !body.email) return;
-    const r = await fetch("/api/contacts/important-contacts", {
+    const r = await fetch("/api/important-contacts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -2470,7 +2470,9 @@
   document.querySelectorAll('input[name="sigMode"]').forEach((rd) => {
     rd.addEventListener("change", async () => {
       if (!rd.checked) return;
-      await fetch("/api/compose/signature-mode", {
+      // Server has the unified /api/compose/settings PATCH endpoint
+      // which also accepts { signatureMode } — Phase 5.CI fix.
+      await fetch("/api/compose/settings", {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ signatureMode: rd.value }),
       });
