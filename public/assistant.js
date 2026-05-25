@@ -331,12 +331,17 @@ window.renderMarkdown = renderMarkdown;
 
     const bubble = document.createElement("div");
     bubble.className = "delta-msg " + role + (opts.loading ? " loading" : "") + (opts.error ? " error" : "");
+    // Phase 5.BW — per-message auto bidi. Each bubble picks its own
+    // direction from its first strong character: English → LTR (text
+    // sits left), Farsi/Arabic/Hebrew → RTL (text sits right). CSS
+    // unicode-bidi:plaintext below makes nested paragraphs do the same.
+    bubble.setAttribute("dir", "auto");
 
     if (role === "assistant" && !opts.error && !opts.loading) {
       // Render markdown so headings/bold/lists actually display.
       bubble.innerHTML =
         `<img class="delta-msg-avatar" src="/delta-logo.png" alt="Delta">` +
-        `<div class="md-content">${renderMarkdown(text)}</div>`;
+        `<div class="md-content" dir="auto">${renderMarkdown(text)}</div>`;
       // Wire email-ref clicks.
       bubble.querySelectorAll(".md-email-ref").forEach((a) => {
         a.addEventListener("click", (e) => {

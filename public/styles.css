@@ -2439,7 +2439,23 @@ body.delta-panel-open .delta-fab { display: none; }
   font-size: 13.5px;
   line-height: 1.55;
   word-wrap: break-word;
+  /* Phase 5.BW — per-paragraph auto bidi. With dir="auto" on the bubble
+   * + unicode-bidi:plaintext on the inner blocks, each paragraph picks
+   * its own LTR / RTL from the first strong character. Lets Delta mix
+   * English + Farsi + Arabic + Hebrew in a single reply cleanly. */
+  unicode-bidi: plaintext;
 }
+.delta-msg p,
+.delta-msg div,
+.delta-msg li,
+.delta-msg blockquote,
+.delta-msg .md-content,
+.delta-msg .md-content > * {
+  unicode-bidi: plaintext;
+}
+/* The chat-input textareas inherit dir=auto from HTML — mirror the
+ * CSS bidi hint so cursor + alignment follow the typed script. */
+.delta-input { unicode-bidi: plaintext; }
 .delta-msg.user {
   background: var(--red);
   color: white;
