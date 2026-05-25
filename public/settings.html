@@ -349,6 +349,49 @@
     </div>
   </section>
 
+  <!-- Slack — Phase 5.BR. Two connect paths:
+       1. Install Delta bot to workspace (one-time, by an admin)
+       2. Per-user connect for DMs + workspace-wide search -->
+  <section class="card" id="slackCard">
+    <h2>
+      <svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px">
+        <path fill="#E01E5A" d="M5 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0v-5z"/>
+        <path fill="#36C5F0" d="M9 5a2 2 0 1 1 2 2H9V5zm0 1a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4h5z"/>
+        <path fill="#2EB67D" d="M19 9a2 2 0 1 1 2 2h-2V9zm-1 0a2 2 0 0 1-4 0V4a2 2 0 0 1 4 0v5z"/>
+        <path fill="#ECB22E" d="M15 19a2 2 0 1 1-2-2h2v2zm0-1a2 2 0 0 1 0-4h5a2 2 0 0 1 0 4h-5z"/>
+      </svg>
+      Slack
+    </h2>
+    <p class="card-sub" id="slackCardSub">
+      Let Delta search your Slack messages and read files shared there
+      (PDF, Word, Excel) the same way it reads your email.
+    </p>
+    <div id="slackStatus" style="display:flex;flex-direction:column;gap:14px">
+      <div class="slack-row" id="slackRowConfig" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(233,42,46,.08);border:1px solid rgba(233,42,46,.25);color:var(--red);font-size:13px">
+        Slack isn't configured on the server yet. The admin needs to add
+        <code>SLACK_CLIENT_ID</code> and <code>SLACK_CLIENT_SECRET</code> env vars.
+      </div>
+
+      <div class="slack-row" id="slackRowWorkspace" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--cream)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--navy);font-size:14px" id="slackWorkspaceTitle">Workspace</div>
+          <div style="font-size:12.5px;color:var(--navy-soft)" id="slackWorkspaceMeta">Not installed yet</div>
+        </div>
+        <a id="slackInstallBtn" class="btn primary" href="/api/slack/install" hidden>Install Delta bot</a>
+        <span id="slackWorkspaceOk" hidden style="font-size:12px;color:#2ea043;font-weight:600">✓ Installed</span>
+      </div>
+
+      <div class="slack-row" id="slackRowUser" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper)">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--navy);font-size:14px">Your Slack account</div>
+          <div style="font-size:12.5px;color:var(--navy-soft)" id="slackUserMeta">Connect so Delta can read your DMs and search</div>
+        </div>
+        <a id="slackConnectBtn" class="btn primary" href="/api/slack/connect" hidden>Connect Slack</a>
+        <button type="button" id="slackDisconnectBtn" class="btn" hidden>Disconnect</button>
+      </div>
+    </div>
+  </section>
+
   <!-- Compose: Aliases + Signatures -->
   <section class="card">
     <h2>Compose</h2>
@@ -701,6 +744,74 @@
   });
 
   loadCompose(false);
+
+  // ---------- Slack — Phase 5.BR ----------------------------
+  // Polls /api/slack/status on load + on focus, paints the two
+  // connect-state rows, wires Disconnect, and surfaces query-string
+  // confirmations (?slack=installed / ?slack=connected / ?slack=denied).
+  async function loadSlack() {
+    let data;
+    try {
+      const r = await fetch("/api/slack/status");
+      data = await r.json();
+    } catch (_) { return; }
+    const cfgRow = document.getElementById("slackRowConfig");
+    const wsTitle = document.getElementById("slackWorkspaceTitle");
+    const wsMeta  = document.getElementById("slackWorkspaceMeta");
+    const wsBtn   = document.getElementById("slackInstallBtn");
+    const wsOk    = document.getElementById("slackWorkspaceOk");
+    const userMeta = document.getElementById("slackUserMeta");
+    const userBtn  = document.getElementById("slackConnectBtn");
+    const userDis  = document.getElementById("slackDisconnectBtn");
+
+    if (cfgRow) cfgRow.style.display = data?.configured ? "none" : "";
+    if (data?.workspace) {
+      if (wsTitle) wsTitle.textContent = "Workspace: " + (data.workspace.team_name || data.workspace.team_id);
+      if (wsMeta)  wsMeta.textContent  = "Bot installed " + new Date(data.workspace.installed_at).toLocaleString();
+      if (wsBtn)   wsBtn.hidden = true;
+      if (wsOk)    wsOk.hidden  = false;
+    } else {
+      if (wsTitle) wsTitle.textContent = "Delta bot";
+      if (wsMeta)  wsMeta.textContent  = "Not installed yet — install once to give Delta access to shared channels + files.";
+      if (wsBtn)   wsBtn.hidden = !data?.configured;
+      if (wsOk)    wsOk.hidden  = true;
+    }
+    if (data?.user_connected) {
+      const u = data.user_connection;
+      if (userMeta) userMeta.innerHTML = `Connected as <strong>${escapeHtml(u.slack_user_name || u.slack_user_id)}</strong>${u.slack_email ? ` (${escapeHtml(u.slack_email)})` : ""} — Delta can read your DMs and search Slack.`;
+      if (userBtn)  userBtn.hidden = true;
+      if (userDis)  userDis.hidden = false;
+    } else {
+      if (userMeta) userMeta.textContent = "Connect so Delta can read your DMs and search across Slack.";
+      if (userBtn)  userBtn.hidden = !data?.configured;
+      if (userDis)  userDis.hidden = true;
+    }
+  }
+  document.getElementById("slackDisconnectBtn")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect your Slack from Delta? Delta will lose access to your DMs and search.")) return;
+    await fetch("/api/slack/disconnect", { method: "POST" });
+    loadSlack();
+  });
+  // Surface the query-string status banner from a successful OAuth callback.
+  (function flashStatus() {
+    const p = new URLSearchParams(window.location.search);
+    const s = p.get("slack");
+    if (!s) return;
+    const sub = document.getElementById("slackCardSub");
+    const msg =
+      s === "installed" ? `✓ Delta bot installed to ${p.get("team") || "your workspace"}.` :
+      s === "connected" ? `✓ Slack connected for ${p.get("user") || "you"}.` :
+      s === "denied"    ? `Slack connection failed: ${p.get("error") || "unknown error"}` : "";
+    if (msg && sub) {
+      sub.innerHTML = msg;
+      sub.style.color = s === "denied" ? "var(--red)" : "#2ea043";
+      sub.style.fontWeight = "600";
+    }
+    // Strip the params from the URL so refreshes don't keep showing it.
+    try { window.history.replaceState({}, "", window.location.pathname); } catch (_) {}
+  })();
+  loadSlack();
+  window.addEventListener("focus", loadSlack);
 })();
 </script>
 

@@ -1110,6 +1110,102 @@ app.post("/api/voice/distill", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Slack integration — Phase 5.BR.
+//   GET  /api/slack/status              → { configured, workspace, user_connected, ... }
+//   GET  /api/slack/install             → 302 to Slack workspace-install OAuth
+//   GET  /api/slack/install-callback    → handles bot install redirect
+//   GET  /api/slack/connect             → 302 to per-user OAuth
+//   GET  /api/slack/oauth-callback      → handles user connect redirect
+//   POST /api/slack/disconnect          → revoke this user's connection
+// ====================================================================
+app.get("/api/slack/status", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    res.json({ ok: true, ...(await slack.status(req.user.id)) });
+  } catch (err) {
+    console.error("[/api/slack/status] failed:", err);
+    res.status(500).json({ error: "status_failed", message: err.message });
+  }
+});
+
+app.get("/api/slack/install", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    if (!slack.isConfigured()) {
+      return res.status(503).send("Slack not configured on server (need SLACK_CLIENT_ID + SLACK_CLIENT_SECRET).");
+    }
+    const state = await slack.generateState(req.user.id, "install");
+    res.redirect(slack.buildInstallUrl(state));
+  } catch (err) {
+    console.error("[/api/slack/install] failed:", err);
+    res.status(500).send("Slack install start failed: " + err.message);
+  }
+});
+
+app.get("/api/slack/install-callback", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    const { code, state, error } = req.query;
+    if (error) return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}`);
+    if (!code || !state) return res.redirect("/settings?slack=denied&error=missing_code");
+    const session = await slack.consumeState(String(state));
+    if (!session || session.flow !== "install") {
+      return res.redirect("/settings?slack=denied&error=bad_state");
+    }
+    const data = await slack.exchangeCode(String(code), slack.REDIRECT_URI_INSTALL);
+    const installed = await slack.saveWorkspaceInstall(data, session.userId);
+    res.redirect(`/settings?slack=installed&team=${encodeURIComponent(installed.teamName || "")}`);
+  } catch (err) {
+    console.error("[/api/slack/install-callback] failed:", err);
+    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}`);
+  }
+});
+
+app.get("/api/slack/connect", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    if (!slack.isConfigured()) {
+      return res.status(503).send("Slack not configured on server (need SLACK_CLIENT_ID + SLACK_CLIENT_SECRET).");
+    }
+    const state = await slack.generateState(req.user.id, "connect");
+    res.redirect(slack.buildUserConnectUrl(state));
+  } catch (err) {
+    console.error("[/api/slack/connect] failed:", err);
+    res.status(500).send("Slack connect start failed: " + err.message);
+  }
+});
+
+app.get("/api/slack/oauth-callback", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    const { code, state, error } = req.query;
+    if (error) return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}`);
+    if (!code || !state) return res.redirect("/settings?slack=denied&error=missing_code");
+    const session = await slack.consumeState(String(state));
+    if (!session || session.flow !== "connect") {
+      return res.redirect("/settings?slack=denied&error=bad_state");
+    }
+    const data = await slack.exchangeCode(String(code), slack.REDIRECT_URI_USER);
+    const conn = await slack.saveUserConnect(data, session.userId);
+    res.redirect(`/settings?slack=connected&user=${encodeURIComponent(conn.slackUserName || "")}`);
+  } catch (err) {
+    console.error("[/api/slack/oauth-callback] failed:", err);
+    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}`);
+  }
+});
+
+app.post("/api/slack/disconnect", auth.requireAuth, async (req, res) => {
+  try {
+    const slack = require("./lib/slack");
+    await slack.disconnectUser(req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/slack/disconnect] failed:", err);
+    res.status(500).json({ error: "disconnect_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Realtime voice mode — Phase 5.BF.
 //   GET  /api/voice/realtime-status  → { available, model }
 //   POST /api/voice/realtime-session → { ok, value, expires_at, model }
