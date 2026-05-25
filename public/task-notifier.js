@@ -134,15 +134,87 @@
     } catch (_) {}
   }
 
+  // =============================================================
+  // MEETING PREP notifications — fires ~15 min before each meeting
+  // (or whatever the user set in Settings → Calendar). Pulls from
+  // /api/meeting-prep/upcoming, dedups per event via localStorage.
+  // =============================================================
+  const MEETING_FIRED_KEY = "deltaMail.firedMeetingPrep";
+  function loadMeetingFired() {
+    try { return new Set(JSON.parse(localStorage.getItem(MEETING_FIRED_KEY) || "[]")); }
+    catch (_) { return new Set(); }
+  }
+  function saveMeetingFired(set) {
+    try { localStorage.setItem(MEETING_FIRED_KEY, JSON.stringify([...set].slice(-200))); }
+    catch (_) {}
+  }
+  function relativeStart(iso) {
+    const ms = new Date(iso).getTime() - Date.now();
+    if (ms <= 0) return "now";
+    const m = Math.round(ms / 60000);
+    return m < 1 ? "in <1 min" : `in ${m} min`;
+  }
+  function fireMeetingNotification(ev) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const peopleLine = ev.attendees && ev.attendees.length
+      ? "With " + ev.attendees.map((a) => a.name).slice(0, 3).join(", ")
+      : "";
+    const recentLine = ev.attendees && ev.attendees.some((a) => a.recent && a.recent.length)
+      ? " · Recent mail loaded — open to see."
+      : "";
+    try {
+      const n = new Notification(`📅 ${ev.summary}`, {
+        body: [relativeStart(ev.startISO), peopleLine + recentLine].filter(Boolean).join(" · "),
+        icon: "/delta-logo.png",
+        tag: `meeting-${ev.eventId}`,
+        renotify: false,
+      });
+      n.onclick = () => {
+        window.focus();
+        if (ev.hangoutLink) window.open(ev.hangoutLink, "_blank");
+        else if (ev.htmlLink) window.open(ev.htmlLink, "_blank");
+        else window.location.href = "/calendar";
+        n.close();
+      };
+    } catch (_) {}
+  }
+  async function pollMeetingPrep() {
+    try {
+      const r = await fetch("/api/meeting-prep/upcoming");
+      if (!r.ok) return;
+      const data = await r.json();
+      const events = data.events || [];
+      if (!events.length) return;
+      if (!("Notification" in window)) return;
+      if (Notification.permission !== "granted") {
+        // Request permission silently on first hit; we won't fire if denied.
+        try { await Notification.requestPermission(); } catch (_) {}
+        if (Notification.permission !== "granted") return;
+      }
+      const fired = loadMeetingFired();
+      for (const ev of events) {
+        if (fired.has(ev.eventId)) continue;
+        fireMeetingNotification(ev);
+        fired.add(ev.eventId);
+      }
+      saveMeetingFired(fired);
+    } catch (_) {}
+  }
+
   // ---------- run ----------
   refreshOverdueCount();
   pollDueSoon();
+  pollMeetingPrep();
   setInterval(refreshOverdueCount, 60_000);     // badge refresh every 60s
   setInterval(pollDueSoon, 60_000);             // due-soon poll every 60s
+  setInterval(pollMeetingPrep, 120_000);        // meeting-prep poll every 2 min
 
   // Also refresh badge when the tab regains focus — catches new overdue
   // tasks that appeared while the tab was hidden.
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refreshOverdueCount();
+    if (!document.hidden) {
+      refreshOverdueCount();
+      pollMeetingPrep();
+    }
   });
 })();

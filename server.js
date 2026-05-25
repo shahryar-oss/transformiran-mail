@@ -413,6 +413,65 @@ app.post("/api/calendar/create", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Meeting prep — events starting in the user's prep window. Browser
+// polls this every ~2 min via task-notifier.js; we surface attendees +
+// last threads with them so the prep notification has context.
+app.get("/api/meeting-prep/upcoming", auth.requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const prefRes = await pool.query(`SELECT calendar_settings FROM users WHERE id = $1`, [userId]);
+    const cs = prefRes.rows[0]?.calendar_settings || {};
+    if (cs.meetingPrep === false) return res.json({ ok: true, events: [] });
+    const windowMinutes = Math.max(1, Math.min(60, Number(cs.meetingPrepMinutes) || 15));
+    const now = new Date();
+    const end = new Date(now.getTime() + windowMinutes * 60 * 1000);
+    let events = [];
+    try { events = await calendarLib.listEvents(userId, { start: now.toISOString(), end: end.toISOString() }); }
+    catch (_) { events = []; }
+    const within = events.filter((e) => {
+      const startMs = e.start?.dateTime ? new Date(e.start.dateTime).getTime()
+                    : (e.start?.date ? new Date(e.start.date).getTime() : null);
+      return startMs && startMs >= now.getTime() && startMs <= end.getTime();
+    });
+    const userEmail = String(req.user.email || "").toLowerCase();
+    const briefs = [];
+    for (const ev of within.slice(0, 5)) {
+      const attendees = Array.isArray(ev.attendees) ? ev.attendees : [];
+      const externals = attendees.filter((a) => a.email && a.email.toLowerCase() !== userEmail && !a.resource);
+      const recentByEmail = [];
+      for (const a of externals.slice(0, 4)) {
+        try {
+          const r = await pool.query(
+            `SELECT subject, from_header, date_header, internal_date FROM inbox_cache
+              WHERE user_id = $1
+                AND (POSITION(LOWER($2) IN LOWER(COALESCE(from_header,'')))>0
+                  OR POSITION(LOWER($2) IN LOWER(COALESCE(to_header,'')))>0
+                  OR POSITION(LOWER($2) IN LOWER(COALESCE(cc_header,'')))>0)
+              ORDER BY internal_date DESC NULLS LAST LIMIT 3`,
+            [userId, a.email]
+          );
+          recentByEmail.push({
+            email: a.email, name: a.displayName || a.email.split("@")[0],
+            recent: r.rows.map((row) => ({ subject: row.subject, from: row.from_header, when: row.date_header || row.internal_date })),
+          });
+        } catch (_) {
+          recentByEmail.push({ email: a.email, name: a.displayName || a.email.split("@")[0], recent: [] });
+        }
+      }
+      briefs.push({
+        eventId: ev.id, summary: ev.summary || "(no title)",
+        startISO: ev.start?.dateTime || ev.start?.date,
+        location: ev.location || null, hangoutLink: ev.hangoutLink || null, htmlLink: ev.htmlLink || null,
+        attendees: recentByEmail,
+      });
+    }
+    res.json({ ok: true, windowMinutes, events: briefs });
+  } catch (err) {
+    console.error("[/api/meeting-prep/upcoming] failed:", err);
+    res.status(500).json({ error: "load_failed", message: err.message });
+  }
+});
+
 app.patch("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
   const eventId = req.params.id;
   const { calendarId, ...patch } = req.body || {};
