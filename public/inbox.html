@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Delta Mail — Transform Iran</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/styles.css?v=5CB">
+<link rel="stylesheet" href="/styles.css?v=5CD">
 <link rel="icon" type="image/png" href="/delta-logo.png">
 </head>
 <body>
@@ -117,7 +117,10 @@
           <span class="folder-name">Calendar</span>
         </a>
         <a class="folder" href="/tasks">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm0 16H5V5h14v14zm-2.79-9.79l-1.42-1.42-5.79 5.8-2.21-2.22-1.42 1.42L9 14.4l8.21-8.19z"/></svg></span>
+          <!-- Phase 5.CD — single bold checkmark, no box.
+               User: the boxed-tick icon was too small to read at a glance.
+               This path is a clean stroked check that fills the icon slot. -->
+          <span class="folder-i"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 12.5 10 18.5 20 6.5"/></svg></span>
           <span class="folder-name">To Do</span>
         </a>
         <a class="folder" href="/promises" id="promisesFolderLink">
@@ -599,10 +602,10 @@
   </div>
 </div>
 
-<script src="/inbox.js?v=5CB"></script>
-<script src="/inbox-rightpanel.js?v=5CB"></script>
-<script src="/task-notifier.js?v=5CB"></script>
-<script src="/assistant.js?v=5CB"></script>
-<script src="/voice.js?v=5CB"></script>
+<script src="/inbox.js?v=5CD"></script>
+<script src="/inbox-rightpanel.js?v=5CD"></script>
+<script src="/task-notifier.js?v=5CD"></script>
+<script src="/assistant.js?v=5CD"></script>
+<script src="/voice.js?v=5CD"></script>
 </body>
 </html>
