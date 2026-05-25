@@ -1276,6 +1276,19 @@ window.renderMarkdown = renderMarkdown;
         renderMemorySavedCard(ev.result.memory);
       }
 
+      // Calendar proposal — Shortwave-style preview card with Skip / Create.
+      if (ev.name === "propose_calendar_event" && ev.result?.ok && ev.result.proposed) {
+        renderCalendarProposalCard(ev.result);
+      }
+      // Calendar created (after user confirmed OR direct call) — small confirmation card.
+      if (ev.name === "create_calendar_event" && ev.result?.ok && ev.result.event) {
+        renderCalendarCreatedCard(ev.result.event);
+      }
+      // Multi-person free-time finder — show slot picker so user can choose.
+      if (ev.name === "find_meeting_time" && ev.result?.ok && Array.isArray(ev.result.slots) && ev.result.slots.length) {
+        renderMeetingTimeSlotsCard(ev.result);
+      }
+
       // For start_inbox_routine, mount a wizard that shows one step at a time.
       if (ev.name === "start_inbox_routine" && ev.result?.ok && ev.result.routine?.steps?.length) {
         renderRoutineWizard(ev.result.routine);
@@ -2072,6 +2085,183 @@ window.renderMarkdown = renderMarkdown;
     messagesEl.appendChild(card);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
+
+  // -------- CALENDAR EVENT PREVIEW CARD (Shortwave-style) ------------
+  function renderCalendarProposalCard(proposal) {
+    const p = proposal.proposed;
+    const card = document.createElement("div");
+    card.className = "cal-proposal-card";
+    const start = new Date(p.start);
+    const end   = new Date(p.end);
+    const dayShort = start.toLocaleDateString(undefined, { weekday: "short" });
+    const monthShort = start.toLocaleDateString(undefined, { month: "short" });
+    const dayNum = start.getDate();
+    const timeStr = start.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" })
+                  + " – "
+                  + end.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+    const dateLine = start.toLocaleDateString(undefined, { weekday:"short", month:"short", day:"numeric", year:"numeric" }) + " " + timeStr;
+
+    const attendees = Array.isArray(p.attendees) ? p.attendees : [];
+    const allEmails = [p.organizerEmail, ...attendees].filter(Boolean);
+    const initials = (email) => ((email || "").split("@")[0] || "?").slice(0,2).toUpperCase();
+    const attendeesHtml = allEmails.map(e => `
+      <div class="cpc-att">
+        <span class="cpc-avatar">${escapeHtml(initials(e))}</span>
+        <span class="cpc-email">${escapeHtml(e)}</span>
+      </div>`).join("");
+    const conflictBanner = (proposal.conflicts && proposal.conflicts.length)
+      ? `<div class="cpc-warn cpc-warn-conflict"><strong>${proposal.conflicts.length} conflict${proposal.conflicts.length === 1 ? "" : "s"}</strong> in this window: ${proposal.conflicts.slice(0,3).map(c => escapeHtml(c.summary)).join(", ")}</div>`
+      : `<div class="cpc-ok">Slot looks free.</div>`;
+    const linkBlock = p.location && /^https?:/i.test(p.location)
+      ? `<div class="cpc-row cpc-link"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.9 12a4 4 0 0 1 4-4h3v2h-3a2 2 0 0 0 0 4h3v2h-3a4 4 0 0 1-4-4zm9-1h6v2h-6v-2zm5-3h-3v2h3a2 2 0 0 1 0 4h-3v2h3a4 4 0 0 0 0-8z"/></svg><a href="${escapeHtml(p.location)}" target="_blank" rel="noopener">${escapeHtml(p.location)}</a></div>`
+      : (p.location ? `<div class="cpc-row cpc-link"><span>${escapeHtml(p.location)}</span></div>` : "");
+    card.innerHTML = `
+      <div class="cpc-grid">
+        <div class="cpc-date-badge">
+          <div class="cpc-month">${escapeHtml(monthShort)}</div>
+          <div class="cpc-day">${dayNum}</div>
+          <div class="cpc-weekday">${escapeHtml(dayShort)}</div>
+        </div>
+        <div class="cpc-body">
+          <div class="cpc-title">${escapeHtml(p.summary)}</div>
+          <div class="cpc-row cpc-when"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm1-13h-2v6l5 3 1-1.8-4-2.4z"/></svg><span>${escapeHtml(dateLine)}</span></div>
+          ${attendeesHtml ? `<div class="cpc-row cpc-attendees"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zM8 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-2.7 0-8 1.3-8 4v3h16v-3c0-2.7-5.3-4-8-4z"/></svg><div class="cpc-att-list">${attendeesHtml}</div></div>` : ""}
+          ${linkBlock}
+          ${conflictBanner}
+          <div class="cpc-actions">
+            <button class="cpc-skip" type="button">Skip</button>
+            <button class="cpc-create" type="button">Create event</button>
+            <span class="cpc-status"></span>
+          </div>
+        </div>
+      </div>
+    `;
+    const skipBtn = card.querySelector(".cpc-skip");
+    const createBtn = card.querySelector(".cpc-create");
+    const statusEl  = card.querySelector(".cpc-status");
+    skipBtn.addEventListener("click", () => {
+      card.classList.add("cpc-skipped"); skipBtn.disabled = true; createBtn.disabled = true;
+      statusEl.textContent = "Skipped.";
+    });
+    createBtn.addEventListener("click", async () => {
+      createBtn.disabled = true; skipBtn.disabled = true; statusEl.textContent = "Creating…";
+      try {
+        const r = await fetch("/api/calendar/create", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            calendarId: p.calendarId || "primary",
+            summary: p.summary, start: p.start, end: p.end,
+            attendees: p.attendees || [],
+            description: p.description || undefined,
+            location: p.location || undefined,
+          }),
+        });
+        const data = await r.json();
+        if (!r.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${r.status}`);
+        card.classList.add("cpc-created");
+        statusEl.innerHTML = `Created ✓ ${data.event?.htmlLink ? `<a href="${data.event.htmlLink}" target="_blank" rel="noopener">Open in Google Calendar ↗</a>` : ""}`;
+      } catch (err) {
+        statusEl.className = "cpc-status error";
+        statusEl.textContent = `Couldn't create: ${err.message || err}`;
+        createBtn.disabled = false; skipBtn.disabled = false;
+      }
+    });
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function renderCalendarCreatedCard(event) {
+    const card = document.createElement("div");
+    card.className = "cal-proposal-card cpc-created";
+    const start = event.start?.dateTime || event.start?.date;
+    const dateLine = start
+      ? new Date(start).toLocaleString(undefined, { weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
+      : "";
+    card.innerHTML = `
+      <div class="cpc-grid">
+        <div class="cpc-date-badge">
+          <div class="cpc-month">${escapeHtml(start ? new Date(start).toLocaleDateString(undefined,{month:"short"}) : "")}</div>
+          <div class="cpc-day">${start ? new Date(start).getDate() : ""}</div>
+        </div>
+        <div class="cpc-body">
+          <div class="cpc-title">${escapeHtml(event.summary || "(no title)")}</div>
+          <div class="cpc-row cpc-when"><span>${escapeHtml(dateLine)}</span></div>
+          <div class="cpc-actions">
+            <span class="cpc-status">Created ✓</span>
+            ${event.htmlLink ? `<a href="${event.htmlLink}" target="_blank" rel="noopener">Open in Google Calendar ↗</a>` : ""}
+          </div>
+        </div>
+      </div>
+    `;
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  // -------- FIND-MEETING-TIME SLOT PICKER ----------------------------
+  // Renders the candidate slots that work for all attendees. Clicking a
+  // slot fires propose_calendar_event under the hood via /api/assistant
+  // (or directly creates if user prefers). For simplicity we POST to
+  // /api/calendar/create with the slot's start/end + the attendees.
+  function renderMeetingTimeSlotsCard(result) {
+    const card = document.createElement("div");
+    card.className = "cal-proposal-card mt-slot-picker";
+    const attendees = result.attendees || [];
+    const dur = result.duration_minutes || 60;
+    const unreach = result.unreachable && result.unreachable.length
+      ? `<div class="cpc-warn cpc-warn-focus">Couldn't read calendar for: ${result.unreachable.map(escapeHtml).join(", ")}. (Not in your Google Workspace? Showing slots based on the rest.)</div>`
+      : "";
+    const slotRows = result.slots.map((s, i) => {
+      const sd = new Date(s.start);
+      const ed = new Date(s.end);
+      const label = sd.toLocaleString(undefined, { weekday:"short", month:"short", day:"numeric", hour:"numeric", minute:"2-digit" })
+                  + " – "
+                  + ed.toLocaleTimeString(undefined, { hour:"numeric", minute:"2-digit" });
+      return `<button type="button" class="mt-slot-btn" data-i="${i}" data-start="${escapeHtml(s.start)}" data-end="${escapeHtml(s.end)}">${escapeHtml(label)}</button>`;
+    }).join("");
+    card.innerHTML = `
+      <div class="cpc-grid mt-grid">
+        <div class="cpc-body">
+          <div class="cpc-title">Free across ${attendees.length} people · ${dur} min</div>
+          <div class="cpc-row cpc-attendees"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zM8 11a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-2.7 0-8 1.3-8 4v3h16v-3c0-2.7-5.3-4-8-4z"/></svg><div class="cpc-att-list">${attendees.map(e => `<div class="cpc-att"><span class="cpc-avatar">${escapeHtml(e.split("@")[0].slice(0,2).toUpperCase())}</span><span class="cpc-email">${escapeHtml(e)}</span></div>`).join("")}</div></div>
+          ${unreach}
+          <div class="mt-slots">${slotRows}</div>
+          <div class="cpc-actions"><span class="cpc-status">Pick a slot to schedule it.</span></div>
+        </div>
+      </div>
+    `;
+    card.querySelectorAll(".mt-slot-btn").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        card.querySelectorAll(".mt-slot-btn").forEach(b => b.disabled = true);
+        const statusEl = card.querySelector(".cpc-status");
+        statusEl.textContent = "Creating event…";
+        try {
+          const r = await fetch("/api/calendar/create", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              calendarId: "primary",
+              summary: `Meeting · ${attendees.length} people`,
+              start: btn.dataset.start, end: btn.dataset.end,
+              attendees: attendees.filter(e => e !== (window.NexaUserEmail || "")),
+            }),
+          });
+          const data = await r.json();
+          if (!r.ok || !data.ok) throw new Error(data.message || data.error || `HTTP ${r.status}`);
+          card.classList.add("cpc-created");
+          statusEl.innerHTML = `Created ✓ ${data.event?.htmlLink ? `<a href="${data.event.htmlLink}" target="_blank" rel="noopener">Open in Google Calendar ↗</a>` : ""}`;
+        } catch (err) {
+          statusEl.className = "cpc-status error";
+          statusEl.textContent = `Couldn't create: ${err.message || err}`;
+          card.querySelectorAll(".mt-slot-btn").forEach(b => b.disabled = false);
+        }
+      });
+    });
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  window.NexaRenderCalendarProposalCard = function (p) { try { renderCalendarProposalCard(p); } catch (_) {} };
+  window.NexaRenderCalendarCreatedCard  = function (e) { try { renderCalendarCreatedCard(e);  } catch (_) {} };
+  window.NexaRenderMeetingTimeSlotsCard = function (r) { try { renderMeetingTimeSlotsCard(r); } catch (_) {} };
 
   // -------- GUIDED INBOX-ORGANIZE ROUTINE (wizard) ------------------
   // Shows ONE step at a time. User clicks Done → that step's action

@@ -400,6 +400,19 @@ app.post("/api/calendar/events", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Frontend-friendly variant of /api/calendar/events used by the Delta
+// chat's "Create event" button on the proposal card. Wraps the event
+// in { ok, event } so the card can show a confirmation + link.
+app.post("/api/calendar/create", auth.requireAuth, async (req, res) => {
+  try {
+    const event = await calendarLib.createEvent(req.user.id, req.body || {});
+    res.json({ ok: true, event });
+  } catch (err) {
+    console.error("[/api/calendar/create] failed:", err);
+    res.status(500).json({ ok: false, error: "create_failed", message: err.message });
+  }
+});
+
 app.patch("/api/calendar/events/:id", auth.requireAuth, async (req, res) => {
   const eventId = req.params.id;
   const { calendarId, ...patch } = req.body || {};

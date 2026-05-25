@@ -474,6 +474,28 @@
       } catch (_) {}
       return;
     }
+
+    // Calendar — render the same preview / created / slot-picker cards
+    // the text-chat path renders, so voice users can tap Create without
+    // having to use any other modality.
+    if (name === "propose_calendar_event" && result.proposed) {
+      if (typeof window.NexaRenderCalendarProposalCard === "function") {
+        window.NexaRenderCalendarProposalCard(result);
+      }
+      return;
+    }
+    if (name === "create_calendar_event" && result.event) {
+      if (typeof window.NexaRenderCalendarCreatedCard === "function") {
+        window.NexaRenderCalendarCreatedCard(result.event);
+      }
+      return;
+    }
+    if (name === "find_meeting_time" && Array.isArray(result.slots) && result.slots.length) {
+      if (typeof window.NexaRenderMeetingTimeSlotsCard === "function") {
+        window.NexaRenderMeetingTimeSlotsCard(result);
+      }
+      return;
+    }
   }
 
   // Re-open or refresh the composer with voiceMode._lastDraft. Safe to
