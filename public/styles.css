@@ -5906,3 +5906,70 @@ body.delta-panel-open .delta-fab { display: none; }
   font-size: 14px;
   line-height: 1.6;
 }
+
+/* ============================================================
+   APPEARANCE TOKENS — driven by data-attributes on <body>.
+   Defaults already match Sunset / Comfortable / Default so the
+   page renders sanely before the API responds.
+   Ported from NexaMails along with the full Settings page.
+   ============================================================ */
+:root {
+  /* default accent (Sunset / gold). Body[data-accent="…"] overrides. */
+  --accent:      var(--gold);
+  --accent-dark: var(--gold-dark);
+  --row-height:  56px;                /* comfortable density default. */
+  --row-padding-y: 10px;
+  --body-font-size:   14px;
+  --reader-font-size: 15px;
+}
+
+/* ─────────── Accent palettes (5 curated; chosen on Settings → Appearance) ─────────── */
+body[data-accent="sunset"]   { --accent: #B28E44; --accent-dark: #8E6F35; --gold: #B28E44; --gold-dark: #8E6F35; }
+body[data-accent="glacier"]  { --accent: #2E91D1; --accent-dark: #1F70A4; --gold: #2E91D1; --gold-dark: #1F70A4; }
+body[data-accent="forest"]   { --accent: #4F9D5A; --accent-dark: #357B40; --gold: #4F9D5A; --gold-dark: #357B40; }
+body[data-accent="amethyst"] { --accent: #9B5BC4; --accent-dark: #743EA3; --gold: #9B5BC4; --gold-dark: #743EA3; }
+body[data-accent="berry"]    { --accent: #D5396F; --accent-dark: #A22250; --gold: #D5396F; --gold-dark: #A22250; }
+
+/* ─────────── Density ─────────── */
+body[data-density="compact"] {
+  --row-height: 42px;
+  --row-padding-y: 6px;
+}
+
+/* ─────────── Body font scale ─────────── */
+body[data-body-font-size="small"]   { --body-font-size: 12.5px; --reader-font-size: 13.5px; }
+body[data-body-font-size="default"] { --body-font-size: 14px;   --reader-font-size: 15px; }
+body[data-body-font-size="large"]   { --body-font-size: 15.5px; --reader-font-size: 17px; }
+body[data-body-font-size="xl"]      { --body-font-size: 17px;   --reader-font-size: 19px; }
+
+/* ─────────── Dark theme ─────────── */
+body[data-theme="dark"] {
+  --cream:       #14171c;     /* page background */
+  --cream-dark:  #1c2026;
+  --paper:       #1e232b;     /* cards / message rows */
+  --navy:        #e8e9ec;     /* primary text */
+  --navy-soft:   #b7bcc6;
+  --muted:       #7f8590;
+  --line:        #2a2f38;
+  --good:        #6cbe78;
+  --bad:         #e36868;
+  --shadow-sm:   0 1px 2px rgba(0, 0, 0, .35);
+  --shadow-md:   0 6px 18px rgba(0, 0, 0, .35);
+}
+
+/* "System" honours OS preference via prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  body[data-theme="system"] {
+    --cream:       #14171c;
+    --cream-dark:  #1c2026;
+    --paper:       #1e232b;
+    --navy:        #e8e9ec;
+    --navy-soft:   #b7bcc6;
+    --muted:       #7f8590;
+    --line:        #2a2f38;
+    --good:        #6cbe78;
+    --bad:         #e36868;
+    --shadow-sm:   0 1px 2px rgba(0, 0, 0, .35);
+    --shadow-md:   0 6px 18px rgba(0, 0, 0, .35);
+  }
+}

@@ -2,44 +2,176 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Settings — Delta Mail</title>
+<title>Settings — TI Mail</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/styles.css">
-<link rel="icon" type="image/png" href="/delta-logo.png">
+
+<script src="/appearance.js" defer></script><link rel="icon" type="image/png" href="/delta-logo.png">
 <style>
-  /* Override the inbox-shared overflow:hidden so the settings page can
-     actually scroll. The inbox layout uses fixed 3-pane columns and
-     hides body overflow; settings is a single tall flowing column.
-     (Phase 5.CF) */
+  /* Settings page uses a full-height sidebar+content grid layout — not
+     the inbox three-pane shell. Override the inbox-shared overflow rules. */
   html, body {
-    height: auto;
-    overflow: auto;
+    height: 100%;
+    overflow: hidden;
+    margin: 0;
   }
-  body { background: var(--cream); }
-  .settings-wrap {
-    max-width: 920px;
-    margin: 0 auto;
-    padding: 28px 28px 80px;
+  body { background: var(--cream); color: var(--navy); }
+
+  /* ============================================================
+     LAYOUT — sidebar (left) + scrolling content (right)
+     ============================================================ */
+  .settings-layout {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    height: 100vh;
   }
-  .settings-head {
+
+  /* ---------- Sidebar ---------- */
+  .settings-sidebar {
+    background: var(--paper);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
     display: flex;
-    align-items: center;
-    gap: 14px;
-    margin-bottom: 8px;
+    flex-direction: column;
   }
-  .settings-head a.back {
-    color: var(--navy-soft);
-    text-decoration: none;
-    font-size: 13px;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+  .sidebar-head { padding: 22px 22px 14px; }
+  .sidebar-head .back {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--navy-soft); text-decoration: none;
+    font-size: 13px; margin-bottom: 12px;
   }
-  .settings-head a.back:hover { color: var(--navy); }
-  .settings-head h1 { margin: 0; font-size: 24px; color: var(--navy); }
+  .sidebar-head .back:hover { color: var(--navy); }
+  .sidebar-head h1 { margin: 0; font-size: 22px; color: var(--navy); font-weight: 700; }
 
-  .settings-sub { color: var(--navy-soft); font-size: 14px; margin: 4px 0 28px; }
+  .sidebar-search { padding: 0 22px 14px; position: relative; }
+  .sidebar-search input {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--line);
+    background: var(--cream); color: var(--navy);
+    border-radius: 999px;
+    padding: 8px 14px 8px 36px;
+    font-size: 13px; font-family: inherit; outline: none;
+    transition: border-color .12s, background .12s;
+  }
+  .sidebar-search input:focus { border-color: var(--gold); background: var(--paper); }
+  .sidebar-search::before {
+    content: ""; position: absolute;
+    left: 35px; top: 50%;
+    transform: translateY(-50%);
+    width: 14px; height: 14px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%237b8290'><path d='M15.5 14h-.79l-.28-.27a6.5 6.5 0 1 0-.7.7l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0A4.5 4.5 0 1 1 14 9.5 4.49 4.49 0 0 1 9.5 14z'/></svg>");
+    background-repeat: no-repeat;
+    pointer-events: none; opacity: .85;
+  }
 
+  .sidebar-nav { flex: 1; padding: 4px 12px 24px; }
+  .nav-section { margin-bottom: 18px; }
+  .nav-section-label {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px;
+    color: var(--muted); font-weight: 700;
+  }
+  .nav-section-label .k-logo-sm {
+    width: 14px; height: 14px; padding: 2px;
+    background: transparent;
+    border-radius: 3px; object-fit: contain;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    color: var(--navy); text-decoration: none;
+    font-size: 13.5px;
+    margin-bottom: 1px;
+    transition: background .1s, color .1s;
+  }
+  .nav-item:hover { background: var(--cream); }
+  .nav-item.active {
+    background: var(--gold); color: #fff; font-weight: 600;
+  }
+  .nav-item.active .nav-item-pill { background: rgba(255,255,255,.25); color: #fff; }
+  .nav-item-pill {
+    margin-left: auto;
+    font-size: 9.5px; font-weight: 700;
+    background: var(--gold); color: #fff;
+    padding: 2px 7px; border-radius: 999px;
+    letter-spacing: .5px; text-transform: uppercase;
+  }
+  .nav-item-pill.muted { background: var(--cream-dark); color: var(--muted); }
+  .nav-item.hidden-by-search { display: none; }
+  .nav-section-empty .nav-section-label { opacity: .4; }
+
+  /* ---------- Content area ---------- */
+  .settings-content {
+    overflow-y: auto;
+    padding: 36px 44px 80px;
+  }
+  .content-inner { max-width: 920px; margin: 0 auto; }
+
+  /* Panels — only one visible at a time, hash-routed. */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .panel-head { margin-bottom: 18px; }
+  .panel-head h2 {
+    margin: 0; font-size: 24px; color: var(--navy); font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .panel-head h2 .k-logo {
+    width: 22px; height: 22px; padding: 3px;
+    background: transparent;
+    border-radius: 4px;
+  }
+  .panel-head p.sub {
+    color: var(--navy-soft); font-size: 14px;
+    margin: 6px 0 0; max-width: 560px;
+  }
+
+  /* ============================================================
+     OVERVIEW launcher cards
+     ============================================================ */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px; margin-top: 22px;
+  }
+  .overview-card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px;
+    text-decoration: none; color: var(--navy);
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+    display: flex; flex-direction: column; gap: 8px;
+    cursor: pointer;
+  }
+  .overview-card:hover {
+    border-color: var(--gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(0,0,0,.05);
+  }
+  .overview-card .oc-icon {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--cream-dark);
+    display: grid; place-items: center;
+    color: var(--gold-dark);
+  }
+  .overview-card .oc-icon svg { width: 18px; height: 18px; fill: currentColor; }
+  .overview-card .oc-title { font-weight: 700; font-size: 15px; color: var(--navy); }
+  .overview-card .oc-desc { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
+  .overview-card .oc-link {
+    margin-top: auto;
+    color: var(--gold-dark);
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: .4px;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+
+  /* ============================================================
+     CARDS
+     ============================================================ */
   .card {
     background: var(--paper);
     border: 1px solid var(--line);
@@ -47,143 +179,664 @@
     padding: 22px;
     margin-bottom: 18px;
   }
-  .card h2 {
+  .card h3 {
     margin: 0 0 4px;
-    font-size: 17px;
-    color: var(--navy);
-    display: flex;
-    align-items: center;
-    gap: 8px;
+    font-size: 15px; color: var(--navy); font-weight: 600;
   }
-  .card h2 img.k-logo { width: 18px; height: 18px; padding: 2.5px; }
-  .card-sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .card-sub { color: var(--muted); font-size: 13px; margin: 0 0 18px; }
 
-  /* Memory section */
+  /* Stub "coming soon" panel content */
+  .coming-soon {
+    background: var(--paper);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 48px 28px;
+    text-align: center; color: var(--muted);
+    font-size: 14px; line-height: 1.5;
+  }
+  .coming-soon strong { display: block; color: var(--navy); font-size: 16px; margin-bottom: 8px; }
+  .coming-soon ul {
+    text-align: left; max-width: 420px;
+    margin: 14px auto 0; padding-left: 20px;
+    color: var(--navy-soft); line-height: 1.7; font-size: 13px;
+  }
+
+  /* ============================================================
+     ACCOUNT panel
+     ============================================================ */
+  .user-info { display: flex; align-items: center; gap: 14px; }
+  .user-info .avatar {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    background: var(--gold); color: white;
+    display: grid; place-items: center;
+    font-size: 20px; font-weight: 700;
+  }
+  .user-info .name { font-weight: 700; color: var(--navy); font-size: 15px; }
+  .user-info .email { color: var(--muted); font-size: 13px; }
+  .user-info .role {
+    color: var(--gold-dark);
+    font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+    font-weight: 700; margin-top: 2px;
+  }
+
+  /* ============================================================
+     INBOX panel — Important contacts + snooze defaults
+     ============================================================ */
+  .imp-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px;
+    border: 1px solid var(--line);
+    background: var(--cream);
+    border-radius: 8px;
+    margin-bottom: 6px;
+  }
+  .imp-row .imp-swatch {
+    width: 10px; height: 10px;
+    border-radius: 50%; flex-shrink: 0;
+    background: var(--gold);
+  }
+  .imp-row .imp-name { font-weight: 600; color: var(--navy); font-size: 13.5px; }
+  .imp-row .imp-email { color: var(--muted); font-size: 12px; margin-left: 8px; }
+  .imp-row .imp-actions { margin-left: auto; opacity: 0; transition: opacity .12s; display: flex; gap: 4px; }
+  .imp-row:hover .imp-actions { opacity: 1; }
+
+  .snooze-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+  .snooze-cell input { width: 100%; box-sizing: border-box; }
+  .snooze-cell { display: flex; flex-direction: column; gap: 4px; }
+  .snooze-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); font-weight: 700;
+  }
+  .snooze-cell input {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 12px;
+    font-family: inherit; font-size: 13.5px;
+    background: var(--paper); color: var(--navy); outline: none;
+  }
+  .snooze-cell input:focus { border-color: var(--gold); }
+  .snooze-save-row {
+    display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+    margin-top: 12px;
+  }
+  .snooze-save-hint { font-size: 12px; color: var(--muted); }
+  .snooze-save-hint.dirty { color: var(--gold-dark); font-weight: 600; }
+  .snooze-save-hint.saved { color: var(--good); }
+
+  .soon-pill {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    background: var(--cream-dark); color: var(--navy-soft);
+    padding: 2px 7px; border-radius: 999px;
+    margin-left: 6px; vertical-align: middle;
+  }
+  .sens-stub {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted); font-size: 12px;
+  }
+  .sens-stub input[type="range"] { flex: 1; opacity: .5; }
+
+  @media (max-width: 760px) {
+    .snooze-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ============================================================
+     COMPOSE panel — privacy stance + compose rows
+     ============================================================ */
+  .privacy-stance {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: rgba(79,157,90,.06);
+    border: 1px solid rgba(79,157,90,.3);
+  }
+  .privacy-stance-icon { font-size: 26px; line-height: 1; flex-shrink: 0; margin-top: 2px; }
+  .privacy-stance strong { color: var(--navy); display: block; font-size: 14px; }
+  .privacy-stance p { margin: 6px 0 0; color: var(--navy-soft); font-size: 13px; line-height: 1.5; }
+  .privacy-stance em { color: var(--good); font-style: normal; font-weight: 600; }
+
+  .compose-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px 16px; align-items: center;
+    padding: 14px 0;
+    border-top: 1px solid var(--line);
+  }
+  .compose-row:first-child { border-top: none; padding-top: 0; }
+  .compose-row-label { font-size: 13.5px; color: var(--navy); font-weight: 600; }
+  .compose-row-control { width: auto; }
+  .compose-row-control:is(select) {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px;
+    font-family: inherit; font-size: 13.5px;
+    background: var(--paper); color: var(--navy); outline: none;
+    min-width: 220px;
+  }
+  .compose-row-control:is(select):focus { border-color: var(--gold); }
+  .compose-row-hint {
+    grid-column: 2 / -1;
+    color: var(--muted); font-size: 12.5px; margin: 0;
+  }
+  .compose-save-row {
+    display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 760px) {
+    .compose-row { grid-template-columns: 1fr; }
+    .compose-row-hint { grid-column: 1; }
+  }
+
+  /* ============================================================
+     CALENDAR panel — focus blocks + toggles
+     ============================================================ */
+  .focus-block-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .focus-block-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .focus-block-label { font-weight: 600; color: var(--navy); font-size: 13.5px; }
+  .focus-block-when  { color: var(--navy-soft); font-size: 12.5px; }
+  .focus-block-actions { margin-left: auto; opacity: 0; transition: opacity .12s; }
+  .focus-block-item:hover .focus-block-actions { opacity: 1; }
+  .focus-block-form {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr auto auto;
+    gap: 8px; align-items: end;
+  }
+  .focus-block-form input,
+  .focus-block-form select {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 10px; font-family: inherit; font-size: 13px;
+    background: var(--paper); color: var(--navy); outline: none;
+    box-sizing: border-box; width: 100%;
+  }
+  .focus-block-form input:focus,
+  .focus-block-form select:focus { border-color: var(--gold); }
+  .focus-block-days-mini { display: inline-flex; gap: 3px; }
+  .focus-block-days-mini span {
+    display: inline-grid; place-items: center;
+    width: 18px; height: 18px;
+    font-size: 9.5px; font-weight: 700;
+    border-radius: 50%;
+    background: var(--cream-dark);
+    color: var(--muted);
+  }
+  .focus-block-days-mini span.on { background: var(--gold); color: #fff; }
+  @media (max-width: 760px) {
+    .focus-block-form { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* Connected calendars list */
+  .conn-cal-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    transition: border-color .12s;
+  }
+  .conn-cal-row:hover { border-color: var(--gold); }
+  .conn-cal-row .ccr-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px; flex-shrink: 0;
+  }
+  .conn-cal-row .ccr-name {
+    font-weight: 600; color: var(--navy); font-size: 13.5px;
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .conn-cal-row .ccr-meta {
+    font-size: 11.5px; color: var(--muted);
+    margin-right: 8px; flex-shrink: 0;
+  }
+  .conn-cal-row .ccr-toggle {
+    position: relative; width: 36px; height: 20px; flex-shrink: 0;
+  }
+  .conn-cal-row .ccr-toggle input { opacity: 0; width: 0; height: 0; }
+  .conn-cal-row .ccr-slider {
+    position: absolute; inset: 0;
+    background: var(--line);
+    border-radius: 999px;
+    transition: background .15s;
+  }
+  .conn-cal-row .ccr-slider::after {
+    content: ""; position: absolute;
+    width: 16px; height: 16px;
+    left: 2px; top: 2px;
+    background: #fff; border-radius: 50%;
+    transition: left .15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,.2);
+  }
+  .conn-cal-row .ccr-toggle input:checked ~ .ccr-slider { background: var(--gold); }
+  .conn-cal-row .ccr-toggle input:checked ~ .ccr-slider::after { left: 18px; }
+
+  /* ============================================================
+     APPEARANCE panel
+     ============================================================ */
+  .appearance-chips {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .appearance-chip {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px;
+    background: var(--paper);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: space-between;
+    transition: border-color .15s, transform .15s;
+  }
+  .appearance-chip:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .appearance-chip.active { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(178,142,68,.15); }
+  .appearance-chip-label { font-weight: 600; color: var(--navy); font-size: 14px; }
+  .appearance-chip-preview {
+    width: 56px; height: 36px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .appearance-chip-preview .acp-header { height: 8px; background: var(--gold); }
+  .appearance-chip-preview .acp-body { flex: 1; }
+  .appearance-chip[data-theme="dark"] .appearance-chip-preview .acp-body { background: #14171c; }
+  .appearance-chip[data-theme="light"] .appearance-chip-preview .acp-body { background: #fff; }
+  .appearance-chip[data-theme="system"] .appearance-chip-preview .acp-body {
+    background: linear-gradient(90deg, #14171c 50%, #fff 50%);
+  }
+
+  .accent-swatches {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .accent-swatch {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px;
+    background: var(--paper);
+    cursor: pointer;
+    display: flex; flex-direction: column; gap: 6px; align-items: center;
+    transition: border-color .15s, transform .12s;
+  }
+  .accent-swatch:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .accent-swatch.active { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(178,142,68,.18); }
+  .accent-swatch-color { width: 30px; height: 30px; border-radius: 50%; }
+  .accent-swatch-label { font-size: 11.5px; color: var(--navy); font-weight: 600; }
+
+  .accent-swatch[data-accent="sunset"]   .accent-swatch-color { background: linear-gradient(135deg, #B28E44, #d4b06b); }
+  .accent-swatch[data-accent="glacier"]  .accent-swatch-color { background: linear-gradient(135deg, #2E91D1, #74b8e3); }
+  .accent-swatch[data-accent="forest"]   .accent-swatch-color { background: linear-gradient(135deg, #4F9D5A, #88c393); }
+  .accent-swatch[data-accent="amethyst"] .accent-swatch-color { background: linear-gradient(135deg, #9B5BC4, #c994de); }
+  .accent-swatch[data-accent="berry"]    .accent-swatch-color { background: linear-gradient(135deg, #D5396F, #ef7aa1); }
+
+  .density-pills, .font-pills { display: flex; gap: 6px; }
+  .density-pill, .font-pill {
+    padding: 8px 16px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--navy-soft);
+    border-radius: 999px;
+    font-size: 13px; font-family: inherit; font-weight: 600;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .density-pill:hover, .font-pill:hover { border-color: var(--gold); color: var(--navy); }
+  .density-pill.active, .font-pill.active {
+    background: var(--gold); color: #fff; border-color: var(--gold);
+  }
+
+  .appearance-preview {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px;
+    background: var(--paper);
+    display: flex; gap: 12px;
+  }
+  .appearance-preview .ap-avatar {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--gold); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .appearance-preview .ap-body { flex: 1; min-width: 0; }
+  .appearance-preview .ap-from { font-weight: 700; color: var(--navy); font-size: 13.5px; }
+  .appearance-preview .ap-subject { font-size: 13px; color: var(--navy); margin-top: 2px; }
+  .appearance-preview .ap-snippet { font-size: 12.5px; color: var(--navy-soft); margin-top: 4px; line-height: 1.45; }
+  .appearance-preview .ap-chip {
+    display: inline-block;
+    font-size: 10px; font-weight: 700;
+    background: var(--gold); color: #fff;
+    padding: 2px 8px; border-radius: 999px; margin-right: 6px;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  .appearance-save-row {
+    display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+    margin-top: 14px;
+  }
+
+  /* ============================================================
+     INTEGRATIONS panel
+     ============================================================ */
+  .integration-row {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    background: var(--cream);
+    border-radius: 10px;
+    margin-bottom: 8px;
+  }
+  .integration-row .ir-icon {
+    width: 32px; height: 32px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-size: 18px;
+    flex-shrink: 0;
+  }
+  .integration-row .ir-name { font-weight: 600; color: var(--navy); font-size: 14px; }
+  .integration-row .ir-desc { color: var(--muted); font-size: 12px; }
+  .integration-row .ir-status {
+    margin-left: auto;
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+    padding: 3px 9px; border-radius: 999px;
+  }
+  .integration-row .ir-status.active   { background: rgba(79,157,90,.18); color: var(--good); }
+  .integration-row .ir-status.inactive { background: var(--cream-dark);   color: var(--muted); }
+  .integration-row .ir-status.soon     { background: rgba(178,142,68,.18); color: var(--gold-dark); }
+
+  @media (max-width: 760px) {
+    .appearance-chips, .accent-swatches { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  /* ============================================================
+     KEYBOARD SHORTCUTS panel
+     ============================================================ */
+  .sc-search { margin-bottom: 16px; }
+  .sc-search input {
+    width: 100%; box-sizing: border-box;
+    border: 1px solid var(--line);
+    background: var(--cream);
+    border-radius: 999px;
+    padding: 9px 16px;
+    font-family: inherit; font-size: 13.5px;
+    color: var(--navy); outline: none;
+  }
+  .sc-search input:focus { border-color: var(--gold); background: var(--paper); }
+
+  .sc-group { margin-bottom: 22px; }
+  .sc-group-title {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .sc-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    transition: background .12s;
+  }
+  .sc-row:last-child { border-bottom: none; }
+  .sc-row.hidden-by-sc-search { display: none; }
+  .sc-action { flex: 1; color: var(--navy); font-size: 13.5px; }
+  .sc-keys { display: flex; gap: 4px; align-items: center; }
+  .sc-key {
+    display: inline-block;
+    padding: 2px 7px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    font-family: "SF Mono", monospace;
+    font-size: 11.5px;
+    color: var(--navy);
+    min-width: 20px; text-align: center;
+  }
+  .sc-row:hover { background: rgba(178,142,68,.04); }
+  .sc-row.sc-capturing { background: rgba(178,142,68,.12) !important; }
+
+  /* ============================================================
+     NOTIFICATIONS panel
+     ============================================================ */
+  .notif-perm {
+    display: flex; align-items: center; gap: 16px;
+    background: rgba(178,142,68,.06);
+    border-color: var(--gold);
+  }
+  .notif-perm-text { flex: 1; }
+  .notif-perm-text strong { color: var(--navy); font-size: 14px; display: block; }
+  .notif-perm-text p { margin: 4px 0 0; color: var(--navy-soft); font-size: 13px; }
+  .notif-perm.granted { background: rgba(79,157,90,.06); border-color: var(--good); }
+  .notif-perm.denied  { background: rgba(233,42,46,.05); border-color: var(--red); }
+
+  .notif-modes { display: flex; flex-direction: column; gap: 6px; }
+
+  .qh-toggle {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13.5px; color: var(--navy);
+    margin-bottom: 8px; cursor: pointer;
+  }
+  .qh-toggle input[type="checkbox"] { accent-color: var(--gold); }
+  .qh-row {
+    display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap;
+    margin-top: 10px;
+  }
+  .qh-row label { display: flex; flex-direction: column; gap: 4px; }
+  .qh-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); font-weight: 700;
+  }
+  .qh-row input[type="time"] {
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font-family: inherit; font-size: 13.5px;
+    background: var(--paper); color: var(--navy); outline: none;
+  }
+  .qh-row input[type="time"]:focus { border-color: var(--gold); }
+
+  .qh-days { display: flex; gap: 4px; }
+  .qh-day {
+    width: 32px; height: 32px;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--navy-soft);
+    border-radius: 50%;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; font-family: inherit;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .qh-day:hover { border-color: var(--gold); color: var(--navy); }
+  .qh-day.active { background: var(--gold); color: #fff; border-color: var(--gold); }
+
+  .budget-row { display: flex; align-items: center; gap: 12px; }
+  .budget-row input[type="number"] {
+    width: 90px;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font-family: inherit; font-size: 14px;
+    background: var(--paper); color: var(--navy); outline: none;
+  }
+  .budget-row input[type="number"]:focus { border-color: var(--gold); }
+  .budget-suffix { color: var(--navy-soft); font-size: 13px; }
+  .budget-suffix em { color: var(--muted); font-style: normal; }
+
+  .contacts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .contacts-h {
+    margin: 0 0 8px; font-size: 12px;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--muted); font-weight: 700;
+  }
+  .contact-add { display: flex; gap: 6px; margin-bottom: 10px; }
+  .contact-add input {
+    flex: 1;
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 12px; font-family: inherit; font-size: 13px;
+    background: var(--paper); color: var(--navy); outline: none;
+  }
+  .contact-add input:focus { border-color: var(--gold); }
+  .contacts-list { display: flex; flex-direction: column; gap: 4px; }
+  .contact-pill {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 10px;
+    background: var(--cream);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12.5px; color: var(--navy);
+  }
+  .contact-pill button {
+    background: transparent; border: none; cursor: pointer;
+    color: var(--muted); font-size: 14px; padding: 0; margin-left: 4px;
+  }
+  .contact-pill button:hover { color: var(--bad); }
+
+  .notif-save-bar {
+    display: flex; justify-content: flex-end; align-items: center; gap: 10px;
+    padding: 12px 0; margin-bottom: 6px;
+  }
+
+  @media (max-width: 760px) {
+    .contacts-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Delta-noticed footer block */
+  .nexa-noticed {
+    border: 1px dashed var(--line);
+    background: linear-gradient(135deg, rgba(178,142,68,.04), transparent 50%);
+  }
+  .nexa-noticed-head {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; font-weight: 700;
+    color: var(--navy);
+    margin-bottom: 8px;
+  }
+  .nexa-noticed-head .k-logo-sm {
+    width: 16px; height: 16px; padding: 2px;
+    background: transparent;
+    border-radius: 3px; object-fit: contain;
+  }
+  .nexa-noticed-body { color: var(--navy-soft); font-size: 13px; line-height: 1.55; margin: 0; }
+  .nexa-noticed-body em { color: var(--muted); font-style: normal; }
+
+  /* Saved prompts / snippet list */
+  .prompt-item {
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: var(--paper);
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .prompt-item-title { font-weight: 700; font-size: 13.5px; color: var(--navy); margin-bottom: 4px; }
+  .prompt-item-body {
+    font-size: 12.5px; color: var(--navy-soft); line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .prompt-item-meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .prompt-item-body-wrap { flex: 1; min-width: 0; }
+  .prompt-item-actions {
+    display: flex; gap: 4px; flex-shrink: 0;
+    opacity: 0; transition: opacity .12s;
+  }
+  .prompt-item:hover .prompt-item-actions { opacity: 1; }
+
+  /* ============================================================
+     MEMORY panel
+     ============================================================ */
+  .mem-section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: -2px 0 4px;
+  }
+  .mem-section-title {
+    margin: 0; font-size: 16px; font-weight: 600; color: var(--navy);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .mem-section-count {
+    background: var(--cream); color: var(--navy-soft);
+    border-radius: 999px; padding: 2px 8px;
+    font-size: 11px; font-weight: 600; min-width: 22px; text-align: center;
+  }
+  .mem-add-inline {
+    background: none; border: 0; cursor: pointer;
+    color: var(--gold-dark); font-weight: 600; font-size: 13px;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border-radius: 6px;
+    font-family: inherit;
+  }
+  .mem-add-inline:hover { background: rgba(178,142,68,.10); }
+  .mem-add-inline svg { width: 14px; height: 14px; fill: currentColor; }
+
+  .mem-flat-list { display: flex; flex-direction: column; gap: 2px; margin-top: 8px; }
+  .mem-flat-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 8px;
+    border-radius: 8px;
+    cursor: text;
+    transition: background .12s;
+  }
+  .mem-flat-item:hover { background: rgba(178,142,68,.05); }
+  .mem-flat-text {
+    flex: 1; min-width: 0;
+    color: var(--navy); font-size: 13.5px; line-height: 1.5;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .mem-flat-item.expanded .mem-flat-text { white-space: normal; }
+  .mem-flat-text[contenteditable="true"] {
+    background: var(--paper);
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    padding: 6px 10px;
+    outline: none;
+    white-space: normal;
+  }
+  .mem-flat-meta { color: var(--muted); font-size: 11.5px; flex-shrink: 0; align-self: center; }
+  .mem-flat-actions {
+    display: flex; gap: 2px;
+    opacity: 0; transition: opacity .12s;
+    flex-shrink: 0;
+  }
+  .mem-flat-item:hover .mem-flat-actions { opacity: 1; }
+  .mem-flat-actions button {
+    background: none; border: 0; cursor: pointer;
+    width: 26px; height: 26px; border-radius: 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+    color: var(--navy-soft);
+  }
+  .mem-flat-actions button:hover { background: rgba(178,142,68,.10); color: var(--navy); }
+  .mem-flat-actions button.del:hover { color: var(--red); background: rgba(233,42,46,.06); }
+  .mem-flat-actions svg { width: 14px; height: 14px; fill: currentColor; }
+
   .mem-add {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
-    gap: 8px;
-    margin-bottom: 14px;
+    gap: 8px; margin-bottom: 14px;
   }
-  .mem-add textarea {
-    grid-column: 1 / -1;
-  }
+  .mem-add textarea { grid-column: 1 / -1; }
   .mem-add input, .mem-add textarea, .mem-add select {
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    border: 1px solid var(--line); border-radius: 8px;
     padding: 9px 12px;
-    font-family: inherit;
-    font-size: 13.5px;
-    background: var(--paper);
-    color: var(--navy);
-    outline: none;
+    font-family: inherit; font-size: 13.5px;
+    background: var(--paper); color: var(--navy); outline: none;
   }
   .mem-add input:focus, .mem-add textarea:focus, .mem-add select:focus { border-color: var(--gold); }
   .mem-add textarea { resize: vertical; min-height: 60px; }
-  .mem-add-row { display: flex; justify-content: flex-end; }
+  .mem-add-row { display: flex; justify-content: flex-end; gap: 8px; }
 
-  .mem-group {
-    margin-bottom: 22px;
-  }
-  .mem-group-head {
-    display: flex;
-    align-items: baseline;
-    gap: 10px;
-    margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid var(--line);
-  }
-  .mem-group-name {
-    font-weight: 700;
-    color: var(--navy);
-    font-size: 14px;
-  }
-  .mem-group-email {
-    color: var(--muted);
-    font-size: 12px;
-  }
-  .mem-group-count {
-    color: var(--muted);
-    font-size: 12px;
-    margin-left: auto;
-  }
-
-  .mem-item {
-    display: flex;
-    gap: 10px;
-    padding: 10px 0;
-    border-bottom: 1px dashed var(--line);
-  }
-  .mem-item:last-child { border-bottom: none; }
-  .mem-category {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    padding: 2px 8px;
-    background: var(--cream-dark);
-    color: var(--navy-soft);
-    border-radius: 4px;
-    flex-shrink: 0;
-    height: fit-content;
-    margin-top: 2px;
-  }
-  .mem-fact {
-    flex: 1;
-    font-size: 14px;
-    color: var(--navy);
-    line-height: 1.5;
-    word-wrap: break-word;
-  }
-  .mem-fact[contenteditable="true"]:focus {
-    outline: none;
-    background: var(--cream);
-    border-radius: 4px;
-    padding: 2px 6px;
-    margin: -2px -6px;
-  }
-  .mem-source {
-    color: var(--muted);
-    font-size: 11px;
-    margin-top: 4px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .mem-source-pill {
-    display: inline-block;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .35px;
-    padding: 2px 8px;
-    border-radius: 999px;
-  }
-  .mem-source-pill.src-manual       { background: var(--cream);                 color: var(--navy-soft); }
-  .mem-source-pill.src-chat         { background: rgba(91, 124, 163, .15);      color: #3F5670; }
-  .mem-source-pill.src-auto-chat    { background: rgba(178, 142, 68, .15);      color: var(--gold-dark); }
-  .mem-source-pill.src-auto-nightly { background: rgba(178, 142, 68, .22);      color: var(--gold-dark); }
-  .mem-source-date { color: var(--muted); }
-  .mem-actions {
-    display: flex;
-    gap: 4px;
-    align-items: flex-start;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity .12s;
-  }
-  .mem-item:hover .mem-actions { opacity: 1; }
   .mem-act {
-    background: transparent;
-    border: 1px solid transparent;
+    background: transparent; border: 1px solid transparent;
     color: var(--muted);
     width: 28px; height: 28px;
     border-radius: 6px;
-    display: inline-grid;
-    place-items: center;
-    cursor: pointer;
-    font-size: 14px;
+    display: inline-grid; place-items: center;
+    cursor: pointer; font-size: 14px;
     transition: background .12s, color .12s;
     padding: 0;
   }
@@ -199,71 +852,20 @@
   }
   .empty-state strong { color: var(--navy); display: block; margin-bottom: 6px; font-size: 16px; }
 
-  /* User info card */
-  .user-info {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-  }
-  .user-info .avatar {
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    background: var(--gold);
-    color: white;
-    display: grid;
-    place-items: center;
-    font-size: 20px;
-    font-weight: 700;
-  }
-  .user-info .name {
-    font-weight: 700;
-    color: var(--navy);
-    font-size: 15px;
-  }
-  .user-info .email {
-    color: var(--muted);
-    font-size: 13px;
-  }
-  .user-info .role {
-    color: var(--gold-dark);
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    font-weight: 700;
-    margin-top: 2px;
-  }
-
-  /* Compose section */
-  .compose-section {
-    margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px solid var(--line);
-  }
-  .compose-section:first-child {
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
-  }
-  .compose-section-head {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-  }
+  /* ============================================================
+     COMPOSE panel — alias + signature (preserved from TI's old page)
+     ============================================================ */
+  .compose-section { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .compose-section:first-child { margin-top: 0; padding-top: 0; border-top: none; }
+  .compose-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .compose-h {
-    margin: 0;
-    font-size: 13px;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: .5px;
-    font-weight: 700;
+    margin: 0; font-size: 13px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; font-weight: 700;
   }
 
   .alias-list { display: flex; flex-direction: column; gap: 6px; }
   .alias-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+    display: flex; align-items: center; gap: 12px;
     padding: 10px 14px;
     background: var(--cream);
     border: 1px solid var(--line);
@@ -272,55 +874,29 @@
   .alias-row .alias-email { font-weight: 600; color: var(--navy); font-size: 13.5px; }
   .alias-row .alias-meta  { font-size: 11.5px; color: var(--muted); margin-left: auto; display: flex; gap: 6px; align-items: center; }
   .alias-row .alias-badge {
-    background: var(--gold);
-    color: white;
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 7px;
-    border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: .4px;
+    background: var(--gold); color: white;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .4px;
   }
   .alias-row .alias-sig-pill {
-    background: rgba(79, 157, 90, .14);
-    color: var(--good);
-    font-size: 10px;
-    font-weight: 700;
-    padding: 1px 7px;
-    border-radius: 999px;
-    text-transform: uppercase;
-    letter-spacing: .4px;
+    background: rgba(79, 157, 90, .14); color: var(--good);
+    font-size: 10px; font-weight: 700;
+    padding: 1px 7px; border-radius: 999px;
+    text-transform: uppercase; letter-spacing: .4px;
   }
 
-  .sig-status {
-    font-size: 12.5px;
-    color: var(--navy-soft);
-    margin-bottom: 10px;
-  }
+  .sig-status { font-size: 12.5px; color: var(--navy-soft); margin-bottom: 10px; }
   .sig-preview {
-    background: var(--cream);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 14px;
-    overflow: hidden;
+    background: var(--cream); border: 1px solid var(--line); border-radius: 8px;
+    padding: 10px; margin-bottom: 14px; overflow: hidden;
   }
-  #sigIframe {
-    width: 100%;
-    border: none;
-    background: white;
-    border-radius: 4px;
-    min-height: 80px;
-  }
+  #sigIframe { width: 100%; border: none; background: white; border-radius: 4px; min-height: 80px; }
 
   .sig-modes { display: flex; flex-direction: column; gap: 6px; }
   .sig-mode {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 8px;
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px;
     cursor: pointer;
     transition: border-color .12s, background .12s;
   }
@@ -333,194 +909,943 @@
     border-color: var(--gold);
     background: rgba(178, 142, 68, .08);
   }
+
+  /* ============================================================
+     Responsive
+     ============================================================ */
+  @media (max-width: 760px) {
+    .settings-layout { grid-template-columns: 1fr; }
+    .settings-sidebar { display: none; }
+    .overview-grid { grid-template-columns: 1fr; }
+    .settings-content { padding: 22px; }
+  }
 </style>
 </head>
 <body>
 
-<div class="settings-wrap">
-  <div class="settings-head">
-    <a href="/" class="back">← Back to inbox</a>
-  </div>
-  <h1>Settings</h1>
-  <p class="settings-sub">Manage your account and tell Delta what to remember.</p>
+<div class="settings-layout">
 
-  <!-- Account -->
-  <section class="card">
-    <h2>Account</h2>
-    <div class="user-info" id="userInfo">
-      <div class="avatar" id="userAvatar">·</div>
-      <div>
-        <div class="name" id="userName">Loading…</div>
-        <div class="email" id="userEmail"></div>
-        <div class="role" id="userRole"></div>
-      </div>
+  <!-- ============================================================
+       SIDEBAR
+       ============================================================ -->
+  <aside class="settings-sidebar">
+    <div class="sidebar-head">
+      <a href="/" class="back">← Back to inbox</a>
+      <h1>Settings</h1>
     </div>
-  </section>
 
-  <!-- Slack — Phase 5.BR. Two connect paths:
-       1. Install Delta bot to workspace (one-time, by an admin)
-       2. Per-user connect for DMs + workspace-wide search -->
-  <section class="card" id="slackCard">
-    <h2>
-      <svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px">
-        <path fill="#E01E5A" d="M5 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0v-5z"/>
-        <path fill="#36C5F0" d="M9 5a2 2 0 1 1 2 2H9V5zm0 1a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4h5z"/>
-        <path fill="#2EB67D" d="M19 9a2 2 0 1 1 2 2h-2V9zm-1 0a2 2 0 0 1-4 0V4a2 2 0 0 1 4 0v5z"/>
-        <path fill="#ECB22E" d="M15 19a2 2 0 1 1-2-2h2v2zm0-1a2 2 0 0 1 0-4h5a2 2 0 0 1 0 4h-5z"/>
-      </svg>
-      Slack
-    </h2>
-    <p class="card-sub" id="slackCardSub">
-      Let Delta search your Slack messages and read files shared there
-      (PDF, Word, Excel) the same way it reads your email.
-    </p>
-    <div id="slackStatus" style="display:flex;flex-direction:column;gap:14px">
-      <div class="slack-row" id="slackRowConfig" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(233,42,46,.08);border:1px solid rgba(233,42,46,.25);color:var(--red);font-size:13px">
-        Slack isn't configured on the server yet. The admin needs to add
-        <code>SLACK_CLIENT_ID</code> and <code>SLACK_CLIENT_SECRET</code> env vars.
+    <div class="sidebar-search">
+      <input id="settingsSearch" type="search" placeholder="Find a setting…" autocomplete="off">
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+
+      <div class="nav-section" data-section="You">
+        <div class="nav-section-label">You</div>
+        <a class="nav-item" href="#overview"      data-panel="overview"      data-keywords="overview home dashboard">Overview</a>
+        <a class="nav-item" href="#account"       data-panel="account"       data-keywords="account profile email role identity sign out logout">Account</a>
+        <a class="nav-item" href="#inbox"         data-panel="inbox"         data-keywords="inbox triage rules folders priority">Inbox</a>
+        <a class="nav-item" href="#notifications" data-panel="notifications" data-keywords="notifications push alerts email reminders">Notifications</a>
+        <a class="nav-item" href="#compose"       data-panel="compose"       data-keywords="compose signature alias send from sender draft reply">Compose</a>
+        <a class="nav-item" href="#calendar"      data-panel="calendar"      data-keywords="calendar meetings events schedule timezone">Calendar</a>
+        <a class="nav-item" href="#appearance"    data-panel="appearance"    data-keywords="appearance theme dark light font size colour color">Appearance</a>
       </div>
 
-      <div class="slack-row" id="slackRowWorkspace" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--cream)">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;color:var(--navy);font-size:14px" id="slackWorkspaceTitle">Workspace</div>
-          <div style="font-size:12.5px;color:var(--navy-soft)" id="slackWorkspaceMeta">Not installed yet</div>
+      <div class="nav-section" data-section="Delta AI">
+        <div class="nav-section-label"><img class="k-logo-sm" src="/delta-logo.png" alt=""> Delta AI</div>
+        <a class="nav-item" href="#memory"       data-panel="memory"       data-keywords="memory remember facts behavior prompts people knowledge delta learning">Memory</a>
+        <a class="nav-item" href="#integrations" data-panel="integrations" data-keywords="integrations mcp tools connectors slack google calendar notion linear asana hubspot">Integrations</a>
+      </div>
+
+      <div class="nav-section" data-section="Help">
+        <div class="nav-section-label">Help</div>
+        <a class="nav-item" href="#shortcuts" data-panel="shortcuts" data-keywords="shortcuts keyboard keybindings hotkeys cmd ctrl">Keyboard shortcuts</a>
+        <a class="nav-item" href="#support"   data-panel="support"   data-keywords="help support contact email about version">Support</a>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- ============================================================
+       CONTENT
+       ============================================================ -->
+  <main class="settings-content">
+    <div class="content-inner">
+
+      <!-- ===== OVERVIEW ===== -->
+      <section class="panel" id="panel-overview">
+        <div class="panel-head">
+          <h2>Settings</h2>
+          <p class="sub">Tune TI Mail to fit how you work. Each section below lives in the left sidebar — or use search to jump straight in.</p>
         </div>
-        <a id="slackInstallBtn" class="btn primary" href="/api/slack/install" hidden>Install Delta bot</a>
-        <span id="slackWorkspaceOk" hidden style="font-size:12px;color:#2ea043;font-weight:600">✓ Installed</span>
-      </div>
 
-      <div class="slack-row" id="slackRowUser" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper)">
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;color:var(--navy);font-size:14px">Your Slack account</div>
-          <div style="font-size:12.5px;color:var(--navy-soft)" id="slackUserMeta">Connect so Delta can read your DMs and search</div>
+        <div class="overview-grid">
+          <a class="overview-card" href="#compose">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg></div>
+            <div class="oc-title">Compose</div>
+            <div class="oc-desc">Manage your aliases and email signature. Imported from Gmail; refreshable here.</div>
+            <span class="oc-link">Open compose settings →</span>
+          </a>
+          <a class="overview-card" href="#memory">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-6h2v6zm0-8h-2V7h2v4z"/></svg></div>
+            <div class="oc-title">Delta's Memory</div>
+            <div class="oc-desc">Everything Delta knows about you and the people you correspond with — review, edit, delete.</div>
+            <span class="oc-link">Open memory →</span>
+          </a>
+          <a class="overview-card" href="#account">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+            <div class="oc-title">Account</div>
+            <div class="oc-desc">Profile info, sign-in email, and identity that Delta uses for tone matching.</div>
+            <span class="oc-link">Open account →</span>
+          </a>
+          <a class="overview-card" href="#inbox">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.11 0-2 .89-2 2v14c0 1.11.89 2 2 2h14c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 12h-4c0 1.66-1.35 3-3 3s-3-1.34-3-3H4.99V5H19v10z"/></svg></div>
+            <div class="oc-title">Inbox</div>
+            <div class="oc-desc">Important contacts, snooze defaults, classifier sensitivity, smart folders.</div>
+            <span class="oc-link">Open inbox settings →</span>
+          </a>
+          <a class="overview-card" href="#notifications">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg></div>
+            <div class="oc-title">Notifications</div>
+            <div class="oc-desc">Browser push, quiet hours, hourly budget, per-contact overrides.</div>
+            <span class="oc-link">Open notifications →</span>
+          </a>
+          <a class="overview-card" href="#calendar">
+            <div class="oc-icon"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg></div>
+            <div class="oc-title">Calendar</div>
+            <div class="oc-desc">Connected calendars, focus blocks, meeting buffer, default meeting link.</div>
+            <span class="oc-link">Open calendar →</span>
+          </a>
         </div>
-        <a id="slackConnectBtn" class="btn primary" href="/api/slack/connect" hidden>Connect Slack</a>
-        <button type="button" id="slackDisconnectBtn" class="btn" hidden>Disconnect</button>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- Compose: Aliases + Signatures -->
-  <section class="card">
-    <h2>Compose</h2>
-    <p class="card-sub">
-      Manage your sending aliases and signature. Both are imported from
-      Gmail — edit them in
-      <a href="https://mail.google.com/mail/u/0/#settings/general" target="_blank" rel="noopener">Gmail Settings → General</a>
-      and click <em>Refresh from Gmail</em> below.
-    </p>
-
-    <!-- Markdown shortcuts toggle (Phase 5.CH) -->
-    <div class="compose-section" style="display:flex;align-items:flex-start;gap:14px;justify-content:space-between;flex-wrap:wrap">
-      <div style="flex:1;min-width:260px">
-        <h3 class="compose-h" style="margin:0 0 4px">Markdown shortcuts</h3>
-        <p class="card-sub" style="margin:0">When sending, typing patterns become formatting: <code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>~~strike~~</code>, <code>[text](url)</code>, <code># heading</code>, lists with <code>-</code> or <code>1.</code>. Quoted replies left untouched. Off by default.</p>
-      </div>
-      <label style="display:inline-flex;align-items:center;gap:8px;font-size:13.5px;color:var(--navy)">
-        <input type="checkbox" id="markdownToggle" style="width:16px;height:16px;accent-color:var(--gold)">
-        Convert on send
-      </label>
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin:6px 0 14px">
-      <span id="markdownHint" class="snooze-save-hint" style="margin-right:10px;font-size:12px;color:var(--muted)"></span>
-      <button id="markdownSave" class="btn primary" type="button" disabled>Save</button>
-    </div>
-
-    <div class="compose-section">
-      <div class="compose-section-head">
-        <h3 class="compose-h">Aliases</h3>
-        <button id="composeRefreshBtn" class="btn" type="button">Refresh from Gmail</button>
-      </div>
-      <div id="aliasList" class="alias-list">
-        <div class="empty-state">Loading…</div>
-      </div>
-    </div>
-
-    <div class="compose-section">
-      <h3 class="compose-h">Signature</h3>
-      <div id="sigStatus" class="sig-status">Loading…</div>
-      <div id="sigPreview" class="sig-preview" hidden>
-        <iframe id="sigIframe" sandbox="allow-same-origin" title="Signature preview"></iframe>
-      </div>
-
-      <div class="sig-modes">
-        <label class="sig-mode">
-          <input type="radio" name="sigMode" value="always" id="sigModeAlways">
-          <div>
-            <strong>Include signature on all outgoing messages</strong>
-            <span>Default — every reply, every new email.</span>
+      <!-- ===== ACCOUNT ===== -->
+      <section class="panel" id="panel-account">
+        <div class="panel-head">
+          <h2>Account</h2>
+          <p class="sub">Your sign-in identity. To change email or password, manage it in your Google account.</p>
+        </div>
+        <div class="card">
+          <div class="user-info" id="userInfo">
+            <div class="avatar" id="userAvatar">·</div>
+            <div>
+              <div class="name" id="userName">Loading…</div>
+              <div class="email" id="userEmail"></div>
+              <div class="role" id="userRole"></div>
+            </div>
           </div>
-        </label>
-        <label class="sig-mode">
-          <input type="radio" name="sigMode" value="first" id="sigModeFirst">
+        </div>
+        <div class="card">
+          <h3>Sign out</h3>
+          <p class="card-sub">Ends this session. Your data stays on the server — sign back in any time.</p>
+          <a class="btn" href="/auth/logout">Sign out of TI Mail</a>
+        </div>
+      </section>
+
+      <!-- ===== COMPOSE ===== -->
+      <section class="panel" id="panel-compose">
+        <div class="panel-head">
+          <h2>Compose</h2>
+          <p class="sub">How you send mail. Aliases + signature from Gmail, plus undo-send delay, markdown shortcuts, and snippets.</p>
+        </div>
+
+        <!-- Privacy stance -->
+        <div class="card privacy-stance">
+          <div class="privacy-stance-icon">🔒</div>
           <div>
-            <strong>Include signature on the first message of new threads only</strong>
-            <span>Keeps replies inside a thread clean — signature only on the opening message.</span>
+            <strong>Recipient privacy is a feature, not a setting.</strong>
+            <p>TI Mail does <em>not</em> track when recipients open your emails or click your links. Other apps make this a toggle you have to turn off — we just don't build it.</p>
           </div>
-        </label>
-        <label class="sig-mode">
-          <input type="radio" name="sigMode" value="never" id="sigModeNever">
-          <div>
-            <strong>Do not include signature on outgoing messages</strong>
-            <span>Delta will sign with your first name only.</span>
+        </div>
+
+        <!-- Sending -->
+        <div class="card">
+          <h3>Sending</h3>
+          <div class="compose-row">
+            <label class="compose-row-label">Undo send delay</label>
+            <select id="undoSendSelect" class="compose-row-control">
+              <option value="0">Off (send immediately)</option>
+              <option value="5">5 seconds</option>
+              <option value="10">10 seconds</option>
+              <option value="20">20 seconds</option>
+              <option value="30">30 seconds</option>
+            </select>
+            <p class="compose-row-hint">Window where you can hit Undo after sending. Longer = safer; shorter = snappier.</p>
           </div>
-        </label>
-      </div>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Markdown shortcuts</label>
+            <label class="qh-toggle compose-row-control">
+              <input type="checkbox" id="markdownToggle">
+              <span class="qh-toggle-slider"></span>
+              <span class="qh-toggle-label">Convert on send</span>
+            </label>
+            <p class="compose-row-hint">When sending, type-shortcuts become formatting: <code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, <code>~~strike~~</code>, <code>[text](url)</code>, <code># heading</code>, lists with <code>-</code> or <code>1.</code>. Off by default. Quoted replies are left untouched.</p>
+          </div>
+
+          <div class="compose-save-row">
+            <span class="snooze-save-hint" id="composeHint"></span>
+            <button id="composeSave" class="btn primary" type="button" disabled>Save</button>
+          </div>
+        </div>
+
+        <!-- Aliases + Signature (preserved) -->
+        <div class="card">
+          <h3>Aliases &amp; Signature</h3>
+          <p class="card-sub">Imported from Gmail — edit them in <a href="https://mail.google.com/mail/u/0/#settings/general" target="_blank" rel="noopener">Gmail Settings → General</a> and click <em>Refresh from Gmail</em> below.</p>
+
+          <div class="compose-section">
+            <div class="compose-section-head">
+              <h4 class="compose-h">Aliases</h4>
+              <button id="composeRefreshBtn" class="btn" type="button">Refresh from Gmail</button>
+            </div>
+            <div id="aliasList" class="alias-list">
+              <div class="empty-state">Loading…</div>
+            </div>
+          </div>
+
+          <div class="compose-section">
+            <h4 class="compose-h">Signature</h4>
+            <div id="sigStatus" class="sig-status">Loading…</div>
+            <div id="sigPreview" class="sig-preview" hidden>
+              <iframe id="sigIframe" sandbox="allow-same-origin" title="Signature preview"></iframe>
+            </div>
+
+            <div class="sig-modes">
+              <label class="sig-mode">
+                <input type="radio" name="sigMode" value="always" id="sigModeAlways">
+                <div>
+                  <strong>Include signature on all outgoing messages</strong>
+                  <span>Default — every reply, every new email.</span>
+                </div>
+              </label>
+              <label class="sig-mode">
+                <input type="radio" name="sigMode" value="first" id="sigModeFirst">
+                <div>
+                  <strong>Include signature on the first message of new threads only</strong>
+                  <span>Keeps replies inside a thread clean — signature only on the opening message.</span>
+                </div>
+              </label>
+              <label class="sig-mode">
+                <input type="radio" name="sigMode" value="never" id="sigModeNever">
+                <div>
+                  <strong>Do not include signature on outgoing messages</strong>
+                  <span>Delta will sign with your first name only.</span>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Snippets -->
+        <div class="card">
+          <h3>Snippets</h3>
+          <p class="card-sub">Text-expansion templates. Pick one from the 📋 Snippets button in the draft composer to insert it at your cursor. Useful for phrases you write often: <em>"Polite decline"</em>, <em>"Let me check with my team"</em>, etc.</p>
+
+          <form id="snipAdd" class="mem-add" style="grid-template-columns: 1fr 1fr 1fr;">
+            <input id="snipTitle" type="text" placeholder="Title (e.g. Polite decline)" maxlength="80" required>
+            <textarea id="snipBody" placeholder="The text to insert. Plain text fine — line breaks preserved." required></textarea>
+            <div class="mem-add-row" style="grid-column: 1 / -1">
+              <button type="submit" class="btn primary">Add snippet</button>
+            </div>
+          </form>
+
+          <div id="snipList" style="margin-top:12px">
+            <div class="empty-state">Loading…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== MEMORY ===== -->
+      <section class="panel" id="panel-memory">
+        <div class="panel-head">
+          <h2><img class="k-logo" src="/delta-logo.png" alt="Delta"> Delta's Memory</h2>
+          <p class="sub">Customize Delta for your work. Memories shape how Delta drafts, decides, and routes mail. Saved prompts are re-runnable workflows. Both apply to text and voice chat.</p>
+        </div>
+
+        <!-- ===== Saved prompts ===== -->
+        <div class="card">
+          <div class="mem-section-head">
+            <h3 class="mem-section-title">Saved prompts <span class="mem-section-count" id="memCountPrompts">0</span></h3>
+            <button class="mem-add-inline" id="promptAddBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Add
+            </button>
+          </div>
+          <p class="card-sub">Re-runnable Delta requests. Type <code>↑</code> in the Delta chat to pick from your prompts.</p>
+
+          <form id="promptAdd" class="mem-add" hidden>
+            <input id="promptTitle" type="text" placeholder="Title (e.g. 'Friday inbox wrap')" required>
+            <textarea id="promptBody" placeholder="The prompt itself. (e.g. 'Summarize unanswered emails from this week, group by sender, and draft polite replies.')" required></textarea>
+            <div class="mem-add-row">
+              <button type="button" class="btn" id="promptAddCancel">Cancel</button>
+              <button type="submit" class="btn primary">Save prompt</button>
+            </div>
+          </form>
+
+          <div id="promptList" class="mem-flat-list">
+            <div class="empty-state">Loading prompts…</div>
+          </div>
+        </div>
+
+        <!-- ===== Memory ===== -->
+        <div class="card">
+          <div class="mem-section-head">
+            <h3 class="mem-section-title">Memory <span class="mem-section-count" id="memCountAll">0</span></h3>
+            <button class="mem-add-inline" id="memAddBtn" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Add
+            </button>
+          </div>
+          <p class="card-sub">Anything you want Delta to recall — facts about people, your preferences, or behavior rules like <em>"When emailing Sam, address as Sam jan"</em>. Write naturally — Delta stores the whole sentence. Also: just say <em>"Delta, remember…"</em> in chat or voice.</p>
+
+          <form id="memAdd" class="mem-add" hidden>
+            <textarea id="memFact" rows="3" placeholder="What should Delta remember? (e.g. 'When drafting fund-request emails to Lana, always include the IRS compliance line.' / 'Allergic to peanuts.' / 'Birthday March 4.')" required></textarea>
+            <div class="mem-add-row">
+              <button type="button" class="btn" id="memAddCancel">Cancel</button>
+              <button type="submit" class="btn primary">Save memory</button>
+            </div>
+          </form>
+
+          <div id="memListAll" class="mem-flat-list">
+            <div class="empty-state">Loading memories…</div>
+          </div>
+        </div>
+
+        <!-- Live memory snapshot -->
+        <div class="card nexa-noticed" id="memoryInsightCard">
+          <div class="nexa-noticed-head">
+            <img src="/delta-logo.png" class="k-logo-sm" alt="Delta">
+            <span>What Delta knows about you so far</span>
+          </div>
+          <p class="nexa-noticed-body" id="memoryInsightBody">Loading…</p>
+        </div>
+
+      </section>
+
+      <!-- ===== INBOX ===== -->
+      <section class="panel" id="panel-inbox">
+        <div class="panel-head">
+          <h2>Inbox</h2>
+          <p class="sub">Tune how Delta surfaces and triages your mail. Important contacts get pinned in the left rail; snooze defaults power the snooze + schedule-send shortcuts.</p>
+        </div>
+
+        <!-- Important contacts -->
+        <div class="card">
+          <h3>Important contacts</h3>
+          <p class="card-sub">People you want to never miss. Their threads get pinned to the left rail and the classifier biases toward URGENT / REPLY_NEEDED when they email you.</p>
+
+          <form id="impAdd" class="mem-add" style="grid-template-columns: 1fr 1fr auto;">
+            <input id="impName" type="text" placeholder="Name (e.g. Sam Reyes)" required>
+            <input id="impEmail" type="text" placeholder="Email (e.g. sam@example.com)" required>
+            <button type="submit" class="btn primary">Add</button>
+          </form>
+
+          <div id="impList" style="margin-top:12px">
+            <div class="empty-state">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Snooze defaults -->
+        <div class="card">
+          <h3>Snooze &amp; Schedule-send defaults</h3>
+          <p class="card-sub">Five time-of-day shortcuts Delta uses when you snooze a thread or schedule a send. Use 24-hour format. <em>"Later"</em> accepts <code>+3h</code> style relatives.</p>
+          <div class="snooze-grid">
+            <label class="snooze-cell">
+              <span class="snooze-label">Morning</span>
+              <input id="snzMorning" type="text" maxlength="16" placeholder="08:00">
+            </label>
+            <label class="snooze-cell">
+              <span class="snooze-label">Afternoon</span>
+              <input id="snzAfternoon" type="text" maxlength="16" placeholder="13:00">
+            </label>
+            <label class="snooze-cell">
+              <span class="snooze-label">Evening</span>
+              <input id="snzEvening" type="text" maxlength="16" placeholder="18:00">
+            </label>
+            <label class="snooze-cell">
+              <span class="snooze-label">Later</span>
+              <input id="snzLater" type="text" maxlength="16" placeholder="+3h">
+            </label>
+            <label class="snooze-cell">
+              <span class="snooze-label">Next week</span>
+              <input id="snzNextWeek" type="text" maxlength="16" placeholder="MON 08:00">
+            </label>
+          </div>
+          <div class="snooze-save-row">
+            <span class="snooze-save-hint" id="snzHint"></span>
+            <button id="snzSave" class="btn primary" type="button" disabled>Save defaults</button>
+          </div>
+        </div>
+
+        <!-- Classifier sensitivity -->
+        <div class="card">
+          <h3>Classifier sensitivity</h3>
+          <p class="card-sub">Bias how aggressive Delta is about marking mail URGENT / REPLY_NEEDED. New classifications use the new setting; past tags don't change.</p>
+          <div class="sens-stub">
+            <span>Quiet</span>
+            <input id="sensitivitySlider" type="range" min="1" max="5" value="3" step="1">
+            <span>Sensitive</span>
+          </div>
+          <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0" id="sensitivityHint">Balanced (3/5).</p>
+        </div>
+
+        <!-- Smart folders -->
+        <div class="card">
+          <h3>Smart folders</h3>
+          <p class="card-sub">Saved Gmail searches pinned to your left rail for one-click access. Examples: <code>from:billing@</code>, <code>subject:invoice newer_than:30d</code>, <code>is:unread label:Important</code>.</p>
+
+          <form id="sfAdd" class="mem-add" style="grid-template-columns: 1fr 1.5fr auto;">
+            <input id="sfLabel" type="text" placeholder="Folder name (e.g. Billing)" maxlength="80" required>
+            <input id="sfQuery" type="text" placeholder="Gmail search query" maxlength="256" required>
+            <button type="submit" class="btn primary">Add</button>
+          </form>
+
+          <div id="sfList" style="margin-top:12px">
+            <div class="empty-state">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Live inbox snapshot -->
+        <div class="card nexa-noticed" id="inboxInsightCard">
+          <div class="nexa-noticed-head">
+            <img src="/delta-logo.png" class="k-logo-sm" alt="Delta">
+            <span>Your inbox right now</span>
+          </div>
+          <p class="nexa-noticed-body" id="inboxInsightBody">Loading…</p>
+        </div>
+
+      </section>
+
+      <!-- ===== NOTIFICATIONS ===== -->
+      <section class="panel" id="panel-notifications">
+        <div class="panel-head">
+          <h2>Notifications</h2>
+          <p class="sub">Let Delta decide when to interrupt — or set your own rules.</p>
+        </div>
+
+        <!-- Permission banner -->
+        <div class="card notif-perm" id="notifPermCard" hidden>
+          <div class="notif-perm-text">
+            <strong id="notifPermTitle">Browser notifications are off</strong>
+            <p id="notifPermBody">Grant permission to receive desktop pings when something urgent arrives.</p>
+          </div>
+          <button id="notifPermBtn" class="btn primary" type="button">Enable notifications</button>
+        </div>
+
+        <!-- Mode -->
+        <div class="card">
+          <h3>How to decide</h3>
+          <div class="notif-modes">
+            <label class="sig-mode">
+              <input type="radio" name="notifMode" value="smart" id="notifModeSmart">
+              <div>
+                <strong>Let Delta decide <span class="soon-pill" style="background:rgba(178,142,68,.15);color:var(--gold-dark)">Recommended</span></strong>
+                <span>URGENT items + people you reply fast to. Most users want this.</span>
+              </div>
+            </label>
+            <label class="sig-mode">
+              <input type="radio" name="notifMode" value="custom" id="notifModeCustom">
+              <div>
+                <strong>Custom — everything except newsletters / receipts / auto-mail</strong>
+                <span>Catches more, ignores the obvious noise.</span>
+              </div>
+            </label>
+            <label class="sig-mode">
+              <input type="radio" name="notifMode" value="off" id="notifModeOff">
+              <div>
+                <strong>Off — never notify</strong>
+                <span>Delta stays quiet. You'll see everything when you open the inbox.</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quiet hours -->
+        <div class="card">
+          <h3>Quiet hours</h3>
+          <p class="card-sub">Stay silent outside the times you want to be reachable. Delta will batch what you missed into a summary at the next "loud" moment.</p>
+          <label class="qh-toggle">
+            <input type="checkbox" id="qhEnabled">
+            <span>Enable quiet hours</span>
+          </label>
+          <div class="qh-row">
+            <label>
+              <span class="qh-label">From</span>
+              <input id="qhStart" type="time" value="18:00">
+            </label>
+            <label>
+              <span class="qh-label">To</span>
+              <input id="qhEnd" type="time" value="09:00">
+            </label>
+            <div class="qh-days" id="qhDays">
+              <button type="button" class="qh-day" data-day="0">S</button>
+              <button type="button" class="qh-day active" data-day="1">M</button>
+              <button type="button" class="qh-day active" data-day="2">T</button>
+              <button type="button" class="qh-day active" data-day="3">W</button>
+              <button type="button" class="qh-day active" data-day="4">T</button>
+              <button type="button" class="qh-day active" data-day="5">F</button>
+              <button type="button" class="qh-day" data-day="6">S</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Interruption budget -->
+        <div class="card">
+          <h3>Interruption budget</h3>
+          <p class="card-sub">Cap how many notifications fire per hour. Above the cap, Delta batches the rest into a single summary.</p>
+          <div class="budget-row">
+            <input id="budgetInput" type="number" min="0" max="60" step="1" value="3">
+            <span class="budget-suffix">notifications max per hour. <em>0 = unlimited.</em></span>
+          </div>
+        </div>
+
+        <!-- Per-contact overrides -->
+        <div class="card">
+          <h3>Per-contact overrides</h3>
+          <p class="card-sub">Always notify for some, never notify for others. Wins over the rules above.</p>
+          <div class="contacts-grid">
+            <div>
+              <h4 class="contacts-h">Always notify</h4>
+              <form id="alwaysAdd" class="contact-add">
+                <input id="alwaysEmail" type="email" placeholder="email@example.com">
+                <button type="submit" class="btn">Add</button>
+              </form>
+              <div class="contacts-list" id="alwaysList"></div>
+            </div>
+            <div>
+              <h4 class="contacts-h">Never notify</h4>
+              <form id="neverAdd" class="contact-add">
+                <input id="neverEmail" type="email" placeholder="email@example.com">
+                <button type="submit" class="btn">Add</button>
+              </form>
+              <div class="contacts-list" id="neverList"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sound + preview -->
+        <div class="card">
+          <h3>Sound &amp; preview</h3>
+          <label class="qh-toggle">
+            <input type="checkbox" id="notifSound" checked>
+            <span>Soft chime when a notification fires</span>
+          </label>
+          <label class="qh-toggle">
+            <input type="checkbox" id="notifPreview" checked>
+            <span>Show a preview of the message in the notification body</span>
+          </label>
+        </div>
+
+        <!-- Save bar -->
+        <div class="notif-save-bar">
+          <span class="snooze-save-hint" id="notifHint"></span>
+          <button id="notifSave" class="btn primary" type="button" disabled>Save notification settings</button>
+        </div>
+
+        <!-- Dry-run footer -->
+        <div class="card nexa-noticed" id="notifDryRunCard">
+          <div class="nexa-noticed-head">
+            📊  Dry-run preview
+          </div>
+          <p class="nexa-noticed-body" id="notifDryRunBody">
+            Loading the last 7 days of your inbox to estimate what these settings would mean…
+          </p>
+        </div>
+      </section>
+
+      <!-- ===== APPEARANCE ===== -->
+      <section class="panel" id="panel-appearance">
+        <div class="panel-head">
+          <h2>Appearance</h2>
+          <p class="sub">Theme, accent, density, and font size. Synced across every device you sign in from.</p>
+        </div>
+
+        <div class="card">
+          <h3>Theme</h3>
+          <div class="appearance-chips" id="themeChips">
+            <div class="appearance-chip" data-theme="system">
+              <span class="appearance-chip-label">System</span>
+              <div class="appearance-chip-preview"><div class="acp-header"></div><div class="acp-body"></div></div>
+            </div>
+            <div class="appearance-chip" data-theme="light">
+              <span class="appearance-chip-label">Light</span>
+              <div class="appearance-chip-preview"><div class="acp-header"></div><div class="acp-body"></div></div>
+            </div>
+            <div class="appearance-chip" data-theme="dark">
+              <span class="appearance-chip-label">Dark</span>
+              <div class="appearance-chip-preview"><div class="acp-header"></div><div class="acp-body"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Accent color</h3>
+          <p class="card-sub">5 curated palettes. (We deliberately don't ship 8 — fewer choices, all carefully picked.)</p>
+          <div class="accent-swatches" id="accentSwatches">
+            <div class="accent-swatch" data-accent="sunset">
+              <div class="accent-swatch-color"></div>
+              <span class="accent-swatch-label">Sunset</span>
+            </div>
+            <div class="accent-swatch" data-accent="glacier">
+              <div class="accent-swatch-color"></div>
+              <span class="accent-swatch-label">Glacier</span>
+            </div>
+            <div class="accent-swatch" data-accent="forest">
+              <div class="accent-swatch-color"></div>
+              <span class="accent-swatch-label">Forest</span>
+            </div>
+            <div class="accent-swatch" data-accent="amethyst">
+              <div class="accent-swatch-color"></div>
+              <span class="accent-swatch-label">Amethyst</span>
+            </div>
+            <div class="accent-swatch" data-accent="berry">
+              <div class="accent-swatch-color"></div>
+              <span class="accent-swatch-label">Berry</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Density</h3>
+          <div class="density-pills" id="densityPills">
+            <button type="button" class="density-pill" data-density="comfortable">Comfortable</button>
+            <button type="button" class="density-pill" data-density="compact">Compact</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Body font size</h3>
+          <div class="font-pills" id="fontPills">
+            <button type="button" class="font-pill" data-font="small">Small</button>
+            <button type="button" class="font-pill" data-font="default">Default</button>
+            <button type="button" class="font-pill" data-font="large">Large</button>
+            <button type="button" class="font-pill" data-font="xl">XL</button>
+          </div>
+        </div>
+
+        <!-- Live preview -->
+        <div class="card">
+          <h3>Live preview</h3>
+          <div class="appearance-preview">
+            <div class="ap-avatar">R</div>
+            <div class="ap-body">
+              <div class="ap-from">Robin Carter</div>
+              <div class="ap-subject"><span class="ap-chip">URGENT</span>Re: Q3 reporting — need your sign-off</div>
+              <div class="ap-snippet">Hey — can you take 5 min to look at the breakdown before Friday? I'd rather we catch any inconsistencies before sending to the board…</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Adaptive accent -->
+        <div class="card">
+          <h3>Adaptive accent</h3>
+          <p class="card-sub">Subtly shift the accent through your day — warmer in the morning, cooler at night. Browser only (synced via this toggle), respects whatever Theme you picked above.</p>
+          <label class="qh-toggle">
+            <input type="checkbox" id="adaptiveAccentToggle">
+            <span>Shift accent through the day: Sunset (06–11) → your choice (11–18) → Glacier (18–06).</span>
+          </label>
+        </div>
+
+        <div class="appearance-save-row">
+          <span class="snooze-save-hint" id="appearanceHint"></span>
+          <button id="appearanceSave" class="btn primary" type="button" disabled>Save appearance</button>
+        </div>
+      </section>
+
+      <!-- ===== CALENDAR ===== -->
+      <section class="panel" id="panel-calendar">
+        <div class="panel-head">
+          <h2>Calendar</h2>
+          <p class="sub">Focus blocks Delta won't schedule over, meeting buffers, prep + auto-mute behaviour.</p>
+        </div>
+
+        <!-- Focus blocks -->
+        <div class="card">
+          <h3>Focus time</h3>
+          <p class="card-sub">When Delta proposes meeting times in drafts, it skips over these blocks automatically.</p>
+
+          <div class="focus-block-list" id="focusBlockList">
+            <div class="empty-state">Loading…</div>
+          </div>
+
+          <form id="focusBlockAdd" class="focus-block-form">
+            <input id="fbLabel" type="text" placeholder="Label (e.g. Deep work)" maxlength="80" required>
+            <input id="fbStart" type="time" value="09:00" required>
+            <input id="fbEnd"   type="time" value="11:00" required>
+            <div class="qh-days" id="fbDays">
+              <button type="button" class="qh-day" data-day="0">S</button>
+              <button type="button" class="qh-day active" data-day="1">M</button>
+              <button type="button" class="qh-day active" data-day="2">T</button>
+              <button type="button" class="qh-day active" data-day="3">W</button>
+              <button type="button" class="qh-day active" data-day="4">T</button>
+              <button type="button" class="qh-day active" data-day="5">F</button>
+              <button type="button" class="qh-day" data-day="6">S</button>
+            </div>
+            <button type="submit" class="btn primary">Add block</button>
+          </form>
+        </div>
+
+        <!-- Meeting buffer -->
+        <div class="card">
+          <h3>Meeting buffer</h3>
+          <div class="budget-row">
+            <input id="meetingBufferInput" type="number" min="0" max="120" step="5" value="10">
+            <span class="budget-suffix">minutes between back-to-back meetings.</span>
+          </div>
+        </div>
+
+        <!-- Meeting prep -->
+        <div class="card">
+          <h3>Meeting prep</h3>
+          <p class="card-sub">A few minutes before each meeting, Delta fires a browser notification with who's attending and your recent threads with them. Clicking opens the join link if there is one.</p>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Heads-up before meetings</label>
+            <label class="qh-toggle compose-row-control">
+              <input type="checkbox" id="meetingPrepToggle">
+              <span class="qh-toggle-slider"></span>
+              <span class="qh-toggle-label">On</span>
+            </label>
+            <p class="compose-row-hint">Requires browser notifications to be allowed. Only fires while a TI Mail tab is open.</p>
+          </div>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Lead time</label>
+            <select id="meetingPrepMinutesSelect" class="compose-row-control">
+              <option value="5">5 minutes</option>
+              <option value="10">10 minutes</option>
+              <option value="15" selected>15 minutes</option>
+              <option value="30">30 minutes</option>
+            </select>
+            <p class="compose-row-hint">How early before each meeting Delta nudges you.</p>
+          </div>
+        </div>
+
+        <div class="appearance-save-row">
+          <span class="snooze-save-hint" id="calendarHint"></span>
+          <button id="calendarSave" class="btn primary" type="button" disabled>Save calendar settings</button>
+        </div>
+
+        <!-- Connected calendars -->
+        <div class="card">
+          <h3>Connected calendars</h3>
+          <p class="card-sub">Imported from your Google account. Toggle which ones Delta should watch when proposing meetings, checking conflicts, and showing the Calendar pane.</p>
+          <div id="connectedCalList">
+            <div class="empty-state">Loading calendars…</div>
+          </div>
+        </div>
+
+        <!-- Default meeting link -->
+        <div class="card">
+          <h3>Default meeting link</h3>
+          <p class="card-sub">When you ask Delta to create a meeting, it'll attach this link to the event. Also auto-fills into the Calendar event form when you create one by hand.</p>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Provider</label>
+            <select id="defaultMeetingProvider" class="compose-row-control">
+              <option value="zoom">Zoom</option>
+              <option value="meet">Google Meet</option>
+              <option value="teams">Microsoft Teams</option>
+              <option value="whereby">Whereby</option>
+              <option value="none">None (don't auto-attach)</option>
+            </select>
+            <p class="compose-row-hint">Just for display — Delta attaches whatever URL you paste below regardless of provider.</p>
+          </div>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Personal room URL</label>
+            <input id="defaultMeetingLink" class="compose-row-control" type="url" placeholder="https://us02web.zoom.us/j/6828560286" style="min-width: 360px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; font-family: inherit; font-size: 13.5px; background: var(--paper); color: var(--navy);">
+            <p class="compose-row-hint">Use your <em>permanent</em> meeting room link so every event Delta creates can be joined from the same URL. <a href="https://support.zoom.com/hc/en/article?id=zm_kb&sysparm_article=KB0066627" target="_blank" rel="noopener">How to find your permanent Zoom link →</a></p>
+          </div>
+
+          <div class="compose-save-row">
+            <span class="snooze-save-hint" id="meetingLinkHint"></span>
+            <button id="meetingLinkSave" class="btn primary" type="button" disabled>Save link</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== INTEGRATIONS — includes Slack ===== -->
+      <section class="panel" id="panel-integrations">
+        <div class="panel-head">
+          <h2>Integrations</h2>
+          <p class="sub">Tools Delta can use during a chat.</p>
+        </div>
+
+        <!-- Slack — preserved from TI's existing settings page, ported into the new Integrations panel -->
+        <div class="card" id="slackCard">
+          <h3 style="display:flex;align-items:center;gap:8px">
+            <svg viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px">
+              <path fill="#E01E5A" d="M5 15a2 2 0 1 1-2-2h2v2zm1 0a2 2 0 0 1 4 0v5a2 2 0 0 1-4 0v-5z"/>
+              <path fill="#36C5F0" d="M9 5a2 2 0 1 1 2 2H9V5zm0 1a2 2 0 0 1 0 4H4a2 2 0 0 1 0-4h5z"/>
+              <path fill="#2EB67D" d="M19 9a2 2 0 1 1 2 2h-2V9zm-1 0a2 2 0 0 1-4 0V4a2 2 0 0 1 4 0v5z"/>
+              <path fill="#ECB22E" d="M15 19a2 2 0 1 1-2-2h2v2zm0-1a2 2 0 0 1 0-4h5a2 2 0 0 1 0 4h-5z"/>
+            </svg>
+            Slack
+          </h3>
+          <p class="card-sub" id="slackCardSub">
+            Let Delta search your Slack messages and read files shared there
+            (PDF, Word, Excel) the same way it reads your email.
+          </p>
+          <div id="slackStatus" style="display:flex;flex-direction:column;gap:14px">
+            <div class="slack-row" id="slackRowConfig" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(233,42,46,.08);border:1px solid rgba(233,42,46,.25);color:var(--red);font-size:13px">
+              Slack isn't configured on the server yet. The admin needs to add
+              <code>SLACK_CLIENT_ID</code> and <code>SLACK_CLIENT_SECRET</code> env vars.
+            </div>
+
+            <div class="slack-row" id="slackRowWorkspace" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--cream)">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;color:var(--navy);font-size:14px" id="slackWorkspaceTitle">Workspace</div>
+                <div style="font-size:12.5px;color:var(--navy-soft)" id="slackWorkspaceMeta">Not installed yet</div>
+              </div>
+              <a id="slackInstallBtn" class="btn primary" href="/api/slack/install" hidden>Install Delta bot</a>
+              <span id="slackWorkspaceOk" hidden style="font-size:12px;color:#2ea043;font-weight:600">✓ Installed</span>
+            </div>
+
+            <div class="slack-row" id="slackRowUser" style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:8px;background:var(--paper)">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;color:var(--navy);font-size:14px">Your Slack account</div>
+                <div style="font-size:12.5px;color:var(--navy-soft)" id="slackUserMeta">Connect so Delta can read your DMs and search</div>
+              </div>
+              <a id="slackConnectBtn" class="btn primary" href="/api/slack/connect" hidden>Connect Slack</a>
+              <button type="button" id="slackDisconnectBtn" class="btn" hidden>Disconnect</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Active</h3>
+          <div class="integration-row">
+            <div class="ir-icon">📅</div>
+            <div>
+              <div class="ir-name">Google Calendar</div>
+              <div class="ir-desc">Read your calendar, propose meeting times, respect focus blocks, create events with your default meeting link.</div>
+            </div>
+            <span class="ir-status active">Active</span>
+          </div>
+          <div class="integration-row">
+            <div class="ir-icon">🌐</div>
+            <div>
+              <div class="ir-name">Web browser</div>
+              <div class="ir-desc">Delta can fetch a public URL and read its content while answering. Ask <em>"summarize this article: https://…"</em> in chat.</div>
+            </div>
+            <span class="ir-status active">Active</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== KEYBOARD SHORTCUTS ===== -->
+      <section class="panel" id="panel-shortcuts">
+        <div class="panel-head">
+          <h2>Keyboard shortcuts</h2>
+          <p class="sub">Move through TI Mail without lifting your hands.</p>
+        </div>
+        <div class="card">
+          <div class="sc-search">
+            <input id="scSearch" type="search" placeholder="Find a shortcut… (e.g. 'archive')" autocomplete="off">
+          </div>
+
+          <p class="card-sub">Every shortcut below is wired up right now. Click any row to rebind it — press the new key (or combo), it's saved per-browser.</p>
+
+          <div class="sc-group" data-sc-group="Go to (works on every page)">
+            <div class="sc-group-title">Go to (works on every page)</div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Go to Inbox</span><span class="sc-keys"><span class="sc-key">g</span> <span class="sc-key">i</span></span></div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Go to Calendar</span><span class="sc-keys"><span class="sc-key">g</span> <span class="sc-key">c</span></span></div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Go to Tasks</span><span class="sc-keys"><span class="sc-key">g</span> <span class="sc-key">t</span></span></div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Go to Contacts</span><span class="sc-keys"><span class="sc-key">g</span> <span class="sc-key">n</span></span></div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Go to Settings</span><span class="sc-keys"><span class="sc-key">g</span> <span class="sc-key">s</span></span></div>
+            <div class="sc-row" data-no-rebind="1"><span class="sc-action">Show shortcuts cheat sheet</span><span class="sc-keys"><span class="sc-key">?</span></span></div>
+          </div>
+
+          <div class="sc-group" data-sc-group="Navigation">
+            <div class="sc-group-title">Navigation (in inbox)</div>
+            <div class="sc-row"><span class="sc-action">Next message</span><span class="sc-keys"><span class="sc-key">j</span></span></div>
+            <div class="sc-row"><span class="sc-action">Previous message</span><span class="sc-keys"><span class="sc-key">k</span></span></div>
+            <div class="sc-row"><span class="sc-action">Open selected thread</span><span class="sc-keys"><span class="sc-key">Enter</span></span></div>
+          </div>
+
+          <div class="sc-group" data-sc-group="Acting on threads">
+            <div class="sc-group-title">Acting on threads</div>
+            <div class="sc-row"><span class="sc-action">Archive thread</span><span class="sc-keys"><span class="sc-key">e</span></span></div>
+            <div class="sc-row"><span class="sc-action">Move to trash</span><span class="sc-keys"><span class="sc-key">#</span></span></div>
+            <div class="sc-row"><span class="sc-action">Mark as unread</span><span class="sc-keys"><span class="sc-key">u</span></span></div>
+            <div class="sc-row"><span class="sc-action">Star / unstar</span><span class="sc-keys"><span class="sc-key">s</span></span></div>
+            <div class="sc-row"><span class="sc-action">Snooze thread</span><span class="sc-keys"><span class="sc-key">b</span></span></div>
+          </div>
+
+          <div class="sc-group" data-sc-group="Compose">
+            <div class="sc-group-title">Compose</div>
+            <div class="sc-row"><span class="sc-action">New email</span><span class="sc-keys"><span class="sc-key">c</span></span></div>
+            <div class="sc-row"><span class="sc-action">Reply</span><span class="sc-keys"><span class="sc-key">r</span></span></div>
+            <div class="sc-row"><span class="sc-action">Reply all</span><span class="sc-keys"><span class="sc-key">a</span></span></div>
+            <div class="sc-row"><span class="sc-action">Forward</span><span class="sc-keys"><span class="sc-key">f</span></span></div>
+          </div>
+
+          <div class="sc-group" data-sc-group="Search">
+            <div class="sc-group-title">Search</div>
+            <div class="sc-row"><span class="sc-action">Search inbox</span><span class="sc-keys"><span class="sc-key">/</span></span></div>
+            <div class="sc-row"><span class="sc-action">Saved prompt picker (in Delta chat)</span><span class="sc-keys"><span class="sc-key">↑</span></span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Custom bindings</h3>
+          <p class="card-sub">Click any shortcut row above, then press the new key (or combo). Bindings are stored per-browser and take effect immediately on the inbox page.</p>
+          <button type="button" id="resetShortcutsBtn" class="btn">Reset all bindings to defaults</button>
+        </div>
+
+      </section>
+
+      <!-- ===== SUPPORT ===== -->
+      <section class="panel" id="panel-support">
+        <div class="panel-head">
+          <h2>Support</h2>
+          <p class="sub">Get help, share feedback, see what version you're on.</p>
+        </div>
+
+        <div class="card">
+          <h3>About</h3>
+          <p class="card-sub">TI Mail — Delta inside.</p>
+          <p style="font-size:12.5px;color:var(--muted);margin:8px 0 0">
+            Version <span id="aboutVersion">…</span>
+            · Server uptime <span id="aboutUptime">…</span>
+          </p>
+        </div>
+
+        <div class="card">
+          <h3>Found a bug?</h3>
+          <p class="card-sub">Describe what happened and what you expected. Your name + the page URL + your browser are attached automatically — no need to repeat them. Submitting saves the report on our side so we can look at it.</p>
+          <form id="bugForm" class="mem-add" style="grid-template-columns: 1fr;">
+            <textarea id="bugDescription" rows="4" placeholder="What happened? What did you expect to happen?" required maxlength="4000"></textarea>
+            <div class="mem-add-row" style="justify-content: space-between; align-items: center">
+              <span id="bugHint" class="snooze-save-hint"></span>
+              <button type="submit" class="btn primary">Submit bug report</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Refresh Gmail data</h3>
+          <p class="card-sub">Re-syncs your aliases, signature, labels, and contacts from Gmail. Usually runs automatically in the background — use this if something looks stale.</p>
+          <button id="supportRefreshBtn" class="btn" type="button">Refresh now</button>
+          <p style="font-size:12px;color:var(--muted);margin:8px 0 0" id="supportRefreshHint"></p>
+        </div>
+
+        <div class="card" style="border-color: rgba(233,42,46,.25); background: rgba(233,42,46,.03)">
+          <h3 style="color: var(--red-dark)">Delete account</h3>
+          <p class="card-sub">Permanently delete your TI Mail account and all the data we've cached: memory, settings, smart folders, snippets, contacts, prompts. Your Gmail itself is untouched — we only delete what lives on our servers.</p>
+          <p class="card-sub" style="margin-top:-6px"><strong>Export first.</strong> One click below downloads everything we have about you as a JSON file. Then the Delete button becomes available.</p>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap">
+            <a id="exportBtn" class="btn" href="/api/me/account/export" download="ti-mail-export.json">Download my data</a>
+            <button id="deleteBtn" class="btn" type="button" disabled style="background: var(--red); color: #fff; border: none; opacity: 0.5">Delete my account</button>
+            <span id="deleteHint" style="font-size:12px;color:var(--muted)">Download once to enable Delete.</span>
+          </div>
+        </div>
+      </section>
+
     </div>
-  </section>
-
-  <!-- Delta Memory -->
-  <section class="card">
-    <h2>
-      <img class="k-logo" src="/delta-logo.png" alt="Delta">
-      Delta's Memory
-    </h2>
-    <p class="card-sub">
-      Things Delta knows about you, your team, and key people you correspond with.
-      Add facts here, or simply say <em>"Delta, remember that..."</em> in chat and Delta will save it automatically.
-    </p>
-
-    <form id="memAdd" class="mem-add">
-      <input id="memSubject" type="text" placeholder="About whom? (e.g. Pia van Belen, self, general)" required>
-      <input id="memEmail" type="text" placeholder="Their email (optional)">
-      <select id="memCategory">
-        <option value="">Category (optional)…</option>
-        <option value="preference">Preference</option>
-        <option value="birthday">Birthday</option>
-        <option value="fact">Fact</option>
-        <option value="context">Context</option>
-        <option value="sensitivity">Sensitivity</option>
-        <option value="language">Language</option>
-        <option value="role">Role</option>
-      </select>
-      <textarea id="memFact" placeholder="What should Delta remember? (e.g. 'Allergic to peanuts.' / 'Prefers replies in Farsi.' / 'Handles Q4 budget approvals.')" required></textarea>
-      <div class="mem-add-row">
-        <button type="submit" class="btn primary">Add memory</button>
-      </div>
-    </form>
-
-    <div id="memList">
-      <div class="empty-state">Loading memories…</div>
-    </div>
-
-    <!-- Live memory snapshot — real counts from delta_memory -->
-    <div style="margin-top:18px;padding:14px;border:1px solid var(--line);border-radius:10px;background:rgba(178,142,68,.04)">
-      <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px">
-        <img src="/delta-logo.png" alt="Delta" style="width:14px;height:14px;border-radius:3px">
-        <span>What Delta knows about you so far</span>
-      </div>
-      <p style="margin:0;color:var(--navy-soft);font-size:13px;line-height:1.55" id="memoryInsightBody">Loading…</p>
-    </div>
-  </section>
-
-  <!-- Live inbox snapshot — real numbers from inbox_cache -->
-  <section class="card" style="background:rgba(178,142,68,.04)">
-    <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:var(--navy);margin-bottom:6px">
-      <img src="/delta-logo.png" alt="Delta" style="width:16px;height:16px;border-radius:3px">
-      <span>Your inbox right now</span>
-    </div>
-    <p style="margin:0;color:var(--navy-soft);font-size:13px;line-height:1.55" id="inboxInsightBody">Loading…</p>
-  </section>
+  </main>
 </div>
 
 <script>
@@ -531,7 +1856,62 @@
     return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
   }
 
-  // ----- account info -----
+  // =============================================================
+  // ROUTER — hash-based panel switching
+  // =============================================================
+  const VALID = new Set([
+    "overview", "account", "compose", "memory",
+    "inbox", "notifications", "appearance", "calendar",
+    "integrations", "shortcuts", "support",
+  ]);
+
+  function showPanel(name) {
+    const target = VALID.has(name) ? name : "overview";
+    document.querySelectorAll(".panel").forEach((p) => {
+      p.classList.toggle("active", p.id === `panel-${target}`);
+    });
+    document.querySelectorAll(".nav-item").forEach((a) => {
+      a.classList.toggle("active", a.dataset.panel === target);
+    });
+    document.title = `Settings — ${target.charAt(0).toUpperCase() + target.slice(1)} — TI Mail`;
+    document.querySelector(".settings-content")?.scrollTo({ top: 0 });
+  }
+
+  function panelFromHash() {
+    return (window.location.hash || "#overview").replace(/^#/, "").toLowerCase();
+  }
+
+  window.addEventListener("hashchange", () => showPanel(panelFromHash()));
+  showPanel(panelFromHash());
+
+  // =============================================================
+  // SIDEBAR SEARCH
+  // =============================================================
+  const search = $("settingsSearch");
+  search.addEventListener("input", () => {
+    const q = search.value.trim().toLowerCase();
+    document.querySelectorAll(".nav-item").forEach((item) => {
+      const hay = (item.textContent + " " + (item.dataset.keywords || "")).toLowerCase();
+      const match = !q || hay.includes(q);
+      item.classList.toggle("hidden-by-search", !match);
+    });
+    document.querySelectorAll(".nav-section").forEach((sec) => {
+      const items = sec.querySelectorAll(".nav-item");
+      const allHidden = Array.from(items).every((i) => i.classList.contains("hidden-by-search"));
+      sec.classList.toggle("nav-section-empty", allHidden);
+    });
+  });
+  document.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+      e.preventDefault();
+      search.focus();
+      search.select();
+    }
+  });
+
+  // =============================================================
+  // ACCOUNT
+  // =============================================================
   try {
     const r = await fetch("/api/me");
     if (!r.ok) { location.href = "/"; return; }
@@ -543,160 +1923,906 @@
     $("userRole").textContent = me.role || "Staff";
   } catch (e) {}
 
-  // ----- memory list -----
-  const listEl = $("memList");
+  // =============================================================
+  // MEMORY — single flat list, plus Saved prompts on top.
+  // =============================================================
+  const memListAllEl = $("memListAll");
+  const promptListEl = $("promptList");
 
-  async function loadMemories() {
-    listEl.innerHTML = `<div class="empty-state">Loading memories…</div>`;
-    const r = await fetch("/api/memory");
-    if (!r.ok) {
-      listEl.innerHTML = `<div class="empty-state">Couldn't load memories.</div>`;
-      return;
-    }
-    const { memories } = await r.json();
-    if (!memories || !memories.length) {
-      listEl.innerHTML = `
-        <div class="empty-state">
-          <strong>No memories yet.</strong>
-          Try saying "Delta, remember that Pia is on holiday next week" in chat,
-          or add one above.
-        </div>`;
-      return;
-    }
-    // Group by subject
-    const groups = new Map();
-    for (const m of memories) {
-      const key = m.subject;
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key).push(m);
-    }
-    let html = "";
-    for (const [subject, items] of groups.entries()) {
-      const email = items.find((i) => i.subject_email)?.subject_email || "";
-      html += `
-        <div class="mem-group">
-          <div class="mem-group-head">
-            <div class="mem-group-name">${escapeHtml(formatSubjectName(subject))}</div>
-            ${email ? `<div class="mem-group-email">${escapeHtml(email)}</div>` : ""}
-            <div class="mem-group-count">${items.length} ${items.length === 1 ? "memory" : "memories"}</div>
-          </div>
-          ${items.map(renderItem).join("")}
-        </div>`;
-    }
-    listEl.innerHTML = html;
-    wireItemActions();
+  function memSourceLabel(m) {
+    if (m.source === "chat") return "told to Delta";
+    if (m.source === "auto-chat") return "auto-saved";
+    if (m.source === "auto-nightly") return "auto-saved";
+    return "manual";
   }
-
-  function formatSubjectName(s) {
-    if (s === "self") return "About you";
-    if (s === "general") return "General";
-    return s;
-  }
-
-  function renderItem(m) {
-    // Source pill — visually distinguishes who saved this memory.
-    // manual         = you typed it on this page
-    // chat           = you explicitly told Delta "remember X"
-    // auto-chat      = Delta picked it up proactively during a chat turn
-    // auto-nightly   = Delta found it via the nightly extraction pass
-    const sourceMap = {
-      "manual":       { label: "Manual",       cls: "src-manual" },
-      "chat":         { label: "Told to Delta", cls: "src-chat" },
-      "auto-chat":    { label: "Auto (chat)",   cls: "src-auto-chat" },
-      "auto-nightly": { label: "Auto (nightly)", cls: "src-auto-nightly" },
-    };
-    const sourceKey = m.source || "manual";
-    const src = sourceMap[sourceKey] || { label: sourceKey, cls: "src-manual" };
+  function renderMemFlatItem(m) {
     return `
-      <div class="mem-item" data-id="${m.id}">
-        ${m.category ? `<div class="mem-category">${escapeHtml(m.category)}</div>` : `<div class="mem-category" style="visibility:hidden">·</div>`}
-        <div style="flex:1">
-          <div class="mem-fact" contenteditable="false" data-fact-id="${m.id}">${escapeHtml(m.fact)}</div>
-          <div class="mem-source">
-            <span class="mem-source-pill ${src.cls}">${escapeHtml(src.label)}</span>
-            <span class="mem-source-date">added ${new Date(m.created_at).toLocaleDateString()}</span>
-          </div>
-        </div>
-        <div class="mem-actions">
-          <button class="mem-act edit" title="Edit" data-edit="${m.id}">
-            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-          </button>
-          <button class="mem-act del" title="Delete" data-del="${m.id}">
+      <div class="mem-flat-item" data-id="${m.id}">
+        <div class="mem-flat-text" data-fact-id="${m.id}" title="${escapeHtml(m.fact)}">${escapeHtml(m.fact)}</div>
+        <div class="mem-flat-meta">${escapeHtml(memSourceLabel(m))}</div>
+        <div class="mem-flat-actions">
+          <button class="del" title="Forget" data-del="${m.id}" aria-label="Forget this memory">
             <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
           </button>
         </div>
       </div>`;
   }
 
-  function wireItemActions() {
-    listEl.querySelectorAll("[data-edit]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const id = btn.dataset.edit;
-        const factEl = listEl.querySelector(`.mem-fact[data-fact-id="${id}"]`);
-        if (!factEl) return;
-        if (factEl.getAttribute("contenteditable") === "true") {
-          // Save
-          factEl.setAttribute("contenteditable", "false");
-          saveFact(id, factEl.textContent.trim());
-        } else {
-          factEl.setAttribute("contenteditable", "true");
-          factEl.focus();
-          // Place caret at end
-          const range = document.createRange();
-          range.selectNodeContents(factEl);
-          range.collapse(false);
-          const sel = window.getSelection();
-          sel.removeAllRanges();
-          sel.addRange(range);
-        }
+  async function loadAllMemories() {
+    memListAllEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    const r = await fetch("/api/memory");
+    if (!r.ok) {
+      memListAllEl.innerHTML = `<div class="empty-state">Couldn't load memories.</div>`;
+      return;
+    }
+    const { memories } = await r.json();
+    const list = (memories || []).slice().sort((a, b) =>
+      new Date(b.created_at) - new Date(a.created_at)
+    );
+    $("memCountAll").textContent = list.length;
+    if (!list.length) {
+      memListAllEl.innerHTML = `<div class="empty-state">
+        Nothing saved yet. Click <strong>Add</strong>, or just say
+        <em>"Delta, remember that…"</em> in chat or voice.
+      </div>`;
+      return;
+    }
+    memListAllEl.innerHTML = list.map(renderMemFlatItem).join("");
+
+    memListAllEl.querySelectorAll(".mem-flat-item").forEach((row) => {
+      const id = row.dataset.id;
+      const textEl = row.querySelector(".mem-flat-text");
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".mem-flat-actions")) return;
+        if (textEl.getAttribute("contenteditable") === "true") return;
+        row.classList.add("expanded");
+        textEl.setAttribute("contenteditable", "true");
+        textEl.focus();
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        range.collapse(false);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+      textEl.addEventListener("blur", async () => {
+        if (textEl.getAttribute("contenteditable") !== "true") return;
+        textEl.setAttribute("contenteditable", "false");
+        const newFact = textEl.textContent.trim();
+        if (!newFact) { loadAllMemories(); return; }
+        try {
+          await fetch(`/api/memory/${id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fact: newFact }),
+          });
+        } catch (_) {}
+        textEl.title = newFact;
+      });
+      textEl.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); textEl.blur(); }
+        if (e.key === "Escape") { e.preventDefault(); loadAllMemories(); }
       });
     });
-    listEl.querySelectorAll("[data-del]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
+    memListAllEl.querySelectorAll("[data-del]").forEach((btn) => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
         const id = btn.dataset.del;
         if (!confirm("Forget this memory?")) return;
         const r = await fetch(`/api/memory/${id}`, { method: "DELETE" });
-        if (r.ok) loadMemories();
+        if (r.ok) loadAllMemories();
       });
     });
   }
 
-  async function saveFact(id, fact) {
-    if (!fact) return;
-    await fetch(`/api/memory/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fact }),
-    });
-  }
-
-  // Add memory form
-  $("memAdd").addEventListener("submit", async (e) => {
+  // ---- Add Memory inline form ----
+  const memAddForm = $("memAdd");
+  const memAddBtn = $("memAddBtn");
+  const memAddCancelBtn = $("memAddCancel");
+  memAddBtn.addEventListener("click", () => {
+    memAddForm.hidden = false;
+    memAddBtn.style.display = "none";
+    $("memFact").focus();
+  });
+  memAddCancelBtn.addEventListener("click", () => {
+    memAddForm.hidden = true;
+    memAddBtn.style.display = "";
+    $("memFact").value = "";
+  });
+  memAddForm.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const fact = $("memFact").value.trim();
+    if (!fact) return;
+    const isSelf = /^(i\s|i'|my\s|me\s|i'm)/i.test(fact);
+    const isBehavior = /^when\b.+\b(always|never|do|reply|address)\b/i.test(fact);
     const body = {
-      subject: $("memSubject").value.trim(),
-      subject_email: $("memEmail").value.trim() || null,
-      category: $("memCategory").value || null,
-      fact: $("memFact").value.trim(),
+      subject: isSelf ? "self" : "general",
+      subject_email: null,
+      category: isBehavior ? "behavior" : null,
+      fact,
     };
-    if (!body.subject || !body.fact) return;
     const r = await fetch("/api/memory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
     if (r.ok) {
-      $("memSubject").value = "";
-      $("memEmail").value = "";
-      $("memCategory").value = "";
       $("memFact").value = "";
-      loadMemories();
+      memAddForm.hidden = true;
+      memAddBtn.style.display = "";
+      loadAllMemories();
     }
   });
 
-  loadMemories();
+  // ---- Saved prompts list ----
+  function renderPromptFlatItem(p) {
+    const lastUsed = p.last_used_at ? ` · last ${new Date(p.last_used_at).toLocaleDateString()}` : "";
+    const useCt = `used ${p.use_count} ${p.use_count === 1 ? "time" : "times"}`;
+    return `
+      <div class="mem-flat-item" data-id="${p.id}">
+        <div class="mem-flat-text" title="${escapeHtml(p.body)}"><strong>${escapeHtml(p.title)}</strong> — ${escapeHtml(p.body)}</div>
+        <div class="mem-flat-meta">${useCt}${lastUsed}</div>
+        <div class="mem-flat-actions">
+          <button class="del" title="Delete" data-del-prompt="${p.id}" aria-label="Delete this prompt">
+            <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          </button>
+        </div>
+      </div>`;
+  }
+  async function loadPrompts() {
+    promptListEl.innerHTML = `<div class="empty-state">Loading prompts…</div>`;
+    try {
+      const r = await fetch("/api/prompts");
+      if (!r.ok) { promptListEl.innerHTML = `<div class="empty-state">Couldn't load prompts.</div>`; return; }
+      const { prompts } = await r.json();
+      const list = prompts || [];
+      $("memCountPrompts").textContent = list.length;
+      if (!list.length) {
+        promptListEl.innerHTML = `<div class="empty-state">
+          Nothing saved yet. Click <strong>Add</strong> to save a reusable Delta request.
+        </div>`;
+        return;
+      }
+      promptListEl.innerHTML = list.map(renderPromptFlatItem).join("");
+      promptListEl.querySelectorAll(".mem-flat-item").forEach((row) => {
+        row.addEventListener("click", (e) => {
+          if (e.target.closest(".mem-flat-actions")) return;
+          row.classList.toggle("expanded");
+        });
+      });
+      promptListEl.querySelectorAll("[data-del-prompt]").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const id = btn.dataset.delPrompt;
+          if (!confirm("Delete this prompt?")) return;
+          const r = await fetch(`/api/prompts/${id}`, { method: "DELETE" });
+          if (r.ok) loadPrompts();
+        });
+      });
+    } catch (_) {
+      promptListEl.innerHTML = `<div class="empty-state">Couldn't load prompts.</div>`;
+    }
+  }
+  const promptAddForm = $("promptAdd");
+  const promptAddBtn = $("promptAddBtn");
+  const promptAddCancelBtn = $("promptAddCancel");
+  promptAddBtn.addEventListener("click", () => {
+    promptAddForm.hidden = false;
+    promptAddBtn.style.display = "none";
+    $("promptTitle").focus();
+  });
+  promptAddCancelBtn.addEventListener("click", () => {
+    promptAddForm.hidden = true;
+    promptAddBtn.style.display = "";
+    $("promptTitle").value = ""; $("promptBody").value = "";
+  });
+  promptAddForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      title: $("promptTitle").value.trim(),
+      body: $("promptBody").value.trim(),
+    };
+    if (!body.title || !body.body) return;
+    const r = await fetch("/api/prompts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      $("promptTitle").value = ""; $("promptBody").value = "";
+      promptAddForm.hidden = true;
+      promptAddBtn.style.display = "";
+      loadPrompts();
+    }
+  });
 
-  // ---------- Insight snapshots (real DB counts) -----------------
+  loadAllMemories();
+  loadPrompts();
+
+  // =============================================================
+  // INBOX — Important contacts
+  // =============================================================
+  const impListEl = $("impList");
+
+  async function loadImportant() {
+    impListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    try {
+      const r = await fetch("/api/contacts/important-contacts");
+      if (!r.ok) throw new Error("load_failed");
+      const { contacts } = await r.json();
+      const list = contacts || [];
+      if (!list.length) {
+        impListEl.innerHTML = `<div class="empty-state">
+          <strong>No important contacts yet.</strong>
+          Add people whose mail must never wait. They'll be pinned in your left rail and biased URGENT by Delta's classifier.
+        </div>`;
+        return;
+      }
+      impListEl.innerHTML = list.map((c) => `
+        <div class="imp-row" data-id="${c.id}">
+          <div class="imp-swatch" style="background:${escapeHtml(c.color || 'var(--gold)')}"></div>
+          <div class="imp-name">${escapeHtml(c.name)}</div>
+          <div class="imp-email">${escapeHtml(c.email)}</div>
+          <div class="imp-actions">
+            <button class="mem-act del" title="Remove" data-imp-del="${c.id}">
+              <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+          </div>
+        </div>
+      `).join("");
+      impListEl.querySelectorAll("[data-imp-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.dataset.impDel;
+          if (!confirm("Remove this important contact?")) return;
+          const r = await fetch(`/api/contacts/important-contacts/${id}`, { method: "DELETE" });
+          if (r.ok) loadImportant();
+        });
+      });
+    } catch (err) {
+      impListEl.innerHTML = `<div class="empty-state">Couldn't load contacts.</div>`;
+    }
+  }
+
+  $("impAdd").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      name: $("impName").value.trim(),
+      email: $("impEmail").value.trim(),
+    };
+    if (!body.name || !body.email) return;
+    const r = await fetch("/api/contacts/important-contacts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (r.ok) {
+      $("impName").value = "";
+      $("impEmail").value = "";
+      loadImportant();
+    } else {
+      alert("Couldn't add contact. Check the email format.");
+    }
+  });
+
+  loadImportant();
+
+  // ---- Snooze defaults ----
+  const snzFields = {
+    morning:   $("snzMorning"),
+    afternoon: $("snzAfternoon"),
+    evening:   $("snzEvening"),
+    later:     $("snzLater"),
+    nextWeek:  $("snzNextWeek"),
+  };
+  const snzSaveBtn = $("snzSave");
+  const snzHint = $("snzHint");
+  let _snzOriginal = {};
+
+  function snzDirtyState() {
+    const current = Object.fromEntries(
+      Object.entries(snzFields).map(([k, el]) => [k, el.value.trim()])
+    );
+    const dirty = Object.keys(current).some((k) => current[k] !== (_snzOriginal[k] || ""));
+    snzSaveBtn.disabled = !dirty;
+    snzHint.textContent = dirty ? "Unsaved changes" : "";
+    snzHint.className = dirty ? "snooze-save-hint dirty" : "snooze-save-hint";
+  }
+
+  Object.values(snzFields).forEach((el) => {
+    el.addEventListener("input", snzDirtyState);
+  });
+
+  async function loadSnoozeDefaults() {
+    try {
+      const r = await fetch("/api/me/snooze-defaults");
+      if (!r.ok) return;
+      const { snooze_defaults } = await r.json();
+      _snzOriginal = snooze_defaults || {};
+      Object.entries(snzFields).forEach(([k, el]) => {
+        el.value = _snzOriginal[k] || "";
+      });
+      snzDirtyState();
+    } catch (_) {}
+  }
+
+  snzSaveBtn.addEventListener("click", async () => {
+    const body = Object.fromEntries(
+      Object.entries(snzFields).map(([k, el]) => [k, el.value.trim()])
+    );
+    snzSaveBtn.disabled = true;
+    snzSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/snooze-defaults", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      const { snooze_defaults } = await r.json();
+      _snzOriginal = snooze_defaults || {};
+      snzHint.textContent = "Saved ✓";
+      snzHint.className = "snooze-save-hint saved";
+      setTimeout(() => { snzDirtyState(); }, 1800);
+    } catch (err) {
+      snzHint.textContent = "Save failed — try again";
+      snzHint.className = "snooze-save-hint";
+      snzSaveBtn.disabled = false;
+    } finally {
+      snzSaveBtn.textContent = "Save defaults";
+    }
+  });
+
+  loadSnoozeDefaults();
+
+  // =============================================================
+  // NOTIFICATIONS
+  // =============================================================
+  const notifPermCard  = $("notifPermCard");
+  const notifPermTitle = $("notifPermTitle");
+  const notifPermBody  = $("notifPermBody");
+  const notifPermBtn   = $("notifPermBtn");
+  const notifDryRunBody = $("notifDryRunBody");
+
+  function paintNotifPerm() {
+    if (!("Notification" in window)) {
+      notifPermTitle.textContent = "Browser doesn't support notifications";
+      notifPermBody.textContent = "Use a desktop browser to enable.";
+      notifPermBtn.style.display = "none";
+      notifPermCard?.classList?.add("denied");
+      return;
+    }
+    if (Notification.permission === "granted") {
+      notifPermTitle.textContent = "Notifications are allowed ✓";
+      notifPermBody.textContent = "Delta can fire browser notifications based on the rules below.";
+      notifPermBtn.style.display = "none";
+      notifPermCard?.classList?.add("granted");
+      notifPermCard?.classList?.remove("denied");
+    } else if (Notification.permission === "denied") {
+      notifPermTitle.textContent = "Notifications blocked";
+      notifPermBody.textContent = "Re-enable from your browser's site settings to receive any notifications.";
+      notifPermBtn.style.display = "none";
+      notifPermCard?.classList?.add("denied");
+    } else {
+      notifPermTitle.textContent = "Allow browser notifications?";
+      notifPermBody.textContent = "Delta will only fire notifications based on your rules below.";
+      notifPermBtn.style.display = "";
+      notifPermCard?.classList?.remove("denied","granted");
+    }
+  }
+  paintNotifPerm();
+  notifPermBtn?.addEventListener("click", async () => {
+    try { await Notification.requestPermission(); } catch (_) {}
+    paintNotifPerm();
+  });
+
+  const notifSaveBtn = $("notifSave");
+  const notifHint    = $("notifHint");
+  let _notifOriginal = null;
+  function currentNotifValues() {
+    const mode = document.querySelector('input[name="notifMode"]:checked')?.value || "smart";
+    return {
+      mode,
+      sound:   $("notifSound").checked,
+      preview: $("notifPreview").checked,
+      budgetPerHour: Math.max(0, Math.min(60, Number($("budgetInput").value) || 0)),
+    };
+  }
+  function paintNotifDirty() {
+    if (!_notifOriginal) return;
+    const dirty = JSON.stringify(currentNotifValues()) !== JSON.stringify(_notifOriginal);
+    notifSaveBtn.disabled = !dirty;
+    notifHint.textContent = dirty ? "Unsaved" : "";
+  }
+  async function loadNotifSettings() {
+    const r = await fetch("/api/me/notify-settings");
+    if (!r.ok) return;
+    const { notify_settings: s } = await r.json();
+    document.querySelector(`input[name="notifMode"][value="${s.mode}"]`)?.click?.();
+    const modeRadio = document.querySelector(`input[name="notifMode"][value="${s.mode}"]`);
+    if (modeRadio) modeRadio.checked = true;
+    $("notifSound").checked = !!s.sound;
+    $("notifPreview").checked = s.preview !== false;
+    $("budgetInput").value = String(s.budgetPerHour ?? 3);
+    _notifOriginal = currentNotifValues();
+    paintNotifDirty();
+  }
+  ["notifSound","notifPreview","budgetInput","notifModeSmart","notifModeCustom","notifModeOff"].forEach((id) => {
+    $(id)?.addEventListener("change", paintNotifDirty);
+    $(id)?.addEventListener("input",  paintNotifDirty);
+  });
+  notifSaveBtn?.addEventListener("click", async () => {
+    notifSaveBtn.disabled = true;
+    notifSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/notify-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentNotifValues()),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      _notifOriginal = currentNotifValues();
+      notifHint.textContent = "Saved ✓";
+      setTimeout(() => paintNotifDirty(), 1800);
+      loadNotifDryRun();
+    } catch (_) {
+      notifHint.textContent = "Save failed";
+      notifSaveBtn.disabled = false;
+    } finally {
+      notifSaveBtn.textContent = "Save";
+    }
+  });
+  async function loadNotifDryRun() {
+    if (!notifDryRunBody) return;
+    notifDryRunBody.textContent = "Estimating…";
+    try {
+      const r = await fetch("/api/me/notify-dry-run");
+      if (!r.ok) throw new Error("dry_run_failed");
+      const d = await r.json();
+      notifDryRunBody.innerHTML = `Over the last 7 days you'd have received <strong>${d.wouldNotify}</strong> notification${d.wouldNotify === 1 ? "" : "s"} under these rules${d.suppressedByBudget > 0 ? `, with <strong>${d.suppressedByBudget}</strong> suppressed by the hourly budget` : ""}. <em>Adjust above and Save to re-estimate.</em>`;
+    } catch (_) {
+      notifDryRunBody.textContent = "Couldn't estimate right now.";
+    }
+  }
+  loadNotifSettings().then(loadNotifDryRun);
+
+  // =============================================================
+  // COMPOSE — Markdown toggle + undo-send + Aliases + Signature
+  // =============================================================
+  const composeSaveBtn = $("composeSave");
+  const composeHint    = $("composeHint");
+  let _composeOriginal = null;
+  function currentComposeValues() {
+    return {
+      undoSendSeconds: Number($("undoSendSelect")?.value || 10),
+      markdownEnabled: $("markdownToggle")?.checked || false,
+    };
+  }
+  function paintComposeDirty() {
+    if (!_composeOriginal) return;
+    const dirty = JSON.stringify(currentComposeValues()) !== JSON.stringify(_composeOriginal);
+    if (composeSaveBtn) composeSaveBtn.disabled = !dirty;
+    if (composeHint) composeHint.textContent = dirty ? "Unsaved" : "";
+  }
+  async function loadComposePrefs() {
+    const r = await fetch("/api/me/compose-prefs");
+    if (!r.ok) return;
+    const { settings } = await r.json();
+    if ($("undoSendSelect")) $("undoSendSelect").value = String(settings.undoSendSeconds);
+    if ($("markdownToggle")) $("markdownToggle").checked = !!settings.markdownEnabled;
+    _composeOriginal = currentComposeValues();
+    paintComposeDirty();
+  }
+  $("undoSendSelect")?.addEventListener("change", paintComposeDirty);
+  $("markdownToggle")?.addEventListener("change", paintComposeDirty);
+  composeSaveBtn?.addEventListener("click", async () => {
+    composeSaveBtn.disabled = true;
+    composeSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/compose-prefs", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentComposeValues()),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      _composeOriginal = currentComposeValues();
+      composeHint.textContent = "Saved ✓";
+      setTimeout(() => paintComposeDirty(), 1800);
+    } catch (_) {
+      composeHint.textContent = "Save failed";
+      composeSaveBtn.disabled = false;
+    } finally {
+      composeSaveBtn.textContent = "Save";
+    }
+  });
+  loadComposePrefs();
+
+  // Aliases + signature (legacy /api/compose/settings)
+  async function loadCompose(force = false) {
+    const aliasListEl = $("aliasList");
+    if (!aliasListEl) return;
+    aliasListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    if (force) { try { await fetch("/api/compose/refresh", { method: "POST" }); } catch (_) {} }
+    const r = await fetch("/api/compose/settings");
+    if (!r.ok) { aliasListEl.innerHTML = `<div class="empty-state">Couldn't load.</div>`; return; }
+    const data = await r.json();
+    const aliases = data.aliases || [];
+    if (!aliases.length) {
+      aliasListEl.innerHTML = `<div class="empty-state">No aliases. Add them in Gmail then click Refresh.</div>`;
+    } else {
+      aliasListEl.innerHTML = aliases.map((a) =>
+        `<div class="alias-row"><span class="alias-email">${escapeHtml(a.sendAsEmail)}</span>${a.isDefault ? ` <span class="alias-badge default">default</span>` : ""}${a.hasSignature ? ` <span class="alias-badge sig">signature</span>` : ""}</div>`
+      ).join("");
+    }
+    const sigStatusEl = $("sigStatus"), sigPreviewEl = $("sigPreview"), sigIframe = $("sigIframe");
+    if (sigStatusEl) {
+      const sig = data.signature;
+      if (sig && sig.html) {
+        sigStatusEl.textContent = "";
+        sigPreviewEl.hidden = false;
+        sigIframe.srcdoc = `<!doctype html><html><head><base target="_blank"><style>body{margin:6px;font:13px -apple-system,sans-serif;color:#222}img{max-width:100%}</style></head><body>${sig.html}</body></html>`;
+      } else {
+        sigStatusEl.textContent = "No signature imported from Gmail.";
+        sigPreviewEl.hidden = true;
+      }
+    }
+    const mode = data.signatureMode || "always";
+    document.querySelectorAll('input[name="sigMode"]').forEach((r) => { r.checked = r.value === mode; });
+  }
+  document.querySelectorAll('input[name="sigMode"]').forEach((rd) => {
+    rd.addEventListener("change", async () => {
+      if (!rd.checked) return;
+      await fetch("/api/compose/signature-mode", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ signatureMode: rd.value }),
+      });
+    });
+  });
+  $("composeRefreshBtn")?.addEventListener("click", async () => {
+    $("composeRefreshBtn").disabled = true;
+    $("composeRefreshBtn").textContent = "Refreshing…";
+    try { await loadCompose(true); }
+    finally { $("composeRefreshBtn").disabled = false; $("composeRefreshBtn").textContent = "Refresh from Gmail"; }
+  });
+  loadCompose(false);
+
+  // =============================================================
+  // APPEARANCE — theme + accent + density + font
+  // =============================================================
+  const apSaveBtn = $("appearanceSave");
+  const apHint    = $("appearanceHint");
+  let _apOriginal = null;
+  function currentApValues() {
+    return {
+      theme: document.querySelector('#themeChips .chip.active')?.dataset.value || "system",
+      accent: document.querySelector('#accentSwatches .swatch.active')?.dataset.value || "sunset",
+      density: document.querySelector('#densityPills .pill.active')?.dataset.value || "comfortable",
+      bodyFontSize: document.querySelector('#fontPills .pill.active')?.dataset.value || "default",
+    };
+  }
+  function setApUI(s) {
+    document.querySelectorAll('#themeChips .chip').forEach((c) => c.classList.toggle("active", c.dataset.value === s.theme));
+    document.querySelectorAll('#accentSwatches .swatch').forEach((c) => c.classList.toggle("active", c.dataset.value === s.accent));
+    document.querySelectorAll('#densityPills .pill').forEach((c) => c.classList.toggle("active", c.dataset.value === s.density));
+    document.querySelectorAll('#fontPills .pill').forEach((c) => c.classList.toggle("active", c.dataset.value === s.bodyFontSize));
+    document.body.setAttribute("data-theme", s.theme);
+    document.body.setAttribute("data-accent", s.accent);
+    document.body.setAttribute("data-density", s.density);
+    document.body.setAttribute("data-font-size", s.bodyFontSize);
+  }
+  function paintApDirty() {
+    if (!_apOriginal) return;
+    const dirty = JSON.stringify(currentApValues()) !== JSON.stringify(_apOriginal);
+    if (apSaveBtn) apSaveBtn.disabled = !dirty;
+    if (apHint) apHint.textContent = dirty ? "Unsaved" : "";
+  }
+  async function loadAppearancePrefs() {
+    const r = await fetch("/api/me/appearance-prefs");
+    if (!r.ok) return;
+    const { settings } = await r.json();
+    setApUI(settings);
+    _apOriginal = currentApValues();
+    paintApDirty();
+  }
+  document.querySelectorAll('#themeChips .chip, #accentSwatches .swatch, #densityPills .pill, #fontPills .pill').forEach((el) => {
+    el.addEventListener("click", () => {
+      const group = el.parentElement;
+      group.querySelectorAll(".chip,.swatch,.pill").forEach((p) => p.classList.remove("active"));
+      el.classList.add("active");
+      const s = currentApValues();
+      document.body.setAttribute("data-theme", s.theme);
+      document.body.setAttribute("data-accent", s.accent);
+      document.body.setAttribute("data-density", s.density);
+      document.body.setAttribute("data-font-size", s.bodyFontSize);
+      paintApDirty();
+    });
+  });
+  apSaveBtn?.addEventListener("click", async () => {
+    apSaveBtn.disabled = true; apSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/appearance-prefs", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentApValues()),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      _apOriginal = currentApValues();
+      apHint.textContent = "Saved ✓";
+      setTimeout(() => paintApDirty(), 1800);
+    } catch (_) {
+      apHint.textContent = "Save failed";
+      apSaveBtn.disabled = false;
+    } finally {
+      apSaveBtn.textContent = "Save appearance";
+    }
+  });
+  loadAppearancePrefs();
+
+  // =============================================================
+  // CALENDAR — focus blocks + buffer + meeting prep + default link
+  // =============================================================
+  const calSaveBtn = $("calendarSave");
+  const calHint    = $("calendarHint");
+  const fbListEl   = $("focusBlockList");
+  let _calOriginal = null;
+  let _focusBlocks = [];
+  function currentCalValues() {
+    return {
+      focusBlocks: _focusBlocks,
+      meetingBufferMinutes: Number($("meetingBufferInput")?.value) || 0,
+      meetingPrep: $("meetingPrepToggle")?.checked || false,
+      meetingPrepMinutes: Number($("meetingPrepMinutesSelect")?.value) || 15,
+    };
+  }
+  function paintCalDirty() {
+    if (!_calOriginal) return;
+    const dirty = JSON.stringify(currentCalValues()) !== JSON.stringify(_calOriginal);
+    if (calSaveBtn) calSaveBtn.disabled = !dirty;
+    if (calHint) calHint.textContent = dirty ? "Unsaved" : "";
+  }
+  function renderFocusBlocks() {
+    if (!fbListEl) return;
+    if (!_focusBlocks.length) {
+      fbListEl.innerHTML = `<div class="empty-state" style="padding:18px 0"><strong>No focus blocks yet.</strong> Add one below.</div>`;
+      return;
+    }
+    const dayLabels = ["S","M","T","W","T","F","S"];
+    fbListEl.innerHTML = _focusBlocks.map((b, i) => {
+      const daysHTML = dayLabels.map((d, idx) => `<span class="${b.days.includes(idx) ? "on" : ""}">${d}</span>`).join("");
+      return `<div class="focus-block-item">
+        <div><div class="focus-block-label">${escapeHtml(b.label)}</div><div class="focus-block-when">${escapeHtml(b.startHHMM)} → ${escapeHtml(b.endHHMM)}</div></div>
+        <div class="focus-block-days-mini">${daysHTML}</div>
+        <div class="focus-block-actions"><button class="mem-act del" title="Remove" data-fb-del="${i}">×</button></div>
+      </div>`;
+    }).join("");
+    fbListEl.querySelectorAll("[data-fb-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        _focusBlocks.splice(Number(btn.dataset.fbDel), 1);
+        renderFocusBlocks(); paintCalDirty();
+      });
+    });
+  }
+  async function loadCalendarPrefs() {
+    const r = await fetch("/api/me/calendar-prefs");
+    if (!r.ok) return;
+    const { settings } = await r.json();
+    _focusBlocks = settings.focusBlocks || [];
+    if ($("meetingBufferInput")) $("meetingBufferInput").value = settings.meetingBufferMinutes;
+    if ($("meetingPrepToggle")) $("meetingPrepToggle").checked = settings.meetingPrep !== false;
+    if ($("meetingPrepMinutesSelect")) $("meetingPrepMinutesSelect").value = String(settings.meetingPrepMinutes || 15);
+    if ($("defaultMeetingProvider")) $("defaultMeetingProvider").value = settings.defaultMeetingProvider || "zoom";
+    if ($("defaultMeetingLink")) $("defaultMeetingLink").value = settings.defaultMeetingLink || "";
+    renderFocusBlocks();
+    _calOriginal = currentCalValues();
+    paintCalDirty();
+  }
+  $("focusBlockAdd")?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const days = Array.from(document.querySelectorAll("#fbDays .qh-day.active")).map((b) => Number(b.dataset.day));
+    if (!days.length) { alert("Pick at least one day."); return; }
+    _focusBlocks.push({
+      label: $("fbLabel").value.trim(),
+      startHHMM: $("fbStart").value, endHHMM: $("fbEnd").value, days,
+    });
+    $("fbLabel").value = "";
+    renderFocusBlocks(); paintCalDirty();
+  });
+  document.querySelectorAll("#fbDays .qh-day").forEach((btn) => {
+    btn.addEventListener("click", () => btn.classList.toggle("active"));
+  });
+  ["meetingBufferInput","meetingPrepMinutesSelect"].forEach((id) => {
+    $(id)?.addEventListener("change", paintCalDirty);
+    $(id)?.addEventListener("input",  paintCalDirty);
+  });
+  $("meetingPrepToggle")?.addEventListener("change", paintCalDirty);
+  calSaveBtn?.addEventListener("click", async () => {
+    calSaveBtn.disabled = true; calSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/calendar-prefs", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(currentCalValues()),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      _calOriginal = currentCalValues();
+      calHint.textContent = "Saved ✓";
+      setTimeout(() => paintCalDirty(), 1800);
+    } catch (_) {
+      calHint.textContent = "Save failed";
+      calSaveBtn.disabled = false;
+    } finally {
+      calSaveBtn.textContent = "Save calendar settings";
+    }
+  });
+  loadCalendarPrefs();
+
+  // Default meeting link save
+  const mlSaveBtn = $("meetingLinkSave");
+  const mlHint    = $("meetingLinkHint");
+  function paintMlDirty() {
+    if (!mlSaveBtn) return;
+    mlSaveBtn.disabled = false;
+    mlHint.textContent = "Unsaved";
+  }
+  $("defaultMeetingLink")?.addEventListener("input", paintMlDirty);
+  $("defaultMeetingProvider")?.addEventListener("change", paintMlDirty);
+  mlSaveBtn?.addEventListener("click", async () => {
+    mlSaveBtn.disabled = true; mlSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/calendar-prefs", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          defaultMeetingProvider: $("defaultMeetingProvider").value,
+          defaultMeetingLink: $("defaultMeetingLink").value.trim(),
+        }),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      mlHint.textContent = "Saved ✓";
+      setTimeout(() => { mlHint.textContent = ""; }, 1800);
+    } catch (_) {
+      mlHint.textContent = "Save failed"; mlSaveBtn.disabled = false;
+    } finally { mlSaveBtn.textContent = "Save link"; }
+  });
+
+  // Connected calendars list
+  const ccListEl = $("connectedCalList");
+  async function loadConnectedCalendars() {
+    if (!ccListEl) return;
+    ccListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    try {
+      const r = await fetch("/api/calendar/calendars");
+      if (!r.ok) throw new Error();
+      const data = await r.json();
+      const list = data.calendars || data || [];
+      if (!list.length) { ccListEl.innerHTML = `<div class="empty-state">No calendars.</div>`; return; }
+      ccListEl.innerHTML = list.map((c) =>
+        `<div class="conn-cal-row" style="display:flex;align-items:center;gap:10px;padding:6px 0">
+          <span class="ccr-dot" style="width:10px;height:10px;border-radius:50%;background:${escapeHtml(c.color || '#888')}"></span>
+          <span style="flex:1">${escapeHtml(c.summary || c.id)}${c.primary ? " <em style='color:var(--muted)'>· primary</em>" : ""}</span>
+          <span style="font-size:12px;color:var(--muted)">${escapeHtml(c.accessRole || "")}</span>
+        </div>`
+      ).join("");
+    } catch (_) {
+      ccListEl.innerHTML = `<div class="empty-state">Couldn't load calendars.</div>`;
+    }
+  }
+  loadConnectedCalendars();
+
+  // =============================================================
+  // CLASSIFIER SENSITIVITY
+  // =============================================================
+  const sensSlider = document.getElementById("sensitivitySlider");
+  const sensHintEl = document.getElementById("sensitivityHint");
+  const SENS_LABEL = { 1: "Quiet (1/5)", 2: "Conservative (2/5)", 3: "Balanced (3/5).", 4: "Eager (4/5)", 5: "Sensitive (5/5)" };
+  if (sensSlider) {
+    fetch("/api/me/classifier-sensitivity").then(r => r.ok ? r.json() : null).then((d) => {
+      if (!d) return;
+      sensSlider.value = String(d.sensitivity);
+      if (sensHintEl) sensHintEl.textContent = SENS_LABEL[d.sensitivity] || "";
+    });
+    let sensTimer = null;
+    sensSlider.addEventListener("input", () => {
+      const v = Number(sensSlider.value);
+      if (sensHintEl) sensHintEl.textContent = SENS_LABEL[v] || "";
+      if (sensTimer) clearTimeout(sensTimer);
+      sensTimer = setTimeout(async () => {
+        try {
+          await fetch("/api/me/classifier-sensitivity", {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sensitivity: v }),
+          });
+        } catch (_) {}
+      }, 400);
+    });
+  }
+
+  // =============================================================
+  // SMART FOLDERS
+  // =============================================================
+  const sfListEl = document.getElementById("sfList");
+  async function loadSmartFolders() {
+    if (!sfListEl) return;
+    sfListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    try {
+      const r = await fetch("/api/smart-folders");
+      if (!r.ok) throw new Error();
+      const { folders } = await r.json();
+      if (!folders.length) { sfListEl.innerHTML = `<div class="empty-state">No smart folders yet.</div>`; return; }
+      sfListEl.innerHTML = folders.map((f) =>
+        `<div class="sf-row" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;color:var(--navy);font-size:13.5px">${escapeHtml(f.label)}</div>
+            <div style="font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><code>${escapeHtml(f.query)}</code></div>
+          </div>
+          <button class="mem-act del" data-sf-del="${f.id}" title="Remove" style="background:none;border:0;cursor:pointer;color:var(--navy-soft);padding:4px 8px;border-radius:6px">×</button>
+        </div>`
+      ).join("");
+      sfListEl.querySelectorAll("[data-sf-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Remove this smart folder?")) return;
+          await fetch(`/api/smart-folders/${btn.dataset.sfDel}`, { method: "DELETE" });
+          loadSmartFolders();
+        });
+      });
+    } catch (_) { sfListEl.innerHTML = `<div class="empty-state">Couldn't load.</div>`; }
+  }
+  document.getElementById("sfAdd")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      label: document.getElementById("sfLabel").value.trim(),
+      query: document.getElementById("sfQuery").value.trim(),
+    };
+    if (!body.label || !body.query) return;
+    const r = await fetch("/api/smart-folders", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (r.ok) { document.getElementById("sfLabel").value = ""; document.getElementById("sfQuery").value = ""; loadSmartFolders(); }
+  });
+  loadSmartFolders();
+
+  // =============================================================
+  // SNIPPETS
+  // =============================================================
+  const snipListEl = document.getElementById("snipList");
+  async function loadSnippets() {
+    if (!snipListEl) return;
+    snipListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
+    try {
+      const r = await fetch("/api/snippets");
+      if (!r.ok) throw new Error();
+      const { snippets } = await r.json();
+      if (!snippets.length) { snipListEl.innerHTML = `<div class="empty-state">No snippets yet.</div>`; return; }
+      snipListEl.innerHTML = snippets.map((s) =>
+        `<div class="snippet-row" style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:8px 4px;border-bottom:1px solid var(--line)">
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;color:var(--navy);font-size:13.5px">${escapeHtml(s.title)}</div>
+            <div style="font-size:12px;color:var(--muted);max-height:40px;overflow:hidden">${escapeHtml((s.body || "").slice(0, 200))}</div>
+          </div>
+          <button class="mem-act del" data-snip-del="${s.id}" title="Remove" style="background:none;border:0;cursor:pointer;color:var(--navy-soft);padding:4px 8px;border-radius:6px">×</button>
+        </div>`
+      ).join("");
+      snipListEl.querySelectorAll("[data-snip-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          if (!confirm("Delete this snippet?")) return;
+          await fetch(`/api/snippets/${btn.dataset.snipDel}`, { method: "DELETE" });
+          loadSnippets();
+        });
+      });
+    } catch (_) { snipListEl.innerHTML = `<div class="empty-state">Couldn't load.</div>`; }
+  }
+  document.getElementById("snipAdd")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const body = {
+      title: document.getElementById("snipTitle").value.trim(),
+      body:  document.getElementById("snipBody").value.trim(),
+    };
+    if (!body.title || !body.body) return;
+    const r = await fetch("/api/snippets", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+    });
+    if (r.ok) { document.getElementById("snipTitle").value = ""; document.getElementById("snipBody").value = ""; loadSnippets(); }
+  });
+  loadSnippets();
+
+  // =============================================================
+  // INSIGHTS — live Inbox + Memory counts
+  // =============================================================
   function relTime(iso) {
     if (!iso) return "never";
     const ms = Date.now() - new Date(iso).getTime();
@@ -706,248 +2832,193 @@
     return `${Math.round(ms / 86_400_000)} d ago`;
   }
   async function loadInboxInsight() {
-    const body = $("inboxInsightBody");
-    if (!body) return;
+    const body = $("inboxInsightBody"); if (!body) return;
     try {
       const r = await fetch("/api/me/insights/inbox");
-      if (!r.ok) throw new Error("load_failed");
+      if (!r.ok) throw new Error();
       const d = await r.json();
-      const parts = [];
-      parts.push(`<strong>${d.total}</strong> in inbox, <strong>${d.unread}</strong> unread.`);
-      if (d.unreadFromImportant > 0) parts.push(`<strong>${d.unreadFromImportant}</strong> from your Important contacts.`);
+      const parts = [`<strong>${d.total}</strong> in inbox, <strong>${d.unread}</strong> unread.`];
+      if (d.unreadFromImportant > 0) parts.push(`<strong>${d.unreadFromImportant}</strong> from Important contacts.`);
       if (d.waiting3d > 0) parts.push(`<strong>${d.waiting3d}</strong> waiting 3+ days.`);
-      else if (d.unread === 0) parts.push("Inbox zero. Nice.");
+      else if (d.unread === 0) parts.push("Inbox zero.");
       parts.push(`<em>Last synced ${relTime(d.lastSync)}.</em>`);
       body.innerHTML = parts.join(" ");
-    } catch (_) { body.textContent = "Couldn't load right now."; }
+    } catch (_) { body.textContent = "Couldn't load."; }
   }
   async function loadMemoryInsight() {
-    const body = $("memoryInsightBody");
-    if (!body) return;
+    const body = $("memoryInsightBody"); if (!body) return;
     try {
       const r = await fetch("/api/me/insights/memory");
-      if (!r.ok) throw new Error("load_failed");
+      if (!r.ok) throw new Error();
       const d = await r.json();
-      if (!d.total) { body.innerHTML = `Nothing saved yet. Add one above, or say <em>"Delta, remember…"</em> in chat.`; return; }
-      const parts = [`<strong>${d.total}</strong> ${d.total === 1 ? "memory" : "memories"} saved.`];
-      if (Array.isArray(d.categories) && d.categories.length) {
-        const top = d.categories.slice(0, 3).map(c => `${c.n} ${c.category}`).join(" · ");
-        parts.push(`<em>${top}.</em>`);
-      }
+      if (!d.total) { body.innerHTML = `Nothing saved yet. Say <em>"Delta, remember…"</em> in chat.`; return; }
+      const parts = [`<strong>${d.total}</strong> memories saved.`];
       if (d.lastMemory) {
         const fact = (d.lastMemory.fact || "").trim().slice(0, 140);
-        parts.push(`Most recent (about <strong>${d.lastMemory.subject}</strong>, ${relTime(d.lastMemory.createdAt)}): &ldquo;${fact}${fact.length >= 140 ? "…" : ""}&rdquo;`);
+        parts.push(`Most recent (${relTime(d.lastMemory.createdAt)}): &ldquo;${escapeHtml(fact)}${fact.length >= 140 ? "…" : ""}&rdquo;`);
       }
       body.innerHTML = parts.join(" ");
-    } catch (_) { body.textContent = "Couldn't load right now."; }
+    } catch (_) { body.textContent = "Couldn't load."; }
   }
-  loadInboxInsight();
-  loadMemoryInsight();
+  loadInboxInsight(); loadMemoryInsight();
 
-  // ---------------- Compose: aliases + signature ----------------
-  const aliasListEl = $("aliasList");
-  const sigStatusEl = $("sigStatus");
-  const sigPreviewEl = $("sigPreview");
-  const sigIframe = $("sigIframe");
-  const refreshBtn = $("composeRefreshBtn");
+  // =============================================================
+  // SUPPORT — About, Bug form, Account export/delete
+  // =============================================================
+  // About — version + uptime
+  fetch("/api/me/version").then(r => r.ok ? r.json() : null).then((d) => {
+    if (!d) return;
+    if ($("aboutVersion")) $("aboutVersion").textContent = d.commit || "dev";
+    if ($("aboutUptime")) $("aboutUptime").textContent = d.uptime || "—";
+  }).catch(() => {});
 
-  async function loadCompose(force = false) {
-    aliasListEl.innerHTML = `<div class="empty-state">Loading…</div>`;
-    sigStatusEl.textContent = "Loading…";
-    const path = force ? "/api/compose/refresh" : "/api/compose/settings";
-    if (force) {
-      const r = await fetch("/api/compose/refresh", { method: "POST" });
-      if (!r.ok) return;
-    }
-    const r = await fetch("/api/compose/settings");
-    if (!r.ok) {
-      aliasListEl.innerHTML = `<div class="empty-state">Couldn't load aliases.</div>`;
-      sigStatusEl.textContent = "Couldn't load signature.";
-      return;
-    }
-    const data = await r.json();
-    renderAliases(data.aliases || []);
-    renderSignature(data.primarySignature);
-    setSigMode(data.signatureMode || "always");
-  }
-
-  function renderAliases(aliases) {
-    if (!aliases.length) {
-      aliasListEl.innerHTML = `<div class="empty-state">No aliases imported.</div>`;
-      return;
-    }
-    aliasListEl.innerHTML = aliases
-      .map((a) => `
-        <div class="alias-row">
-          <div class="alias-email">${escapeHtml(a.sendAsEmail)}</div>
-          <div class="alias-meta">
-            ${a.isDefault ? `<span class="alias-badge">Default</span>` : ""}
-            ${a.hasSignature ? `<span class="alias-sig-pill">Signature</span>` : ""}
-            ${a.isDefault ? "" : (a.treatAsAlias ? "Alias" : "Send-from")}
-          </div>
-        </div>`)
-      .join("");
-  }
-
-  function renderSignature(sig) {
-    if (!sig) {
-      sigStatusEl.textContent = "No signature imported from Gmail.";
-      sigPreviewEl.hidden = true;
-      return;
-    }
-    sigStatusEl.innerHTML = `Imported from <strong>${escapeHtml(sig.sendAsEmail)}</strong> — ${sig.html.length.toLocaleString()} chars.`;
-    sigPreviewEl.hidden = false;
-    sigIframe.srcdoc = `<!doctype html><html><head><base target="_blank"><style>body{margin:6px;font:13px -apple-system,sans-serif;color:#222}img{max-width:100%}</style></head><body>${sig.html}</body></html>`;
-    sigIframe.addEventListener("load", () => {
-      try {
-        const h = sigIframe.contentDocument.documentElement.scrollHeight;
-        sigIframe.style.height = Math.min(h + 20, 600) + "px";
-      } catch (_) {}
-    }, { once: true });
-  }
-
-  function setSigMode(mode) {
-    const el = document.querySelector(`input[name="sigMode"][value="${mode}"]`);
-    if (el) el.checked = true;
-  }
-
-  document.querySelectorAll('input[name="sigMode"]').forEach((r) => {
-    r.addEventListener("change", async () => {
-      if (!r.checked) return;
-      await fetch("/api/compose/settings", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signatureMode: r.value }),
+  $("bugForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const desc = $("bugDescription").value.trim();
+    if (desc.length < 5) { $("bugHint").textContent = "Tell us at least a few words."; return; }
+    const btn = e.target.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Sending…";
+    try {
+      const r = await fetch("/api/support/bug", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description: desc, url: location.href }),
       });
+      if (!r.ok) throw new Error();
+      $("bugHint").textContent = "Submitted ✓ thank you";
+      $("bugDescription").value = "";
+    } catch (_) {
+      $("bugHint").textContent = "Failed to submit — try again";
+    } finally {
+      btn.disabled = false; btn.textContent = "Submit bug report";
+    }
+  });
+
+  // Account export → enables Delete button after first download
+  const exportBtn = $("exportBtn"), deleteBtn = $("deleteBtn"), deleteHint = $("deleteHint");
+  exportBtn?.addEventListener("click", () => {
+    setTimeout(() => {
+      if (deleteBtn) { deleteBtn.disabled = false; deleteBtn.style.opacity = "1"; }
+      if (deleteHint) deleteHint.textContent = "Ready — Delete is enabled below.";
+    }, 1500);
+  });
+  deleteBtn?.addEventListener("click", async () => {
+    if (!confirm("Delete your TI Mail account? This removes everything we have about you on our servers. Cannot be undone.")) return;
+    if (!confirm("Last chance — really delete?")) return;
+    try {
+      const r = await fetch("/api/me/account", { method: "DELETE" });
+      if (!r.ok) throw new Error();
+      alert("Account deleted. You'll be signed out.");
+      location.href = "/auth/logout";
+    } catch (_) { alert("Couldn't delete. Try again."); }
+  });
+
+  $("supportRefreshBtn")?.addEventListener("click", async () => {
+    $("supportRefreshBtn").disabled = true;
+    $("supportRefreshBtn").textContent = "Refreshing…";
+    try {
+      await fetch("/api/compose/refresh", { method: "POST" });
+      $("supportRefreshHint").textContent = "Refreshed ✓";
+    } catch (_) {
+      $("supportRefreshHint").textContent = "Failed";
+    } finally {
+      $("supportRefreshBtn").disabled = false;
+      $("supportRefreshBtn").textContent = "Refresh now";
+    }
+  });
+
+  // =============================================================
+  // SHORTCUTS — rebindable single-key actions (kept from old)
+  // =============================================================
+  const SCK = "deltaMail.shortcutBindings";
+  function loadShortcutBindings() {
+    try { return JSON.parse(localStorage.getItem(SCK) || "{}") || {}; } catch (_) { return {}; }
+  }
+  function saveShortcutBindings(o) { localStorage.setItem(SCK, JSON.stringify(o)); }
+  window.NexaShortcutOverride = (label) => loadShortcutBindings()[label];
+  window.DeltaShortcutOverride = window.NexaShortcutOverride;
+  function applyShortcutOverrides() {
+    const overrides = loadShortcutBindings();
+    document.querySelectorAll(".sc-row").forEach((row) => {
+      if (row.dataset.noRebind === "1") return;
+      const label = row.querySelector(".sc-action")?.textContent.trim();
+      const keysEl = row.querySelector(".sc-keys");
+      if (!label || !keysEl) return;
+      const ov = overrides[label];
+      if (ov) {
+        keysEl.innerHTML = ov.split(/\s+/).map((k) => `<span class="sc-key">${escapeHtml(k)}</span>`).join("");
+        row.style.background = "rgba(178,142,68,.06)";
+      } else { row.style.background = ""; }
+    });
+  }
+  applyShortcutOverrides();
+  let _captureRow = null;
+  document.querySelectorAll(".sc-row").forEach((row) => {
+    if (row.dataset.noRebind === "1") {
+      row.style.cursor = "default"; row.title = "Fixed two-key sequence."; return;
+    }
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => {
+      if (_captureRow) _captureRow.classList.remove("sc-capturing");
+      _captureRow = row; row.classList.add("sc-capturing");
+      const keysEl = row.querySelector(".sc-keys");
+      if (keysEl) keysEl.innerHTML = `<span class="sc-key" style="background:var(--gold);color:#fff">Press new key…</span>`;
     });
   });
-
-  refreshBtn?.addEventListener("click", async () => {
-    refreshBtn.disabled = true;
-    refreshBtn.textContent = "Refreshing…";
-    try {
-      await loadCompose(true);
-    } finally {
-      refreshBtn.disabled = false;
-      refreshBtn.textContent = "Refresh from Gmail";
-    }
+  document.addEventListener("keydown", (e) => {
+    if (!_captureRow) return;
+    if (e.key === "Escape") { _captureRow.classList.remove("sc-capturing"); _captureRow = null; applyShortcutOverrides(); return; }
+    if (["Shift","Control","Alt","Meta","Cmd"].includes(e.key)) return;
+    e.preventDefault();
+    const parts = [];
+    if (e.metaKey)  parts.push("⌘");
+    if (e.ctrlKey)  parts.push("Ctrl");
+    if (e.shiftKey) parts.push("⇧");
+    if (e.altKey)   parts.push("⌥");
+    parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
+    const combo = parts.join(" ");
+    const label = _captureRow.querySelector(".sc-action")?.textContent.trim();
+    const overrides = loadShortcutBindings();
+    overrides[label] = combo;
+    saveShortcutBindings(overrides);
+    _captureRow.classList.remove("sc-capturing");
+    _captureRow = null;
+    applyShortcutOverrides();
+  });
+  $("resetShortcutsBtn")?.addEventListener("click", () => {
+    if (!confirm("Reset all keyboard shortcuts to defaults?")) return;
+    localStorage.removeItem(SCK); location.reload();
   });
 
-  loadCompose(false);
-
-  // ---------- Markdown shortcuts (Phase 5.CH) ---------------
-  const mdToggle = document.getElementById("markdownToggle");
-  const mdSaveBtn = document.getElementById("markdownSave");
-  const mdHint = document.getElementById("markdownHint");
-  let _mdOriginal = null;
-  async function loadMarkdownPref() {
-    try {
-      const r = await fetch("/api/me/compose-prefs");
-      if (!r.ok) return;
-      const { settings } = await r.json();
-      mdToggle.checked = !!settings.markdownEnabled;
-      _mdOriginal = mdToggle.checked;
-      mdSaveBtn.disabled = true;
-      mdHint.textContent = "";
-    } catch (_) {}
-  }
-  mdToggle.addEventListener("change", () => {
-    const dirty = mdToggle.checked !== _mdOriginal;
-    mdSaveBtn.disabled = !dirty;
-    mdHint.textContent = dirty ? "Unsaved" : "";
-  });
-  mdSaveBtn.addEventListener("click", async () => {
-    mdSaveBtn.disabled = true;
-    mdSaveBtn.textContent = "Saving…";
-    try {
-      const r = await fetch("/api/me/compose-prefs", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markdownEnabled: mdToggle.checked }),
-      });
-      if (!r.ok) throw new Error("save_failed");
-      _mdOriginal = mdToggle.checked;
-      mdHint.textContent = "Saved ✓";
-      setTimeout(() => { mdHint.textContent = ""; }, 1800);
-    } catch (_) {
-      mdHint.textContent = "Save failed";
-      mdSaveBtn.disabled = false;
-    } finally {
-      mdSaveBtn.textContent = "Save";
-    }
-  });
-  loadMarkdownPref();
-
-  // ---------- Slack — Phase 5.BR ----------------------------
-  // Polls /api/slack/status on load + on focus, paints the two
-  // connect-state rows, wires Disconnect, and surfaces query-string
-  // confirmations (?slack=installed / ?slack=connected / ?slack=denied).
+  // =============================================================
+  // SLACK — preserved from old TI settings
+  // =============================================================
   async function loadSlack() {
     let data;
-    try {
-      const r = await fetch("/api/slack/status");
-      data = await r.json();
-    } catch (_) { return; }
-    const cfgRow = document.getElementById("slackRowConfig");
-    const wsTitle = document.getElementById("slackWorkspaceTitle");
-    const wsMeta  = document.getElementById("slackWorkspaceMeta");
-    const wsBtn   = document.getElementById("slackInstallBtn");
-    const wsOk    = document.getElementById("slackWorkspaceOk");
-    const userMeta = document.getElementById("slackUserMeta");
-    const userBtn  = document.getElementById("slackConnectBtn");
-    const userDis  = document.getElementById("slackDisconnectBtn");
-
-    if (cfgRow) cfgRow.style.display = data?.configured ? "none" : "";
-    if (data?.workspace) {
-      if (wsTitle) wsTitle.textContent = "Workspace: " + (data.workspace.team_name || data.workspace.team_id);
-      if (wsMeta)  wsMeta.textContent  = "Bot installed " + new Date(data.workspace.installed_at).toLocaleString();
-      if (wsBtn)   wsBtn.hidden = true;
-      if (wsOk)    wsOk.hidden  = false;
-    } else {
-      if (wsTitle) wsTitle.textContent = "Delta bot";
-      if (wsMeta)  wsMeta.textContent  = "Not installed yet — install once to give Delta access to shared channels + files.";
-      if (wsBtn)   wsBtn.hidden = !data?.configured;
-      if (wsOk)    wsOk.hidden  = true;
-    }
-    if (data?.user_connected) {
-      const u = data.user_connection;
-      if (userMeta) userMeta.innerHTML = `Connected as <strong>${escapeHtml(u.slack_user_name || u.slack_user_id)}</strong>${u.slack_email ? ` (${escapeHtml(u.slack_email)})` : ""} — Delta can read your DMs and search Slack.`;
-      if (userBtn)  userBtn.hidden = true;
-      if (userDis)  userDis.hidden = false;
-    } else {
-      if (userMeta) userMeta.textContent = "Connect so Delta can read your DMs and search across Slack.";
-      if (userBtn)  userBtn.hidden = !data?.configured;
-      if (userDis)  userDis.hidden = true;
-    }
+    try { const r = await fetch("/api/slack/status"); data = await r.json(); }
+    catch (_) { return; }
+    const cfgRow = $("slackRowConfig");
+    const wsTitle = $("slackWorkspaceTitle"), wsMeta = $("slackWorkspaceMeta");
+    const wsBtn   = $("slackInstallBtn"), wsOk = $("slackWorkspaceOk");
+    const usrMeta = $("slackUserMeta"), usrConn = $("slackConnectBtn"), usrDis = $("slackDisconnectBtn");
+    if (cfgRow) cfgRow.style.display = data.configured === false ? "" : "none";
+    if (wsTitle) wsTitle.textContent = data.workspace?.name ? `Workspace: ${data.workspace.name}` : "Workspace";
+    if (wsMeta)  wsMeta.textContent  = data.workspace?.installedAt ? `Bot installed ${new Date(data.workspace.installedAt).toLocaleString()}` : "";
+    if (wsBtn)   wsBtn.hidden = !!data.workspace?.installed;
+    if (wsOk)    wsOk.hidden = !data.workspace?.installed;
+    if (usrMeta) usrMeta.textContent = data.user?.name ? `Connected as ${data.user.name} — Delta can read your DMs and search Slack.` : "Not connected. Sign in with Slack to let Delta search your DMs.";
+    if (usrConn) usrConn.hidden = !!data.user?.connected;
+    if (usrDis)  usrDis.hidden  = !data.user?.connected;
   }
-  document.getElementById("slackDisconnectBtn")?.addEventListener("click", async () => {
-    if (!confirm("Disconnect your Slack from Delta? Delta will lose access to your DMs and search.")) return;
+  $("slackDisconnectBtn")?.addEventListener("click", async () => {
+    if (!confirm("Disconnect Delta from your Slack account?")) return;
     await fetch("/api/slack/disconnect", { method: "POST" });
     loadSlack();
   });
-  // Surface the query-string status banner from a successful OAuth callback.
-  (function flashStatus() {
-    const p = new URLSearchParams(window.location.search);
-    const s = p.get("slack");
-    if (!s) return;
-    const sub = document.getElementById("slackCardSub");
-    const msg =
-      s === "installed" ? `✓ Delta bot installed to ${p.get("team") || "your workspace"}.` :
-      s === "connected" ? `✓ Slack connected for ${p.get("user") || "you"}.` :
-      s === "denied"    ? `Slack connection failed: ${p.get("error") || "unknown error"}` : "";
-    if (msg && sub) {
-      sub.innerHTML = msg;
-      sub.style.color = s === "denied" ? "var(--red)" : "#2ea043";
-      sub.style.fontWeight = "600";
-    }
-    // Strip the params from the URL so refreshes don't keep showing it.
-    try { window.history.replaceState({}, "", window.location.pathname); } catch (_) {}
-  })();
   loadSlack();
   window.addEventListener("focus", loadSlack);
+
 })();
 </script>
 
-<script src="/shortcuts-global.js?v=1"></script>
 </body>
 </html>
