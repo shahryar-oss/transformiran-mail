@@ -1218,20 +1218,27 @@ app.get("/api/slack/install", auth.requireAuth, async (req, res) => {
 
 app.get("/api/slack/install-callback", auth.requireAuth, async (req, res) => {
   try {
+    console.log("[slack/install-cb] start", {
+      query_keys: Object.keys(req.query || {}),
+      ti_user_id: req.user?.id, ti_user_email: req.user?.email,
+    });
     const slack = require("./lib/slack");
     const { code, state, error } = req.query;
-    if (error) return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}`);
-    if (!code || !state) return res.redirect("/settings?slack=denied&error=missing_code");
+    if (error) return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}#slackCard`);
+    if (!code || !state) return res.redirect("/settings?slack=denied&error=missing_code#slackCard");
     const session = await slack.consumeState(String(state));
     if (!session || session.flow !== "install") {
-      return res.redirect("/settings?slack=denied&error=bad_state");
+      console.warn("[slack/install-cb] bad state:", { found: !!session, flow: session?.flow });
+      return res.redirect("/settings?slack=denied&error=bad_state#slackCard");
     }
     const data = await slack.exchangeCode(String(code), slack.REDIRECT_URI_INSTALL);
+    console.log("[slack/install-cb] exchange shape:", { ok: data?.ok, has_access_token: !!data?.access_token, team_id: data?.team?.id, bot_user_id: data?.bot_user_id });
     const installed = await slack.saveWorkspaceInstall(data, session.userId);
-    res.redirect(`/settings?slack=installed&team=${encodeURIComponent(installed.teamName || "")}`);
+    console.log("[slack/install-cb] saved workspace:", installed);
+    res.redirect(`/settings?slack=installed&team=${encodeURIComponent(installed.teamName || "")}#slackCard`);
   } catch (err) {
-    console.error("[/api/slack/install-callback] failed:", err);
-    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}`);
+    console.error("[slack/install-cb] FAILED:", err.message, "\nstack:", err.stack);
+    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}#slackCard`);
   }
 });
 
@@ -1250,21 +1257,50 @@ app.get("/api/slack/connect", auth.requireAuth, async (req, res) => {
 });
 
 app.get("/api/slack/oauth-callback", auth.requireAuth, async (req, res) => {
+  // Phase 5.CH — verbose logging so we can diagnose silent failures
+  // (Slack returns 200 but the save step fails or data shape doesn't
+  // match what we expect). Each step prints a tagged log line.
   try {
+    console.log("[slack/oauth-cb] start", {
+      query_keys: Object.keys(req.query || {}),
+      has_code: !!req.query.code,
+      has_state: !!req.query.state,
+      has_error: !!req.query.error,
+      ti_user_id: req.user?.id,
+      ti_user_email: req.user?.email,
+    });
     const slack = require("./lib/slack");
     const { code, state, error } = req.query;
-    if (error) return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}`);
-    if (!code || !state) return res.redirect("/settings?slack=denied&error=missing_code");
+    if (error) {
+      console.warn("[slack/oauth-cb] slack returned error:", error);
+      return res.redirect(`/settings?slack=denied&error=${encodeURIComponent(String(error))}#slackCard`);
+    }
+    if (!code || !state) {
+      console.warn("[slack/oauth-cb] missing code or state");
+      return res.redirect("/settings?slack=denied&error=missing_code#slackCard");
+    }
     const session = await slack.consumeState(String(state));
+    console.log("[slack/oauth-cb] consumed state:", { found: !!session, flow: session?.flow, session_user_id: session?.userId });
     if (!session || session.flow !== "connect") {
-      return res.redirect("/settings?slack=denied&error=bad_state");
+      return res.redirect("/settings?slack=denied&error=bad_state#slackCard");
     }
     const data = await slack.exchangeCode(String(code), slack.REDIRECT_URI_USER);
+    console.log("[slack/oauth-cb] exchange response shape:", {
+      ok: data?.ok,
+      has_access_token: !!data?.access_token,
+      has_authed_user: !!data?.authed_user,
+      authed_user_keys: data?.authed_user ? Object.keys(data.authed_user) : [],
+      team_id: data?.team?.id,
+      team_name: data?.team?.name,
+      scope: data?.scope?.slice(0, 60),
+      authed_user_scope: data?.authed_user?.scope?.slice(0, 60),
+    });
     const conn = await slack.saveUserConnect(data, session.userId);
-    res.redirect(`/settings?slack=connected&user=${encodeURIComponent(conn.slackUserName || "")}`);
+    console.log("[slack/oauth-cb] saved user connect:", conn);
+    res.redirect(`/settings?slack=connected&user=${encodeURIComponent(conn.slackUserName || "")}#slackCard`);
   } catch (err) {
-    console.error("[/api/slack/oauth-callback] failed:", err);
-    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}`);
+    console.error("[slack/oauth-cb] FAILED:", err.message, "\nstack:", err.stack);
+    res.redirect(`/settings?slack=denied&error=${encodeURIComponent(err.message || "exchange_failed")}#slackCard`);
   }
 });
 
