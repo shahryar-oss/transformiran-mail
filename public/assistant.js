@@ -1089,6 +1089,7 @@ window.renderMarkdown = renderMarkdown;
       remember:              "Delta is saving to memory",
       consult_finance_delta: "Delta is consulting Finance Delta",
       read_attachments:      "Delta is opening the attachments",
+      read_slack_file:       "Delta is opening the Slack file",
     };
     const setLoadingLabel = (text) => {
       const span = loadingEl.querySelector(".delta-thinking");
@@ -1331,6 +1332,12 @@ window.renderMarkdown = renderMarkdown;
       const q = ev.input?.query || "";
       const src = ev.result?.source === "live" ? "Slack" : "Slack (local cache)";
       return `Searched ${src} — <strong>${n}</strong> result${n === 1 ? "" : "s"} for "${escapeHtml(q)}"`;
+    }
+    if (ev.name === "read_slack_file") {
+      const f = ev.result?.file;
+      if (!f) return `Tried to read a Slack file — ${escapeHtml(ev.result?.error || "failed")}`;
+      const trunc = ev.result?.truncated ? " (truncated to 15 KB)" : "";
+      return `Read Slack file <strong>${escapeHtml(f.filename || f.file_id)}</strong>${trunc}`;
     }
     if (ev.name === "read_attachments") {
       const atts = ev.result?.attachments || [];
