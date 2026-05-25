@@ -3832,6 +3832,25 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .bc-inline-icon svg { width: 13px; height: 13px; fill: currentColor; }
 
+/* Phase 5.BX — light-blue calendar bubble.
+ * User feedback: "give the calendar info a light blue background so
+ * eyes catch it fast." Same treatment idea as .bc-commitments (red)
+ * for promises — calendar gets a calm cool tint so it stands out
+ * from the rest of the cream/gold briefing card without shouting. */
+.bc-section.bc-calendar {
+  background: rgba(126, 154, 224, .12);   /* soft sky blue */
+  border: 1px solid rgba(126, 154, 224, .28);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #2b3850;
+  line-height: 1.5;
+}
+.bc-section.bc-calendar .bc-inline-icon {
+  color: #4a6fc4;
+}
+
 /* Pre-drafted replies stack */
 .bc-replies {
   display: flex;

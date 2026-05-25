@@ -1750,11 +1750,11 @@ window.renderMarkdown = renderMarkdown;
           </ul>
         </div>` : ""}
       ${brief.calendar_summary ? `
-        <div class="bc-section bc-inline">
+        <div class="bc-section bc-inline bc-calendar">
           <span class="bc-inline-icon">
             <svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg>
           </span>
-          <span>${escapeHtml(brief.calendar_summary)}</span>
+          <span dir="auto">${escapeHtml(brief.calendar_summary)}</span>
         </div>` : ""}
       ${brief.tasks_summary ? `
         <div class="bc-section bc-inline">
