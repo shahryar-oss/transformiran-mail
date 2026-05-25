@@ -3832,11 +3832,11 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .bc-inline-icon svg { width: 13px; height: 13px; fill: currentColor; }
 
-/* Phase 5.BX — light-blue calendar bubble.
- * User feedback: "give the calendar info a light blue background so
- * eyes catch it fast." Same treatment idea as .bc-commitments (red)
- * for promises — calendar gets a calm cool tint so it stands out
- * from the rest of the cream/gold briefing card without shouting. */
+/* Phase 5.BX / 5.BZ — colour-coded inline briefing blocks.
+ * User feedback: "give the calendar info a light blue background and
+ * the To Do info a light green background so eyes catch them fast."
+ * Same idea as .bc-commitments (red) for promises — each domain gets
+ * a calm tint so it stands out without shouting. */
 .bc-section.bc-calendar {
   background: rgba(126, 154, 224, .12);   /* soft sky blue */
   border: 1px solid rgba(126, 154, 224, .28);
@@ -3849,6 +3849,19 @@ body.delta-panel-open .delta-fab { display: none; }
 }
 .bc-section.bc-calendar .bc-inline-icon {
   color: #4a6fc4;
+}
+.bc-section.bc-tasks {
+  background: rgba(46, 160, 67, .10);     /* soft sage green */
+  border: 1px solid rgba(46, 160, 67, .28);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  color: #1e3a26;
+  line-height: 1.5;
+}
+.bc-section.bc-tasks .bc-inline-icon {
+  color: #2ea043;
 }
 
 /* Pre-drafted replies stack */
