@@ -2640,7 +2640,7 @@ body.delta-panel-open .delta-fab { display: none; }
 .cb-row:hover { background: var(--cream); }
 .cb-row input[type=checkbox] {
   width: 16px; height: 16px;
-  accent-color: var(--red);
+  accent-color: var(--gold);
   flex-shrink: 0;
   cursor: pointer;
 }
