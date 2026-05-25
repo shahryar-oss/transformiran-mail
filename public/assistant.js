@@ -1078,6 +1078,7 @@ window.renderMarkdown = renderMarkdown;
     // tool calls (model is reasoning about the next step).
     const TOOL_LABELS = {
       search_inbox:          "Delta is searching your inbox",
+      search_slack:          "Delta is searching Slack",
       draft_reply:           "Delta is drafting a reply",
       compose_email:         "Delta is composing a new email",
       forward_email:         "Delta is forwarding the email",
@@ -1324,6 +1325,12 @@ window.renderMarkdown = renderMarkdown;
       const n = ev.result?.count || 0;
       const q = ev.input?.query || "";
       return `Searched your full inbox — <strong>${n}</strong> result${n === 1 ? "" : "s"} for "${escapeHtml(q)}"`;
+    }
+    if (ev.name === "search_slack") {
+      const n = ev.result?.count || 0;
+      const q = ev.input?.query || "";
+      const src = ev.result?.source === "live" ? "Slack" : "Slack (local cache)";
+      return `Searched ${src} — <strong>${n}</strong> result${n === 1 ? "" : "s"} for "${escapeHtml(q)}"`;
     }
     if (ev.name === "read_attachments") {
       const atts = ev.result?.attachments || [];
