@@ -172,6 +172,54 @@
   }
   .skip-link:hover { color: var(--navy-soft); }
 
+  /* Listen-to-Delta button (TTS) — sits between the lede and the speech block.
+     Synced from NexaMails c6584bc. */
+  .tts-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0 auto 24px;
+    padding: 10px 20px;
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s, background .15s;
+    font-family: inherit;
+  }
+  .tts-btn:hover { background: #000; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+  .tts-btn .tts-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px; height: 20px;
+    font-size: 11px;
+    color: #fff;
+  }
+  .tts-btn.playing .tts-icon::before { content: ""; }
+  .tts-btn.playing .tts-icon::after {
+    content: "";
+    display: inline-block;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(90deg, #fff 50%, transparent 50%);
+    animation: ttspulse 1.4s linear infinite;
+  }
+  .tts-btn.playing .tts-icon { font-size: 0; }
+  @keyframes ttspulse {
+    0% { transform: rotate(0deg); opacity: .6; }
+    50% { opacity: 1; }
+    100% { transform: rotate(360deg); opacity: .6; }
+  }
+  .tts-btn.playing .tts-label::after {
+    content: " • playing";
+    opacity: .7;
+    font-weight: 400;
+  }
+
   @media (max-width: 640px) {
     .welcome { padding: 40px 28px 32px; margin: 16px 12px; }
     .welcome .promises { grid-template-columns: 1fr; }
@@ -185,6 +233,11 @@
 
   <h1 id="heading">Hello.</h1>
   <p class="lede" id="lede">I'm Delta — your AI assistant inside Delta Mail.</p>
+
+  <button class="tts-btn" id="ttsBtn" hidden type="button" aria-label="Listen to Delta's welcome">
+    <span class="tts-icon" aria-hidden="true">▶</span>
+    <span class="tts-label">Tap to hear Delta</span>
+  </button>
 
   <div class="speech" id="speech">
     <p>Loading your introduction…</p>
@@ -280,6 +333,55 @@
   );
 
   speechEl.innerHTML = intro.map((p) => `<p>${p}</p>`).join("");
+
+  // ---- TTS: read the welcome aloud in Delta's voice.
+  //      Synced from NexaMails c6584bc. Build the spoken text from
+  //      heading + lede + paragraphs (no HTML), fetch /api/tts, try
+  //      autoplay. Browsers often block autoplay on first visit, so
+  //      the "Tap to hear Delta" button is visible as a fallback. -----
+  const spoken = [
+    headingEl.textContent,
+    ledeEl.textContent,
+    ...intro.map((p) => p.replace(/<[^>]+>/g, "")),
+  ].join("\n\n");
+
+  let audio = null;
+  let audioReady = false;
+  const ttsBtn = document.getElementById("ttsBtn");
+
+  try {
+    const r = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: spoken, voice: "nova" }),
+    });
+    if (r.ok) {
+      const blob = await r.blob();
+      audio = new Audio(URL.createObjectURL(blob));
+      audio.preload = "auto";
+      audioReady = true;
+    }
+  } catch (_) { /* TTS optional — never block the welcome */ }
+
+  if (audioReady && audio) {
+    if (ttsBtn) {
+      ttsBtn.hidden = false;
+      ttsBtn.addEventListener("click", () => {
+        ttsBtn.classList.add("playing");
+        audio.play().catch(() => {});
+      });
+    }
+    // Try autoplay. Browsers often block on first visit — if so, the
+    // Tap-to-hear button is already visible as a fallback.
+    audio.play().then(() => {
+      if (ttsBtn) ttsBtn.classList.add("playing");
+    }).catch(() => {
+      // Autoplay blocked — leave the button visible so the user can tap it.
+    });
+    audio.addEventListener("ended", () => {
+      if (ttsBtn) ttsBtn.classList.remove("playing");
+    });
+  }
 
   // ---- Light "scanning" pass — pulls recent inbox AND kicks off the
   //      full historical backfill in the background. Backfill keeps

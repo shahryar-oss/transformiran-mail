@@ -130,8 +130,10 @@ app.get("/", (req, res) => {
   if (!req.user) {
     return res.sendFile(path.join(__dirname, "public", "landing.html"));
   }
-  // First-login welcome — shown until the user clicks "Get started"
-  if (!req.user.welcomed_at) {
+  // First-login welcome — shown until the user clicks "Get started".
+  // `?welcome=1` query param lets any signed-in user preview the welcome
+  // flow again without resetting their DB state. (Synced from NexaMails c6584bc.)
+  if (!req.user.welcomed_at || req.query.welcome === "1") {
     return res.sendFile(path.join(__dirname, "public", "welcome.html"));
   }
   res.sendFile(path.join(__dirname, "public", "inbox.html"));
