@@ -475,6 +475,15 @@
       return;
     }
 
+    // Memory save (text + voice): show the same confirmation card text
+    // chat shows, so voice users see + can undo without leaving the chat.
+    if (name === "remember" && result.memory) {
+      if (typeof window.DeltaRenderMemorySavedCard === "function") {
+        window.DeltaRenderMemorySavedCard(result.memory, { proactive: !!result.proactive });
+      }
+      return;
+    }
+
     // Calendar — render the same preview / created / slot-picker cards
     // the text-chat path renders, so voice users can tap Create without
     // having to use any other modality.

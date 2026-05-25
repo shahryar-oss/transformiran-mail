@@ -1272,8 +1272,10 @@ window.renderMarkdown = renderMarkdown;
       // For proactive memory saves, render an undo card so the user can
       // correct Delta when it picks up something wrong or unwanted.
       // Explicit "remember X" calls skip this — the user just asked for it.
-      if (ev.name === "remember" && ev.result?.ok && ev.result.proactive && ev.result.memory) {
-        renderMemorySavedCard(ev.result.memory);
+      // For ANY successful memory save (explicit OR proactive), render
+      // the card so the user sees confirmation + can undo from chat.
+      if (ev.name === "remember" && ev.result?.ok && ev.result.memory) {
+        renderMemorySavedCard(ev.result.memory, { proactive: !!ev.result.proactive });
       }
 
       // Calendar proposal — Shortwave-style preview card with Skip / Create.
@@ -1979,26 +1981,33 @@ window.renderMarkdown = renderMarkdown;
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
-  function renderMemorySavedCard(mem) {
+  // Expose for voice.js — same card for voice-triggered remember calls.
+  window.DeltaRenderMemorySavedCard = function (mem, opts) {
+    try { renderMemorySavedCard(mem, opts || {}); } catch (_) {}
+  };
+
+  function renderMemorySavedCard(mem, opts = {}) {
     const card = document.createElement("div");
     card.className = "memory-saved-card";
     card.dataset.memoryId = String(mem.id);
 
     const subjectLine = `${escapeHtml(mem.subject)}${mem.category ? ` <span class="ms-category">(${escapeHtml(mem.category)})</span>` : ""}`;
+    const title = opts.proactive ? "Delta remembered" : "Saved to your Memory";
+    const sourceLabel = opts.proactive ? "auto" : "asked";
 
     card.innerHTML = `
       <div class="ms-head">
         <span class="ms-icon">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C8.13 2 5 5.13 5 9c0 2.38 1.19 4.47 3 5.74V17a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2.26c1.81-1.27 3-3.36 3-5.74 0-3.87-3.13-7-7-7zm-3 18a1 1 0 0 0 1 1h4a1 1 0 0 0 1-1H9z"/></svg>
         </span>
-        <span class="ms-title">Delta remembered</span>
-        <span class="ms-source">auto</span>
+        <span class="ms-title">${title}</span>
+        <span class="ms-source">${sourceLabel}</span>
       </div>
       <div class="ms-subject">${subjectLine}</div>
       <div class="ms-fact">${escapeHtml(mem.fact)}</div>
       <div class="ms-actions">
         <button class="ms-undo" type="button">Undo — forget this</button>
-        <a class="ms-edit" href="/settings#memory">Edit in Settings</a>
+        <a class="ms-edit" href="/settings#memory">View in Memory</a>
         <span class="ms-status"></span>
       </div>
     `;

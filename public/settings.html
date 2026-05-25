@@ -502,6 +502,24 @@
     <div id="memList">
       <div class="empty-state">Loading memories…</div>
     </div>
+
+    <!-- Live memory snapshot — real counts from delta_memory -->
+    <div style="margin-top:18px;padding:14px;border:1px solid var(--line);border-radius:10px;background:rgba(178,142,68,.04)">
+      <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13px;color:var(--navy);margin-bottom:4px">
+        <img src="/delta-logo.png" alt="Delta" style="width:14px;height:14px;border-radius:3px">
+        <span>What Delta knows about you so far</span>
+      </div>
+      <p style="margin:0;color:var(--navy-soft);font-size:13px;line-height:1.55" id="memoryInsightBody">Loading…</p>
+    </div>
+  </section>
+
+  <!-- Live inbox snapshot — real numbers from inbox_cache -->
+  <section class="card" style="background:rgba(178,142,68,.04)">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px;color:var(--navy);margin-bottom:6px">
+      <img src="/delta-logo.png" alt="Delta" style="width:16px;height:16px;border-radius:3px">
+      <span>Your inbox right now</span>
+    </div>
+    <p style="margin:0;color:var(--navy-soft);font-size:13px;line-height:1.55" id="inboxInsightBody">Loading…</p>
   </section>
 </div>
 
@@ -677,6 +695,54 @@
   });
 
   loadMemories();
+
+  // ---------- Insight snapshots (real DB counts) -----------------
+  function relTime(iso) {
+    if (!iso) return "never";
+    const ms = Date.now() - new Date(iso).getTime();
+    if (ms < 60_000) return "just now";
+    if (ms < 3_600_000) return `${Math.round(ms / 60_000)} min ago`;
+    if (ms < 86_400_000) return `${Math.round(ms / 3_600_000)} h ago`;
+    return `${Math.round(ms / 86_400_000)} d ago`;
+  }
+  async function loadInboxInsight() {
+    const body = $("inboxInsightBody");
+    if (!body) return;
+    try {
+      const r = await fetch("/api/me/insights/inbox");
+      if (!r.ok) throw new Error("load_failed");
+      const d = await r.json();
+      const parts = [];
+      parts.push(`<strong>${d.total}</strong> in inbox, <strong>${d.unread}</strong> unread.`);
+      if (d.unreadFromImportant > 0) parts.push(`<strong>${d.unreadFromImportant}</strong> from your Important contacts.`);
+      if (d.waiting3d > 0) parts.push(`<strong>${d.waiting3d}</strong> waiting 3+ days.`);
+      else if (d.unread === 0) parts.push("Inbox zero. Nice.");
+      parts.push(`<em>Last synced ${relTime(d.lastSync)}.</em>`);
+      body.innerHTML = parts.join(" ");
+    } catch (_) { body.textContent = "Couldn't load right now."; }
+  }
+  async function loadMemoryInsight() {
+    const body = $("memoryInsightBody");
+    if (!body) return;
+    try {
+      const r = await fetch("/api/me/insights/memory");
+      if (!r.ok) throw new Error("load_failed");
+      const d = await r.json();
+      if (!d.total) { body.innerHTML = `Nothing saved yet. Add one above, or say <em>"Delta, remember…"</em> in chat.`; return; }
+      const parts = [`<strong>${d.total}</strong> ${d.total === 1 ? "memory" : "memories"} saved.`];
+      if (Array.isArray(d.categories) && d.categories.length) {
+        const top = d.categories.slice(0, 3).map(c => `${c.n} ${c.category}`).join(" · ");
+        parts.push(`<em>${top}.</em>`);
+      }
+      if (d.lastMemory) {
+        const fact = (d.lastMemory.fact || "").trim().slice(0, 140);
+        parts.push(`Most recent (about <strong>${d.lastMemory.subject}</strong>, ${relTime(d.lastMemory.createdAt)}): &ldquo;${fact}${fact.length >= 140 ? "…" : ""}&rdquo;`);
+      }
+      body.innerHTML = parts.join(" ");
+    } catch (_) { body.textContent = "Couldn't load right now."; }
+  }
+  loadInboxInsight();
+  loadMemoryInsight();
 
   // ---------------- Compose: aliases + signature ----------------
   const aliasListEl = $("aliasList");

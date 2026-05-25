@@ -2657,6 +2657,79 @@ app.patch("/api/me/compose-prefs", auth.requireAuth, async (req, res) => {
 });
 
 // ====================================================================
+// Insights — real, DB-backed signals shown in the Settings cards
+// (Inbox + Memory snapshots). Live queries against this user's data.
+// Added 2026-05-25 to mirror NexaMails parity.
+// ====================================================================
+app.get("/api/me/insights/inbox", auth.requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const threeDaysAgoMs = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    const unreadRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM inbox_cache
+        WHERE user_id = $1 AND in_inbox = TRUE AND is_unread = TRUE`,
+      [userId]
+    );
+    const fromImportantRes = await pool.query(
+      `SELECT COUNT(*)::int AS n
+         FROM inbox_cache ic
+         JOIN important_contacts ec ON ec.user_id = ic.user_id
+        WHERE ic.user_id = $1 AND ic.in_inbox = TRUE AND ic.is_unread = TRUE
+          AND POSITION(LOWER(ec.email) IN LOWER(COALESCE(ic.from_header, ''))) > 0`,
+      [userId]
+    );
+    const waitingRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM inbox_cache
+        WHERE user_id = $1 AND in_inbox = TRUE AND is_unread = TRUE
+          AND internal_date IS NOT NULL AND internal_date < $2`,
+      [userId, threeDaysAgoMs]
+    );
+    const totalRes = await pool.query(
+      `SELECT COUNT(*)::int AS n, MAX(fetched_at) AS last_sync FROM inbox_cache
+        WHERE user_id = $1 AND in_inbox = TRUE`,
+      [userId]
+    );
+    res.json({
+      ok: true,
+      total: totalRes.rows[0]?.n || 0,
+      unread: unreadRes.rows[0]?.n || 0,
+      unreadFromImportant: fromImportantRes.rows[0]?.n || 0,
+      waiting3d: waitingRes.rows[0]?.n || 0,
+      lastSync: totalRes.rows[0]?.last_sync || null,
+    });
+  } catch (err) {
+    console.error("[/api/me/insights/inbox] failed:", err);
+    res.status(500).json({ ok: false, error: "load_failed", message: err.message });
+  }
+});
+app.get("/api/me/insights/memory", auth.requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const countRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM delta_memory WHERE user_id = $1`, [userId]
+    );
+    const recentRes = await pool.query(
+      `SELECT subject, fact, created_at FROM delta_memory
+        WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [userId]
+    );
+    const catRes = await pool.query(
+      `SELECT COALESCE(category, 'fact') AS category, COUNT(*)::int AS n
+         FROM delta_memory WHERE user_id = $1 GROUP BY 1 ORDER BY n DESC`, [userId]
+    );
+    const last = recentRes.rows[0] || null;
+    res.json({
+      ok: true,
+      total: countRes.rows[0]?.n || 0,
+      lastMemory: last ? { subject: last.subject, fact: last.fact, createdAt: last.created_at } : null,
+      categories: catRes.rows,
+    });
+  } catch (err) {
+    console.error("[/api/me/insights/memory] failed:", err);
+    res.status(500).json({ ok: false, error: "load_failed", message: err.message });
+  }
+});
+
+// ====================================================================
 // Delta Memory — persistent facts Delta has been told to remember
 // ====================================================================
 app.get("/api/memory", auth.requireAuth, async (req, res) => {
