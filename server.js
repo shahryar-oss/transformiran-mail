@@ -534,6 +534,21 @@ app.get("/api/briefing/today", auth.requireAuth, async (req, res) => {
   try {
     const row = await briefing.getTodayForUser(req.user, { allowGenerate: true });
     if (!row) return res.json({ ok: false, brief: null });
+    const brief = typeof row.brief_json === "string" ? JSON.parse(row.brief_json) : row.brief_json;
+    // Phase 5.CJ — filter out any pre-drafted replies the user has
+    // already dismissed today so a refresh doesn't bring them back.
+    try {
+      const { pool } = require("./lib/db");
+      const dr = await pool.query(
+        `SELECT message_id FROM briefing_dismissed_replies
+          WHERE user_id = $1 AND for_date = CURRENT_DATE`,
+        [req.user.id],
+      );
+      const dismissed = new Set(dr.rows.map((r) => r.message_id));
+      if (brief && Array.isArray(brief.top_replies) && dismissed.size) {
+        brief.top_replies = brief.top_replies.filter((r) => !dismissed.has(r.message_id));
+      }
+    } catch (_) { /* table may not exist on a cold DB — best-effort filter */ }
     res.json({
       ok: true,
       id: Number(row.id),
@@ -541,7 +556,7 @@ app.get("/api/briefing/today", auth.requireAuth, async (req, res) => {
       generated_at: row.generated_at,
       shown_at: row.shown_at,
       dismissed_at: row.dismissed_at,
-      brief: typeof row.brief_json === "string" ? JSON.parse(row.brief_json) : row.brief_json,
+      brief,
     });
   } catch (err) {
     console.error("[/api/briefing/today] failed:", err);
@@ -564,6 +579,38 @@ app.post("/api/briefing/dismiss", auth.requireAuth, async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: "dismiss_failed", message: err.message });
+  }
+});
+
+// Phase 5.CJ — dismiss ONE pre-drafted reply (not the whole brief).
+// Stored as a row in briefing_dismissed_replies so the same message
+// doesn't pop back into the briefing after a refresh on the same day.
+// Auto-expires at next day's brief (the table is partition-keyed by
+// date and only the current day's dismissals are honoured server-side
+// when the brief is loaded).
+app.post("/api/briefing/dismiss-reply", auth.requireAuth, async (req, res) => {
+  const { messageId } = req.body || {};
+  if (!messageId) return res.status(400).json({ error: "messageId_required" });
+  try {
+    const { pool } = require("./lib/db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS briefing_dismissed_replies (
+        user_id    BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        message_id TEXT   NOT NULL,
+        for_date   DATE   NOT NULL DEFAULT CURRENT_DATE,
+        dismissed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (user_id, message_id, for_date)
+      )
+    `);
+    await pool.query(
+      `INSERT INTO briefing_dismissed_replies (user_id, message_id) VALUES ($1, $2)
+       ON CONFLICT DO NOTHING`,
+      [req.user.id, messageId],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("[/api/briefing/dismiss-reply] failed:", err);
+    res.status(500).json({ error: "dismiss_reply_failed", message: err.message });
   }
 });
 

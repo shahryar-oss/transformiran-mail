@@ -1721,10 +1721,20 @@ window.renderMarkdown = renderMarkdown;
     const card = document.createElement("div");
     card.className = "briefing-card";
 
-    const repliesHtml = (brief.top_replies || []).map((r, i) => `
+    // Phase 5.CJ — queue-aware rendering of pre-drafted replies.
+    // Server can return up to 8; we render the first VISIBLE_REPLIES and
+    // stash the rest as a queue. Each card has a Dismiss button that
+    // animates the card out and pulls the next reply in from the queue.
+    // When the queue empties + the user dismisses the last card, the
+    // section is replaced with an "All caught up ✓" line.
+    const VISIBLE_REPLIES = 3;
+    const allReplies = (brief.top_replies || []).slice();
+    const visibleReplies = allReplies.slice(0, VISIBLE_REPLIES);
+    const queuedReplies = allReplies.slice(VISIBLE_REPLIES);
+    const renderReplyHtml = (r, displayIdx) => `
       <div class="bc-reply" data-msg-id="${escapeHtml(r.message_id || "")}">
         <div class="bc-reply-head">
-          <span class="bc-reply-num">${i + 1}</span>
+          <span class="bc-reply-num">${displayIdx + 1}</span>
           <div class="bc-reply-meta">
             <div class="bc-reply-sender">${escapeHtml(r.sender_name || "(sender)")}</div>
             <div class="bc-reply-subject">${escapeHtml(r.subject || "(no subject)")}</div>
@@ -1735,10 +1745,12 @@ window.renderMarkdown = renderMarkdown;
         <div class="bc-reply-actions">
           <button class="bc-btn bc-open" data-action="open" data-msg-id="${escapeHtml(r.message_id || "")}">Open email</button>
           <button class="bc-btn bc-save" data-action="save" data-msg-id="${escapeHtml(r.message_id || "")}" data-subject="${escapeHtml(r.subject || "")}">Save to Drafts</button>
+          <button class="bc-btn bc-dismiss-reply" data-action="dismiss" data-msg-id="${escapeHtml(r.message_id || "")}" title="Dismiss — not important">Dismiss</button>
           <span class="bc-reply-status"></span>
         </div>
       </div>
-    `).join("");
+    `;
+    const repliesHtml = visibleReplies.map((r, i) => renderReplyHtml(r, i)).join("");
 
     // Listen button only mounts if TTS is enabled. Plays the spoken
     // form of the brief (headline + priorities + calendar/tasks
@@ -1850,12 +1862,136 @@ window.renderMarkdown = renderMarkdown;
       });
     }
 
+    // Phase 5.CJ — closure-scoped queue of replies waiting for a slot.
+    // When a visible reply is dismissed, pop the next one from here and
+    // render it in the freed-up slot.
+    const replyQueue = queuedReplies.slice();
+    const repliesSection = card.querySelector(".bc-replies")?.closest(".bc-section");
+
+    function dismissReplyCard(replyEl) {
+      const repliesRoot = card.querySelector(".bc-replies");
+      // Animate the dismissed card out.
+      replyEl.style.transition = "opacity .22s ease, max-height .22s ease, transform .22s ease";
+      replyEl.style.maxHeight = replyEl.offsetHeight + "px";
+      // force layout
+      void replyEl.offsetHeight;
+      replyEl.style.maxHeight = "0";
+      replyEl.style.opacity = "0";
+      replyEl.style.transform = "translateX(-12px)";
+      setTimeout(() => {
+        // Pull the next queued reply (if any) into the freed slot.
+        const next = replyQueue.shift();
+        if (next && repliesRoot) {
+          // Re-number visible cards 1..N so the user always sees a clean count.
+          const visibleCards = Array.from(repliesRoot.querySelectorAll(".bc-reply")).filter((el) => el !== replyEl);
+          const nextDisplayIdx = visibleCards.length; // 0-based; renderer adds +1
+          const tmp = document.createElement("div");
+          tmp.innerHTML = renderReplyHtml(next, nextDisplayIdx).trim();
+          const newCard = tmp.firstElementChild;
+          repliesRoot.appendChild(newCard);
+          wireReplyCard(newCard);
+          // Renumber the rest so the badges stay 1..N after a mid-list dismiss.
+          renumberReplies();
+        }
+        replyEl.remove();
+        // If there are no more visible replies AND queue empty → swap
+        // the whole section with a friendly "all caught up" line.
+        const remaining = card.querySelectorAll(".bc-reply").length;
+        if (remaining === 0 && !replyQueue.length && repliesSection) {
+          repliesSection.innerHTML = `
+            <div class="bc-section-label">Pre-drafted replies</div>
+            <div class="bc-replies-empty">
+              <span style="color:#2ea043;font-weight:600;">✓ All caught up.</span>
+              <span style="color:var(--muted);font-size:12.5px;margin-left:6px;">Nothing else needs a reply today.</span>
+            </div>`;
+        } else {
+          // Update the count chip in the section header.
+          const countEl = repliesSection?.querySelector(".bc-count");
+          if (countEl) countEl.textContent = String(remaining + replyQueue.length);
+        }
+      }, 230);
+    }
+
+    function renumberReplies() {
+      card.querySelectorAll(".bc-reply").forEach((el, idx) => {
+        const numEl = el.querySelector(".bc-reply-num");
+        if (numEl) numEl.textContent = String(idx + 1);
+      });
+    }
+
+    function wireReplyCard(replyEl) {
+      replyEl.querySelectorAll(".bc-btn").forEach((btn) => {
+        btn.addEventListener("click", btnHandler);
+      });
+      // Re-mount the per-reply Listen button if TTS is enabled.
+      if (ttsEnabled) {
+        const actionsRow = replyEl.querySelector(".bc-reply-actions");
+        if (actionsRow && !actionsRow.querySelector(".bc-reply-listen")) {
+          const senderEl = replyEl.querySelector(".bc-reply-sender");
+          const subjectEl = replyEl.querySelector(".bc-reply-subject");
+          const whyEl = replyEl.querySelector(".bc-reply-why");
+          const bodyEl = replyEl.querySelector(".bc-reply-body");
+          const replyListenBtn = document.createElement("button");
+          replyListenBtn.className = "bc-btn bc-reply-listen";
+          replyListenBtn.title = "Listen to this draft";
+          replyListenBtn.innerHTML = ICON.speaker;
+          replyListenBtn.addEventListener("click", () => {
+            const text = [
+              senderEl?.textContent ? "Reply to " + senderEl.textContent + "." : "",
+              subjectEl?.textContent ? "Subject: " + subjectEl.textContent + "." : "",
+              whyEl?.textContent ? whyEl.textContent : "",
+              "Draft:",
+              bodyEl?.value || "",
+            ].filter(Boolean).join(" ");
+            toggleListen(replyListenBtn, text);
+          });
+          actionsRow.insertBefore(replyListenBtn, actionsRow.firstChild);
+        }
+      }
+    }
+
+    const btnHandler = async (e) => {
+      const btn = e.currentTarget;
+      const action = btn.dataset.action;
+      const msgId = btn.dataset.msgId;
+      if (action === "open") {
+        if (msgId) openEmailById(msgId);
+        return;
+      }
+      if (action === "dismiss") {
+        const replyEl = btn.closest(".bc-reply");
+        if (replyEl) dismissReplyCard(replyEl);
+        // Best-effort server-side persistence so refresh doesn't bring it back.
+        if (msgId) {
+          fetch(`/api/briefing/dismiss-reply`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messageId: msgId }),
+          }).catch(() => {});
+        }
+        return;
+      }
+      handleSaveAction(btn, action, msgId);
+    };
+
     card.querySelectorAll(".bc-btn").forEach((btn) => {
       btn.addEventListener("click", async (e) => {
         const action = btn.dataset.action;
         const msgId = btn.dataset.msgId;
         if (action === "open") {
           if (msgId) openEmailById(msgId);
+          return;
+        }
+        if (action === "dismiss") {
+          const replyEl = btn.closest(".bc-reply");
+          if (replyEl) dismissReplyCard(replyEl);
+          if (msgId) {
+            fetch(`/api/briefing/dismiss-reply`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ messageId: msgId }),
+            }).catch(() => {});
+          }
           return;
         }
         if (action === "save") {

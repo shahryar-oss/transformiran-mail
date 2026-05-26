@@ -4127,6 +4127,22 @@ body.delta-panel-open .delta-fab { display: none; }
   box-shadow: 0 2px 6px rgba(233, 42, 46, .22);
 }
 .bc-btn.bc-save:hover:not(:disabled) { background: var(--red-dark); }
+
+/* Phase 5.CJ — Dismiss button on each pre-drafted reply. Subtle by
+ * default; turns red on hover so the destructive action is obvious. */
+.bc-btn.bc-dismiss-reply {
+  color: var(--muted);
+  margin-left: auto;       /* push to the right edge of the actions row */
+}
+.bc-btn.bc-dismiss-reply:hover {
+  color: var(--red);
+  border-color: rgba(233, 42, 46, .35);
+  background: rgba(233, 42, 46, .06);
+}
+.bc-replies-empty {
+  padding: 10px 0 2px;
+  font-size: 13.5px;
+}
 .bc-reply-status {
   font-size: 11px;
   color: var(--muted);
