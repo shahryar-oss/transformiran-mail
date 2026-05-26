@@ -1470,6 +1470,45 @@ button { font-family: inherit; cursor: pointer; }
 .delta-toast.error { background: var(--bad); }
 .delta-toast.ok { background: var(--good); }
 
+/* Phase 5.CM-2 — Undo-send count-down toast. Bigger / more present
+ * than the regular toast because the user is actively waiting for it
+ * to time out. */
+.delta-undo-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--navy);
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(40, 47, 57, .35);
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 9700;
+  opacity: 0;
+  transition: opacity .18s, transform .18s;
+}
+.delta-undo-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.delta-undo-toast .dut-text { white-space: nowrap; }
+.delta-undo-toast #dutCount { font-weight: 700; color: var(--gold); }
+.delta-undo-toast .dut-undo {
+  background: var(--accent, var(--gold));
+  color: #fff;
+  border: none;
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s, transform .12s;
+}
+.delta-undo-toast .dut-undo:hover { background: var(--accent-dark, var(--gold-dark)); transform: translateY(-1px); }
+
 /* Phase 5.CA — auto-complete task toast.
  * Shows up when a sent reply auto-closes a linked To Do task. Sits
  * bottom-right, stays for 6 seconds, has an Undo button. */
@@ -2103,6 +2142,52 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--navy);
   line-height: 1.6;
 }
+
+/* ─── DARK-THEME EMAIL CONTENT — light card, native colors preserved ───
+ * Emails arrive with hardcoded inline colors from the sender (signatures,
+ * marketing emails, branded headers, etc.) that assume a light background.
+ * Forcing dark-mode tokens on .reader-body would turn that content into
+ * black-on-black. Instead: when the user is in dark mode, the body card
+ * itself stays light, so the sender's styling renders the way they
+ * intended. Surrounding chrome stays dark.
+ * Same treatment for any other place we render arbitrary email HTML —
+ * the draft composer's reply pane, the signature iframe wrapper, etc.
+ */
+body[data-theme="dark"] .reader-body,
+body[data-theme="dark"] .draft-body,
+body[data-theme="dark"] .cmp-body-rich,
+body[data-theme="dark"] .draft-quoted,
+body[data-theme="dark"] .reader-note,
+body[data-theme="dark"] .sig-preview,
+body[data-theme="dark"] #sigIframe {
+  background: #ffffff;
+  color: #1a1a1a;
+  border-radius: 10px;
+  padding: 16px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+body[data-theme="dark"] .reader-body * { color: inherit; }
+body[data-theme="dark"] .reader-body a { color: #1a5bbb; }
+
+/* Same treatment when the user is on system theme AND the OS is in dark. */
+@media (prefers-color-scheme: dark) {
+  body[data-theme="system"] .reader-body,
+  body[data-theme="system"] .draft-body,
+  body[data-theme="system"] .cmp-body-rich,
+  body[data-theme="system"] .draft-quoted,
+  body[data-theme="system"] .reader-note,
+  body[data-theme="system"] .sig-preview,
+  body[data-theme="system"] #sigIframe {
+    background: #ffffff;
+    color: #1a1a1a;
+    border-radius: 10px;
+    padding: 16px 18px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  body[data-theme="system"] .reader-body * { color: inherit; }
+  body[data-theme="system"] .reader-body a { color: #1a5bbb; }
+}
+
 .reader-snippet {
   margin: 0 0 24px;
 }

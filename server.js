@@ -3066,6 +3066,100 @@ app.get("/api/me/notify-dry-run", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Phase 5.CM-2 (port of NexaMails ac77790) — Notifiable-new endpoint.
+// Returns the new INBOX messages since the client's cursor that the
+// user's notify_settings says we SHOULD ping them about. Used by
+// public/task-notifier.js to fire browser notifications without the
+// client having to know the rules. Quiet hours / hourly budget are
+// enforced client-side (server doesn't track per-tab firing counts).
+// Server filters by mode + always/never contacts + classifier category.
+app.get("/api/inbox/notifiable-new", auth.requireAuth, async (req, res) => {
+  try {
+    const r = await pool.query(`SELECT notify_settings FROM users WHERE id = $1`, [req.user.id]);
+    const s = mergeNotifySettings(r.rows[0]?.notify_settings);
+    if (s.mode === "off") return res.json({ ok: true, messages: [] });
+
+    // Never look back more than 1h on a fresh client — protects against
+    // a client with no cursor flooding the user with old messages.
+    const sinceMs = Math.max(
+      Number(req.query.since_ms) || 0,
+      Date.now() - 60 * 60 * 1000
+    );
+
+    const rows = await pool.query(
+      `SELECT ic.message_id, ic.thread_id, ic.from_header,
+              ic.subject, ic.snippet, ic.internal_date,
+              ec.category, ec.urgency
+         FROM inbox_cache ic
+    LEFT JOIN email_classifications ec
+           ON ec.user_id = ic.user_id AND ec.message_id = ic.message_id
+        WHERE ic.user_id = $1
+          AND ic.internal_date > $2
+          AND ic.in_inbox = TRUE
+          AND ic.is_unread = TRUE
+        ORDER BY ic.internal_date DESC
+        LIMIT 20`,
+      [req.user.id, sinceMs]
+    );
+
+    const emailFromHeader = (raw) => {
+      if (!raw) return "";
+      const m = String(raw).match(/<([^>]+)>/);
+      return (m ? m[1] : String(raw)).toLowerCase().trim();
+    };
+    const nameFromHeader = (raw) => {
+      if (!raw) return "";
+      const m = String(raw).match(/^\s*"?([^"<]+?)"?\s*<[^>]+>/);
+      return (m ? m[1] : "").trim();
+    };
+    const always = new Set(s.alwaysContacts.map((e) => e.toLowerCase()));
+    const never  = new Set(s.neverContacts.map((e) => e.toLowerCase()));
+    const notify = [];
+
+    for (const m of rows.rows) {
+      const from = emailFromHeader(m.from_header);
+      if (never.has(from)) continue;
+      let pass = false;
+      if (always.has(from)) {
+        pass = true;
+      } else if (s.mode === "smart") {
+        const cat = (m.category || "").toUpperCase();
+        const urg = (m.urgency  || "").toLowerCase();
+        pass = (cat === "URGENT") || (cat === "REPLY_NEEDED" && urg !== "low");
+      } else { // "custom" — everything except newsletter/auto/receipt
+        const cat = (m.category || "").toUpperCase();
+        pass = !["NEWSLETTER","AUTO","RECEIPT"].includes(cat);
+      }
+      if (!pass) continue;
+      notify.push({
+        message_id: m.message_id,
+        thread_id:  m.thread_id,
+        from_email: from,
+        from_name:  nameFromHeader(m.from_header) || from.split("@")[0],
+        subject:    m.subject,
+        snippet:    m.snippet,
+        internal_date: Number(m.internal_date),
+        category: m.category,
+        urgency:  m.urgency,
+      });
+    }
+
+    res.json({
+      ok: true,
+      messages: notify,
+      preferences: {
+        sound: s.sound,
+        preview: s.preview,
+        quietHours: s.quietHours,
+        budgetPerHour: s.budgetPerHour,
+      },
+    });
+  } catch (err) {
+    console.error("[/api/inbox/notifiable-new] failed:", err);
+    res.status(500).json({ error: "fetch_failed", message: err.message });
+  }
+});
+
 // Classifier sensitivity — 1..5.
 app.get("/api/me/classifier-sensitivity", auth.requireAuth, async (req, res) => {
   try {

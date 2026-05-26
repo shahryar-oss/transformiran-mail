@@ -2250,47 +2250,91 @@
 
   // Returns six relative snooze options: later today / tomorrow morning /
   // tomorrow evening / next monday / in 2 days / in 1 week.
+  // Phase 5.CM-2 — Snooze defaults now read from /api/me/snooze-defaults
+  // (Settings → Inbox → Snooze) so each user can pick their own times.
+  // Falls back to hardcoded defaults so the menu always works even if
+  // the API fails. Format reminder:
+  //   morning/afternoon/evening — "HH:MM" (24-hour)
+  //   later                     — "+Nh" relative
+  //   nextWeek                  — "DAY HH:MM" (DAY is MON…SUN)
+  let _snoozeDefaults = {
+    morning:   "08:00",
+    afternoon: "13:00",
+    evening:   "18:00",
+    later:     "+3h",
+    nextWeek:  "MON 08:00",
+  };
+  fetch("/api/me/snooze-defaults")
+    .then((r) => r.ok ? r.json() : null)
+    .then((d) => { if (d && d.snooze_defaults) _snoozeDefaults = { ..._snoozeDefaults, ...d.snooze_defaults }; })
+    .catch(() => {});
+
+  // Parse "HH:MM" into {h, m}. Returns null if invalid.
+  function parseHHMM(s) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "").trim());
+    if (!m) return null;
+    return { h: Math.min(23, Number(m[1])), m: Math.min(59, Number(m[2])) };
+  }
+  // Parse "+Nh" or "+Nm" into milliseconds.
+  function parseRelative(s) {
+    const m = /^\+(\d+)([hm])$/i.exec(String(s || "").trim());
+    if (!m) return null;
+    const n = Number(m[1]);
+    return m[2].toLowerCase() === "h" ? n * 3600 * 1000 : n * 60 * 1000;
+  }
+  // Parse "MON 08:00" / "FRI 17:30" into { dayIdx (0=Sun..6=Sat), h, m }.
+  function parseDayTime(s) {
+    const m = /^(SUN|MON|TUE|WED|THU|FRI|SAT)\s+(\d{1,2}):(\d{2})$/i.exec(String(s || "").trim());
+    if (!m) return null;
+    const map = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+    return { dayIdx: map[m[1].toUpperCase()], h: Number(m[2]), m: Number(m[3]) };
+  }
+
   function computeSnoozeOptions() {
     const now = new Date();
     const opts = [];
+    const sd = _snoozeDefaults;
 
-    // Later today — 3 hours from now, but at minimum 5pm same-day,
-    // skipped entirely if it's already past 9pm.
-    const later = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+    // ── Later today — "+Nh" or fallback +3h, but only if it lands same-day and < 22:00.
+    const laterDeltaMs = parseRelative(sd.later) || 3 * 60 * 60 * 1000;
+    const later = new Date(now.getTime() + laterDeltaMs);
     later.setSeconds(0, 0);
     if (later.getDate() === now.getDate() && later.getHours() < 22) {
       opts.push({ label: "Later today", when: formatWhen(later), iso: later.toISOString() });
     }
 
-    // Tomorrow 8am
+    // ── Tomorrow morning — uses sd.morning HH:MM
+    const tMorn = parseHHMM(sd.morning) || { h: 8, m: 0 };
     const tomMorn = new Date(now);
     tomMorn.setDate(tomMorn.getDate() + 1);
-    tomMorn.setHours(8, 0, 0, 0);
+    tomMorn.setHours(tMorn.h, tMorn.m, 0, 0);
     opts.push({ label: "Tomorrow morning", when: formatWhen(tomMorn), iso: tomMorn.toISOString() });
 
-    // Tomorrow 6pm
+    // ── Tomorrow evening — uses sd.evening HH:MM
+    const tEve = parseHHMM(sd.evening) || { h: 18, m: 0 };
     const tomEve = new Date(now);
     tomEve.setDate(tomEve.getDate() + 1);
-    tomEve.setHours(18, 0, 0, 0);
+    tomEve.setHours(tEve.h, tEve.m, 0, 0);
     opts.push({ label: "Tomorrow evening", when: formatWhen(tomEve), iso: tomEve.toISOString() });
 
-    // In 2 days, 8am
+    // ── In 2 days (morning time)
     const inTwoDays = new Date(now);
     inTwoDays.setDate(inTwoDays.getDate() + 2);
-    inTwoDays.setHours(8, 0, 0, 0);
+    inTwoDays.setHours(tMorn.h, tMorn.m, 0, 0);
     opts.push({ label: "In 2 days", when: formatWhen(inTwoDays), iso: inTwoDays.toISOString() });
 
-    // Next Monday 8am
-    const nextMon = new Date(now);
-    const daysUntilMonday = (1 + 7 - nextMon.getDay()) % 7 || 7;
-    nextMon.setDate(nextMon.getDate() + daysUntilMonday);
-    nextMon.setHours(8, 0, 0, 0);
-    opts.push({ label: "Next week", when: formatWhen(nextMon), iso: nextMon.toISOString() });
+    // ── Next week — uses sd.nextWeek "DAY HH:MM"
+    const nw = parseDayTime(sd.nextWeek) || { dayIdx: 1, h: 8, m: 0 }; // MON 08:00 fallback
+    const nextWk = new Date(now);
+    const daysUntil = (nw.dayIdx + 7 - nextWk.getDay()) % 7 || 7;
+    nextWk.setDate(nextWk.getDate() + daysUntil);
+    nextWk.setHours(nw.h, nw.m, 0, 0);
+    opts.push({ label: "Next week", when: formatWhen(nextWk), iso: nextWk.toISOString() });
 
-    // In 1 week
+    // ── In a week (morning time)
     const inAWeek = new Date(now);
     inAWeek.setDate(inAWeek.getDate() + 7);
-    inAWeek.setHours(8, 0, 0, 0);
+    inAWeek.setHours(tMorn.h, tMorn.m, 0, 0);
     opts.push({ label: "In a week", when: formatWhen(inAWeek), iso: inAWeek.toISOString() });
 
     return opts;
@@ -2367,6 +2411,63 @@
     clearTimeout(showToast._t);
     showToast._t = setTimeout(() => { toast.classList.remove("show"); }, 2400);
   }
+
+  // ── Phase 5.CM-2 — Undo-send wrapper. Reads the user's configured
+  // delay from /api/me/compose-prefs (cached); during the delay, shows
+  // a count-down toast with an Undo button. If user clicks Undo, the
+  // actual send is aborted. Setting `undoSendSeconds: 0` skips the
+  // countdown entirely (matches the Settings → Compose toggle).
+  let _undoSendSeconds = 10;
+  fetch("/api/me/compose-prefs")
+    .then((r) => r.ok ? r.json() : null)
+    .then((d) => {
+      if (d && d.settings && Number.isFinite(d.settings.undoSendSeconds)) {
+        _undoSendSeconds = d.settings.undoSendSeconds;
+      }
+    })
+    .catch(() => {});
+
+  // doSendNow: function that returns a promise resolving when the
+  // actual send goes through. Returns { undone: true } if user
+  // clicks Undo during the delay.
+  function sendWithUndo(doSendNow) {
+    return new Promise((resolve) => {
+      const seconds = _undoSendSeconds;
+      if (seconds === 0) {
+        doSendNow().then(resolve).catch((err) => resolve({ error: err }));
+        return;
+      }
+      const wrap = document.createElement("div");
+      wrap.className = "delta-undo-toast show";
+      wrap.innerHTML = `
+        <span class="dut-text">Sending in <span id="dutCount">${seconds}</span>s…</span>
+        <button type="button" class="dut-undo" id="dutUndoBtn">Undo</button>
+      `;
+      document.body.appendChild(wrap);
+      let remaining = seconds;
+      let cancelled = false;
+      const countEl = wrap.querySelector("#dutCount");
+      const tick = setInterval(() => {
+        remaining -= 1;
+        if (cancelled) return;
+        if (remaining <= 0) {
+          clearInterval(tick);
+          wrap.remove();
+          doSendNow().then(resolve).catch((err) => resolve({ error: err }));
+          return;
+        }
+        if (countEl) countEl.textContent = String(remaining);
+      }, 1000);
+      wrap.querySelector("#dutUndoBtn").addEventListener("click", () => {
+        cancelled = true;
+        clearInterval(tick);
+        wrap.remove();
+        resolve({ undone: true });
+      });
+    });
+  }
+  // Expose for other modules (e.g. assistant.js draft pane).
+  window.DeltaSendWithUndo = sendWithUndo;
 
   // Phase 5.CA — task auto-complete toast.
   // When a reply auto-closes a linked To Do task, show a richer toast
@@ -2468,6 +2569,7 @@
         <button class="tone-chip" data-tone="apologetic">Apologetic</button>
         <button class="tone-chip" data-tone="farsi">In Farsi</button>
         <button class="tone-chip" data-tone="dutch">In Dutch</button>
+        <button class="tone-chip" data-snippets="open" title="Insert a saved snippet">📋 Snippets</button>
       </div>
       <div class="draft-instructions">
         <input class="draft-extra-instructions" type="text" placeholder="Or type your own instruction: 'mention the flight is at 4:55 PM'…">
@@ -2641,8 +2743,84 @@
       if (e.key === "Enter") { e.preventDefault(); regenBtn.click(); }
     });
 
+    // Phase 5.CM-3 — Snippets chip. Opens a small popover with the
+    // user's saved snippets (from /api/snippets); clicking one inserts
+    // its body at the cursor in the composer.
+    const snippetsChip = composer.querySelector('[data-snippets="open"]');
+    if (snippetsChip) {
+      snippetsChip.addEventListener("click", async (e) => {
+        e.preventDefault();
+        const existing = document.getElementById("snippetsPopover");
+        if (existing) { existing.remove(); return; }
+
+        let snippets = [];
+        try {
+          const r = await fetch("/api/snippets");
+          if (r.ok) snippets = (await r.json()).snippets || [];
+        } catch (_) {}
+
+        const pop = document.createElement("div");
+        pop.id = "snippetsPopover";
+        pop.className = "snz-popover snippets-popover";
+        if (!snippets.length) {
+          pop.innerHTML = `<div class="snz-head">No snippets yet</div>
+            <div style="padding: 12px 14px; color: var(--muted); font-size: 12.5px; max-width: 280px">
+              Save reusable phrases in <a href="/settings#compose" style="color: var(--accent, var(--gold))">Settings → Compose → Snippets</a>.
+            </div>`;
+        } else {
+          pop.innerHTML = `<div class="snz-head">Insert snippet</div>` +
+            snippets.map((s) => `
+              <button class="snz-opt" data-snip-id="${s.id}" type="button">
+                <span class="snz-opt-label">${escapeHtml(s.title)}</span>
+                <span class="snz-opt-when" style="font-style: italic; opacity: .7">${escapeHtml((s.body || "").slice(0, 60))}${(s.body || "").length > 60 ? "…" : ""}</span>
+              </button>
+            `).join("");
+        }
+        document.body.appendChild(pop);
+
+        // Position under the chip.
+        const rect = snippetsChip.getBoundingClientRect();
+        pop.style.position = "fixed";
+        pop.style.top  = `${rect.bottom + 6}px`;
+        pop.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 320))}px`;
+        pop.style.maxHeight = "320px";
+        pop.style.overflowY = "auto";
+
+        function close() { pop.remove(); document.removeEventListener("click", outside, true); }
+        function outside(ev) { if (!pop.contains(ev.target) && ev.target !== snippetsChip) close(); }
+        setTimeout(() => document.addEventListener("click", outside, true), 0);
+
+        pop.querySelectorAll("[data-snip-id]").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const snip = snippets.find((s) => String(s.id) === btn.dataset.snipId);
+            close();
+            if (!snip) return;
+            // Insert at cursor in the contenteditable body. Fallback:
+            // append to end if no selection exists yet.
+            const html = String(snip.body || "")
+              .replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;")
+              .replace(/\n/g, "<br>");
+            const sel = window.getSelection();
+            bodyTa.focus();
+            if (sel && sel.rangeCount && bodyTa.contains(sel.anchorNode)) {
+              document.execCommand("insertHTML", false, html);
+            } else {
+              bodyTa.innerHTML = (bodyTa.innerHTML || "") + html;
+            }
+            fetch(`/api/snippets/${snip.id}/used`, { method: "POST" }).catch(() => {});
+            showToast(`Inserted "${snip.title}"`);
+          });
+        });
+      });
+    }
+
     // Tone preset chips — re-draft with that instruction
     composer.querySelectorAll(".tone-chip").forEach((chip) => {
+      // Skip the snippets button — it's wired above and shouldn't
+      // re-trigger as a tone preset.
+      if (chip.dataset.snippets) return;
       chip.addEventListener("click", () => {
         const tone = chip.dataset.tone;
         const phrasing = {
@@ -2668,8 +2846,8 @@
         return;
       }
       // No confirm() — clicking Send means Send. The Send button is
-      // already explicit + dedicated (not adjacent to anything
-      // destructive), so a second confirmation just adds friction.
+      // already explicit + dedicated. Undo-send delay below gives a
+      // safety window if the user changes their mind.
       sendBtn.disabled = true;
       saveBtn.disabled = true;
       statusEl.className = "draft-status";
@@ -2677,31 +2855,50 @@
       // Markdown shortcuts — convert **bold**, lists, etc. before
       // serialising the body so the recipient sees rendered HTML.
       maybeApplyMarkdown(bodyTa);
-      try {
+
+      const payload = JSON.stringify({
+        to,
+        cc: ccInput.value.trim() || undefined,
+        bcc: bccInput.value.trim() || undefined,
+        subject: subjInput.value,
+        // Phase 5.AQ — contenteditable composer sends rich HTML
+        // so the recipient sees the parent's original signature/
+        // colors/logo in the quoted block. Server's
+        // buildMultipartMessage auto-generates the text/plain
+        // variant via mime.htmlToText.
+        bodyHtml: bodyTa.innerHTML,
+        body: bodyTa.innerText, // plain-text fallback for text/plain
+        threadId: currentDraft.threadId,
+        inReplyTo: currentDraft.inReplyTo,
+        // Phase 5.AE — Carry Delta's draft id so the server can
+        // diff what was actually sent against the original draft.
+        deltaDraftId: currentDraft.deltaDraftId || null,
+      });
+
+      // Phase 5.CM-2 — Undo-send wrapper. Honours undoSendSeconds from
+      // /api/me/compose-prefs. User can click Undo during the countdown
+      // to abort the actual fetch entirely.
+      const undoResult = await sendWithUndo(async () => {
         const r = await fetch("/api/gmail/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            to,
-            cc: ccInput.value.trim() || undefined,
-            bcc: bccInput.value.trim() || undefined,
-            subject: subjInput.value,
-            // Phase 5.AQ — contenteditable composer sends rich HTML
-            // so the recipient sees the parent's original signature/
-            // colors/logo in the quoted block. Server's
-            // buildMultipartMessage auto-generates the text/plain
-            // variant via mime.htmlToText.
-            bodyHtml: bodyTa.innerHTML,
-            body: bodyTa.innerText, // plain-text fallback for text/plain
-            threadId: currentDraft.threadId,
-            inReplyTo: currentDraft.inReplyTo,
-            // Phase 5.AE — Carry Delta's draft id so the server can
-            // diff what was actually sent against the original draft.
-            deltaDraftId: currentDraft.deltaDraftId || null,
-          }),
+          body: payload,
         });
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
+        return { r, data };
+      });
+      if (undoResult && undoResult.undone) {
+        sendBtn.disabled = false;
+        saveBtn.disabled = false;
+        statusEl.className = "draft-status";
+        statusEl.textContent = "Cancelled — undone.";
+        return;
+      }
+      try {
+        if (undoResult && undoResult.error) throw undoResult.error;
+        const r = undoResult.r;
+        const data = undoResult.data;
         statusEl.className = "draft-status ok";
         statusEl.textContent = data.archived ? "Sent + archived ✓" : "Sent ✓";
         sendBtn.textContent = "Sent";
@@ -3551,6 +3748,98 @@
 
   // Pull the user's Important contacts (auto-seeded with org defaults).
   loadImportantContacts();
+
+  // =============================================================
+  // Phase 5.CM-3 — INBOX-SCOPED KEYBOARD SHORTCUTS — Gmail-style hotkeys
+  // for the message list and reader toolbar. Cross-page navigation /
+  // search / compose live in /shortcuts-global.js; this block adds the
+  // inbox-only ones (j/k row navigation, e archive, # trash, r reply,
+  // etc.). Per-user remapping via window.NexaShortcutOverride(label)
+  // (kept on the legacy name so Settings → Shortcuts works as-is).
+  // Skips firing when focused element is an input / textarea /
+  // contenteditable so we don't intercept normal typing.
+  // =============================================================
+  (function installInboxShortcuts() {
+    const ACTIONS = {
+      "New email":            { key: "c",     fn: () => document.getElementById("composeBtn")?.click() },
+      "Search inbox":         { key: "/",     fn: () => document.querySelector(".search-input")?.focus() },
+      "Next message":         { key: "j",     fn: () => moveSel(+1) },
+      "Previous message":     { key: "k",     fn: () => moveSel(-1) },
+      "Open selected thread": { key: "Enter", fn: () => document.querySelector(".msg.selected")?.click() },
+      "Archive thread":       { key: "e",     fn: () => clickToolbar("archive") },
+      "Move to trash":        { key: "#",     fn: () => clickToolbar("trash") },
+      "Mark as unread":       { key: "u",     fn: () => clickToolbar("unread") },
+      "Star / unstar":        { key: "s",     fn: () => clickToolbar("star") },
+      "Snooze thread":        { key: "b",     fn: () => clickToolbar("snooze") },
+      "Reply":                { key: "r",     fn: () => clickToolbar("reply") },
+      "Reply all":            { key: "a",     fn: () => clickToolbar("reply-all") },
+      "Forward":              { key: "f",     fn: () => clickToolbar("forward") },
+    };
+
+    function moveSel(delta) {
+      const rows = Array.from(document.querySelectorAll(".msg"));
+      if (!rows.length) return;
+      const sel = document.querySelector(".msg.selected");
+      const idx = sel ? rows.indexOf(sel) : -1;
+      const next = rows[Math.max(0, Math.min(rows.length - 1, idx + delta))];
+      next?.click();
+      next?.scrollIntoView({ block: "nearest" });
+    }
+    function clickToolbar(action) {
+      const btn = document.querySelector(`.tb-btn[data-tb="${action}"]`);
+      btn?.click();
+    }
+
+    function keyMatches(binding, event) {
+      if (!binding) return false;
+      const parts = binding.split(/\s+|\+/).filter(Boolean);
+      const wantsMeta  = parts.some((p) => /^(⌘|Cmd|Meta|Win)$/i.test(p));
+      const wantsCtrl  = parts.some((p) => /^(Ctrl|Control)$/i.test(p));
+      const wantsShift = parts.some((p) => /^(⇧|Shift)$/i.test(p));
+      const wantsAlt   = parts.some((p) => /^(⌥|Alt|Option)$/i.test(p));
+      const last = parts.filter((p) => !/^(⌘|Cmd|Meta|Win|Ctrl|Control|⇧|Shift|⌥|Alt|Option)$/i.test(p)).pop();
+      if (!last) return false;
+      const evKey = event.key.length === 1 ? event.key.toLowerCase() : event.key;
+      const wantKey = last.length === 1 ? last.toLowerCase() : last;
+      if (evKey !== wantKey) return false;
+      if (!!event.metaKey  !== wantsMeta)  return false;
+      if (!!event.ctrlKey  !== wantsCtrl)  return false;
+      if (!!event.shiftKey !== wantsShift) return false;
+      if (!!event.altKey   !== wantsAlt)   return false;
+      return true;
+    }
+
+    function isTypingTarget(t) {
+      if (!t) return false;
+      const tag = (t.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return true;
+      if (t.isContentEditable) return true;
+      return false;
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (isTypingTarget(e.target)) return;
+      // Skip if a modal/popover that owns its own keys is open.
+      if (document.getElementById("snoozePopover")) return;
+      if (document.getElementById("snoozeCustomModal")) return;
+      const attachPrev = document.getElementById("attachmentPreview");
+      if (attachPrev && !attachPrev.hidden) return;
+
+      for (const [label, def] of Object.entries(ACTIONS)) {
+        const override = (typeof window.NexaShortcutOverride === "function" ? window.NexaShortcutOverride(label) : null) || def.key;
+        if (keyMatches(override, e)) {
+          e.preventDefault();
+          try { def.fn(); } catch (_) {}
+          return;
+        }
+      }
+    });
+
+    // Tiny helper so the Settings → Shortcuts page can know which
+    // actions are wired today vs. stub-only documentation.
+    window.NexaWiredShortcutActions = (window.NexaWiredShortcutActions || []).concat(Object.keys(ACTIONS));
+    window.DeltaWiredShortcutActions = window.NexaWiredShortcutActions;
+  })();
 
   // ---------- DELTA SEARCH FILTER MODE ----------
   // Called from assistant.js when the user clicks an email reference that

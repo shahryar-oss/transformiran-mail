@@ -1,19 +1,25 @@
-// Task notifier — runs on every page that has the rail. Two jobs:
-//   1. Update the 'To Do' rail link with a red badge showing # of overdue tasks
-//   2. Poll /api/tasks/due-soon every minute and fire browser notifications
-//      when a task's due_at or reminder_at hits (within a -5 min .. +1 min window)
+// Notifier — runs on every authenticated page. Four jobs:
+//   1. Update the 'To Do' rail link with a red badge showing # of overdue tasks.
+//   2. Fire browser notifications for tasks due / reminders triggered.
+//   3. Fire browser notifications for new INBOX emails that pass the
+//      user's notify_settings (mode/always/never contacts + quiet hours
+//      + per-hour budget).
+//   4. Fire browser notifications for upcoming meetings (~15 min before).
 //
-// Browser notifications require permission (the user has to click 'Allow').
+// Browser notifications require permission (user clicks 'Allow').
 // We request permission silently on the first notifiable hit, and only
 // pester once per browser session.
+//
+// Quiet hours + per-hour budget are enforced client-side because the
+// server doesn't track per-tab firing counts. The 'always notify'
+// override skips quiet-hours but still counts toward budget.
 
 (function() {
-  // Badge updates only if a rail with a To Do link exists. Notifications
-  // fire on any page that loads this script (so the user gets pinged even
-  // while looking at /calendar or /contacts).
   const todoLink = document.querySelector('.folder[href="/tasks"]');
 
-  // ---------- count badge ----------
+  // =============================================================
+  // BADGE on the To Do rail link
+  // =============================================================
   function ensureBadge() {
     if (!todoLink) return null;
     let badge = todoLink.querySelector(".todo-rail-badge");
@@ -24,7 +30,6 @@
     }
     return badge;
   }
-
   async function refreshOverdueCount() {
     if (!todoLink) return;
     try {
@@ -45,22 +50,77 @@
     } catch (_) {}
   }
 
-  // ---------- due-soon notification poller ----------
-  const FIRED_KEY = "deltaMail.firedTaskNotifications";  // localStorage
-  function loadFired() {
+  // =============================================================
+  // Notify-settings cache + quiet-hours + budget checks
+  // =============================================================
+  let _notifySettings = null;
+  let _notifySettingsAt = 0;
+  async function getNotifySettings() {
+    // Refresh from server every 5 min — long enough to be cheap, short
+    // enough that pref changes propagate without a page reload.
+    if (_notifySettings && Date.now() - _notifySettingsAt < 5 * 60 * 1000) return _notifySettings;
     try {
-      const raw = localStorage.getItem(FIRED_KEY);
-      return new Set(JSON.parse(raw) || []);
-    } catch (_) { return new Set(); }
-  }
-  function saveFired(set) {
-    try {
-      // Keep at most the last 500 IDs so localStorage doesn't grow forever.
-      const arr = [...set].slice(-500);
-      localStorage.setItem(FIRED_KEY, JSON.stringify(arr));
-    } catch (_) {}
+      const r = await fetch("/api/me/notify-settings");
+      if (!r.ok) return null;
+      const d = await r.json();
+      _notifySettings = d.notify_settings;
+      _notifySettingsAt = Date.now();
+      return _notifySettings;
+    } catch (_) { return null; }
   }
 
+  function nowInQuietHours(s) {
+    if (!s || !s.quietHours || !s.quietHours.enabled) return false;
+    const qh = s.quietHours;
+    const now = new Date();
+    // 0=Sun … 6=Sat (matches our server-side schema)
+    const day = now.getDay();
+    if (Array.isArray(qh.days) && qh.days.length && !qh.days.includes(day)) return false;
+    const [sH, sM] = (qh.startHHMM || "18:00").split(":").map(Number);
+    const [eH, eM] = (qh.endHHMM   || "09:00").split(":").map(Number);
+    const minutesNow   = now.getHours() * 60 + now.getMinutes();
+    const minutesStart = sH * 60 + sM;
+    const minutesEnd   = eH * 60 + eM;
+    if (minutesStart === minutesEnd) return false;
+    if (minutesStart < minutesEnd) {
+      return minutesNow >= minutesStart && minutesNow < minutesEnd;
+    }
+    // Wraps midnight (e.g. 18:00 → 09:00 next morning).
+    return minutesNow >= minutesStart || minutesNow < minutesEnd;
+  }
+
+  // Hourly budget — track firings per current hour bucket in localStorage.
+  const BUDGET_KEY = "deltaMail.notifBudget"; // { hourKey, count }
+  function loadBudget() {
+    try {
+      const raw = localStorage.getItem(BUDGET_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && typeof o === "object" ? o : null;
+    } catch (_) { return null; }
+  }
+  function saveBudget(o) {
+    try { localStorage.setItem(BUDGET_KEY, JSON.stringify(o)); } catch (_) {}
+  }
+  function hourKey() { return new Date().toISOString().slice(0, 13); } // YYYY-MM-DDTHH
+  function budgetAllows(s) {
+    if (!s) return true;
+    if (!Number.isFinite(s.budgetPerHour) || s.budgetPerHour <= 0) return true;
+    const cur = loadBudget();
+    const key = hourKey();
+    if (!cur || cur.hourKey !== key) return true; // fresh hour
+    return cur.count < s.budgetPerHour;
+  }
+  function recordBudgetFire() {
+    const key = hourKey();
+    const cur = loadBudget();
+    if (!cur || cur.hourKey !== key) { saveBudget({ hourKey: key, count: 1 }); return; }
+    saveBudget({ hourKey: key, count: cur.count + 1 });
+  }
+
+  // =============================================================
+  // Permission gate
+  // =============================================================
   let permissionAsked = false;
   async function ensureNotificationPermission() {
     if (!("Notification" in window)) return false;
@@ -68,15 +128,24 @@
     if (Notification.permission === "denied") return false;
     if (permissionAsked) return false;
     permissionAsked = true;
-    try {
-      const result = await Notification.requestPermission();
-      return result === "granted";
-    } catch (_) {
-      return false;
-    }
+    try { return (await Notification.requestPermission()) === "granted"; }
+    catch (_) { return false; }
   }
 
-  function fireNotification(task) {
+  // =============================================================
+  // TASK notifications
+  // =============================================================
+  const TASK_FIRED_KEY = "deltaMail.firedTaskNotifications";
+  function loadTaskFired() {
+    try { return new Set(JSON.parse(localStorage.getItem(TASK_FIRED_KEY) || "[]")); }
+    catch (_) { return new Set(); }
+  }
+  function saveTaskFired(set) {
+    try { localStorage.setItem(TASK_FIRED_KEY, JSON.stringify([...set].slice(-500))); }
+    catch (_) {}
+  }
+
+  function fireTaskNotification(task) {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
     const dueDate = task.due_at ? new Date(task.due_at) : null;
     const reminderDate = task.reminder_at ? new Date(task.reminder_at) : null;
@@ -91,18 +160,14 @@
       const n = new Notification(`📋 ${task.title}`, {
         body,
         icon: "/delta-logo.png",
-        tag: `task-${task.id}`,    // dedupes if browser fires repeatedly
+        tag: `task-${task.id}`,
         renotify: false,
       });
-      n.onclick = () => {
-        window.focus();
-        window.location.href = `/tasks?focus=${task.id}`;
-        n.close();
-      };
+      n.onclick = () => { window.focus(); window.location.href = `/tasks?focus=${task.id}`; n.close(); };
     } catch (_) {}
   }
 
-  async function pollDueSoon() {
+  async function pollTasks() {
     try {
       const r = await fetch("/api/tasks/due-soon");
       if (!r.ok) return;
@@ -110,27 +175,110 @@
       const tasks = data.tasks || [];
       if (!tasks.length) return;
 
-      // Ask permission lazily — only when there's actually something to notify
+      const settings = await getNotifySettings();
+      if (settings && settings.mode === "off") return;
+      if (nowInQuietHours(settings)) return;
       const allowed = await ensureNotificationPermission();
       if (!allowed) return;
 
-      const fired = loadFired();
+      const fired = loadTaskFired();
       for (const t of tasks) {
-        // Key per (task, deadline) — re-firing after the user pushes the due
-        // date should re-notify, so we include the due/reminder timestamp.
+        if (!budgetAllows(settings)) break;
         const target = t.reminder_at || t.due_at;
         if (!target) continue;
         const key = `${t.id}@${target}`;
         if (fired.has(key)) continue;
-        fireNotification({
+        fireTaskNotification({
           id: Number(t.id),
           title: t.title,
           due_at: t.due_at,
           reminder_at: t.reminder_at,
         });
         fired.add(key);
+        recordBudgetFire();
       }
-      saveFired(fired);
+      saveTaskFired(fired);
+    } catch (_) {}
+  }
+
+  // =============================================================
+  // EMAIL notifications — new INBOX mail that passes notify_settings
+  // =============================================================
+  const EMAIL_CURSOR_KEY = "deltaMail.emailNotifyCursorMs";
+  const EMAIL_FIRED_KEY  = "deltaMail.firedEmailNotifications";
+  function loadEmailCursor() {
+    try { return Number(localStorage.getItem(EMAIL_CURSOR_KEY)) || (Date.now() - 5 * 60 * 1000); }
+    catch (_) { return Date.now() - 5 * 60 * 1000; }
+  }
+  function saveEmailCursor(ms) {
+    try { localStorage.setItem(EMAIL_CURSOR_KEY, String(ms)); } catch (_) {}
+  }
+  function loadEmailFired() {
+    try { return new Set(JSON.parse(localStorage.getItem(EMAIL_FIRED_KEY) || "[]")); }
+    catch (_) { return new Set(); }
+  }
+  function saveEmailFired(set) {
+    try { localStorage.setItem(EMAIL_FIRED_KEY, JSON.stringify([...set].slice(-200))); }
+    catch (_) {}
+  }
+
+  function fireEmailNotification(msg, preview) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const fromName = msg.from_name || (msg.from_email || "").split("@")[0] || "New email";
+    const cat = (msg.category || "").toUpperCase();
+    const prefix = cat === "URGENT" ? "🚨 " : cat === "REPLY_NEEDED" ? "↩️ " : "📧 ";
+    const title = `${prefix}${fromName}`;
+    const body = preview
+      ? (msg.subject ? `${msg.subject} — ${msg.snippet || ""}` : (msg.snippet || ""))
+      : (msg.subject || "(no subject)");
+    try {
+      const n = new Notification(title, {
+        body: body.slice(0, 220),
+        icon: "/delta-logo.png",
+        tag: `email-${msg.message_id}`,
+        renotify: false,
+      });
+      n.onclick = () => {
+        window.focus();
+        // Open the inbox + try to focus the thread.
+        window.location.href = `/?thread=${encodeURIComponent(msg.thread_id || msg.message_id)}`;
+        n.close();
+      };
+    } catch (_) {}
+  }
+
+  async function pollEmails() {
+    try {
+      const settings = await getNotifySettings();
+      if (settings && settings.mode === "off") return;
+
+      const cursor = loadEmailCursor();
+      const r = await fetch(`/api/inbox/notifiable-new?since_ms=${cursor}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      const msgs = data.messages || [];
+      const prefs = data.preferences || { sound: true, preview: true };
+
+      // Advance cursor to the newest message we saw, even if we suppress
+      // notifications for it (so we don't re-process forever).
+      let maxSeen = cursor;
+      for (const m of msgs) if (m.internal_date > maxSeen) maxSeen = m.internal_date;
+      if (maxSeen > cursor) saveEmailCursor(maxSeen);
+
+      if (!msgs.length) return;
+      if (nowInQuietHours(settings)) return;
+      const allowed = await ensureNotificationPermission();
+      if (!allowed) return;
+
+      const fired = loadEmailFired();
+      for (const m of msgs) {
+        if (!budgetAllows(settings)) break;
+        if (fired.has(m.message_id)) continue;
+        fireEmailNotification(m, prefs.preview !== false);
+        fired.add(m.message_id);
+        recordBudgetFire();
+      }
+      saveEmailFired(fired);
     } catch (_) {}
   }
 
@@ -201,19 +349,24 @@
     } catch (_) {}
   }
 
-  // ---------- run ----------
+  // =============================================================
+  // RUN
+  // =============================================================
   refreshOverdueCount();
-  pollDueSoon();
+  pollTasks();
+  pollEmails();
   pollMeetingPrep();
   setInterval(refreshOverdueCount, 60_000);     // badge refresh every 60s
-  setInterval(pollDueSoon, 60_000);             // due-soon poll every 60s
-  setInterval(pollMeetingPrep, 120_000);        // meeting-prep poll every 2 min
+  setInterval(pollTasks,           60_000);     // due-soon poll every 60s
+  setInterval(pollEmails,          60_000);     // new-email poll every 60s
+  setInterval(pollMeetingPrep,    120_000);     // meeting-prep poll every 2 min
 
-  // Also refresh badge when the tab regains focus — catches new overdue
-  // tasks that appeared while the tab was hidden.
+  // Also refresh when the tab regains focus.
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) {
       refreshOverdueCount();
+      pollTasks();
+      pollEmails();
       pollMeetingPrep();
     }
   });
