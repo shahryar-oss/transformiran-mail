@@ -458,6 +458,21 @@
   $("calCreateCancel").addEventListener("click", () => hidePopover("calCreate", "calCreateBackdrop"));
   $("calCreateSave").addEventListener("click", saveNewEvent);
 
+  // Phase 5.CK — cached default meeting link from /api/me/calendar-prefs.
+  // Pre-filled into the Location field when openCreate runs so the user
+  // doesn't have to paste the same URL into every event.
+  let _defaultMeetingLink = "";
+  let _defaultMeetingProvider = "zoom";
+  fetch("/api/me/calendar-prefs")
+    .then((r) => r.ok ? r.json() : null)
+    .then((d) => {
+      if (d && d.settings) {
+        _defaultMeetingLink     = d.settings.defaultMeetingLink || "";
+        _defaultMeetingProvider = d.settings.defaultMeetingProvider || "zoom";
+      }
+    })
+    .catch(() => {});
+
   function openCreate() {
     const now = state.selectedDate ? new Date(state.selectedDate) : new Date();
     now.setMinutes(0, 0, 0);
@@ -466,7 +481,11 @@
     $("newAllDay").checked = false;
     $("newStart").value = toLocalDatetime(now);
     $("newEnd").value = toLocalDatetime(inOneHour);
-    $("newLocation").value = "";
+    // Auto-fill location with the user's permanent meeting room URL
+    // when one is configured. They can always clear or replace it.
+    $("newLocation").value = (_defaultMeetingLink && _defaultMeetingProvider !== "none")
+      ? _defaultMeetingLink
+      : "";
     $("newAttendees").value = "";
     $("newDescription").value = "";
     $("calCreateStatus").textContent = "";

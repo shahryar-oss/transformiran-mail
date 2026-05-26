@@ -1095,6 +1095,10 @@ window.renderMarkdown = renderMarkdown;
       consult_finance_delta: "Delta is consulting Finance Delta",
       read_attachments:      "Delta is opening the attachments",
       read_slack_file:       "Delta is opening the Slack file",
+      propose_calendar_event:"Delta is proposing a meeting",
+      create_calendar_event: "Delta is creating the meeting",
+      find_meeting_time:     "Delta is checking everyone's calendar",
+      find_person:           "Delta is finding the contact",
     };
     const setLoadingLabel = (text) => {
       const span = loadingEl.querySelector(".delta-thinking");
