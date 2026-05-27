@@ -4666,6 +4666,28 @@ dbReady
 // ====================================================================
 function startBackfillWorker() {
   let running = false;
+  // Watchdog timeout around each tick. Even though backfill.js now
+  // wraps its Gmail calls in withTimeout, this is the belt-and-braces
+  // that GUARANTEES the worker self-heals: a single hung tick can
+  // never wedge the `running` flag forever again (incident 2026-05-27
+  // — Pia's backfill job stuck `pending` 11h because one un-timed-out
+  // Gmail call hung the await and froze every subsequent cycle at the
+  // `if (running) return` guard).
+  const TICK_WATCHDOG_MS = 90_000;
+  const tickWithWatchdog = (userId) =>
+    new Promise((resolve) => {
+      let settled = false;
+      const t = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        console.error(`[backfill-worker] user ${userId} tick exceeded ${TICK_WATCHDOG_MS}ms — abandoning this cycle (will retry next cycle)`);
+        resolve();
+      }, TICK_WATCHDOG_MS);
+      Promise.resolve(backfill.tick(userId))
+        .then(() => {}, (err) => console.error(`[backfill-worker] user ${userId} tick failed:`, err))
+        .finally(() => { if (settled) return; settled = true; clearTimeout(t); resolve(); });
+    });
+
   const cycle = async () => {
     if (running) return;
     running = true;
@@ -4677,11 +4699,7 @@ function startBackfillWorker() {
           LIMIT 3`
       );
       for (const row of r.rows) {
-        try {
-          await backfill.tick(row.user_id);
-        } catch (err) {
-          console.error(`[backfill-worker] user ${row.user_id} tick failed:`, err);
-        }
+        await tickWithWatchdog(row.user_id);
       }
     } catch (err) {
       console.error("[backfill-worker] cycle failed:", err);
@@ -4692,7 +4710,7 @@ function startBackfillWorker() {
   // First run 10s after boot, then every 20s.
   setTimeout(cycle, 10_000);
   setInterval(cycle, 20_000);
-  console.log("[boot] backfill worker scheduled (cycle 20s)");
+  console.log("[boot] backfill worker scheduled (cycle 20s, 90s tick watchdog)");
 }
 
 // ====================================================================
