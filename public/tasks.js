@@ -20,6 +20,7 @@
     chevron:  `<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>`,
     dot:      `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>`,
     trash:    `<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
+    bell:     `<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>`,
   };
 
   // ----- STATE -----
@@ -209,6 +210,49 @@
     return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   }
 
+  // Reminders always carry a time, so format day + clock. Used in the
+  // detail "Remind me" row value.
+  function formatReminder(when) {
+    if (!when) return "";
+    const d = new Date(when);
+    const dayPart = formatDue(when) || d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    const timePart = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+    return `${dayPart} at ${timePart}`;
+  }
+
+  // ----- BROWSER NOTIFICATIONS -----
+  // Reminders fire as browser notifications via task-notifier.js, but
+  // only if the user has granted permission. We surface a header chip
+  // to enable it, and we proactively ask the moment a user sets their
+  // first reminder (the natural opt-in point).
+  function notifPermission() {
+    return ("Notification" in window) ? Notification.permission : "denied";
+  }
+  function refreshNotifChip() {
+    const chip = $("notifEnableChip");
+    if (!chip) return;
+    const p = notifPermission();
+    if (p === "granted") { chip.hidden = true; return; }
+    chip.hidden = false;
+    if (p === "denied") {
+      chip.textContent = "🔕 Reminders blocked — enable in browser settings";
+      chip.classList.add("blocked");
+      chip.disabled = true;
+    } else {
+      chip.textContent = "🔔 Turn on reminders";
+      chip.classList.remove("blocked");
+      chip.disabled = false;
+    }
+  }
+  async function ensureNotifPermission() {
+    if (!("Notification" in window)) return false;
+    if (Notification.permission === "granted") return true;
+    if (Notification.permission === "denied") return false;
+    try { await Notification.requestPermission(); } catch (_) {}
+    refreshNotifChip();
+    return Notification.permission === "granted";
+  }
+
   // ----- ADD TASK -----
   const addInput = $("addTaskInput");
   const addBtn = $("addTaskBtn");
@@ -323,9 +367,21 @@
           <span class="icon">${ICONS.calendar}</span>
           <input type="datetime-local" id="dueInput" value="${dueForInput}" placeholder="Add due date">
         </div>
-        <div class="detail-row ${t.reminder_at ? "" : "empty"}">
-          <span class="icon">${ICONS.clock}</span>
-          <input type="datetime-local" id="reminderInput" value="${reminderForInput}" placeholder="Add reminder">
+        <div class="detail-row reminder-row ${t.reminder_at ? "" : "empty"}" id="reminderRow">
+          <span class="icon">${ICONS.bell}</span>
+          <span class="value" id="reminderValue">${t.reminder_at ? "Remind me · " + escapeHtml(formatReminder(t.reminder_at)) : "Remind me"}</span>
+          ${t.reminder_at ? `<button class="detail-row-clear" id="reminderClear" title="Remove reminder">×</button>` : ""}
+        </div>
+        <!-- Reminder quick-pick popover -->
+        <div class="reminder-popover" id="reminderPopover" hidden>
+          <button class="rp-opt" data-rp="later">Later today</button>
+          <button class="rp-opt" data-rp="evening">This evening</button>
+          <button class="rp-opt" data-rp="tomorrow">Tomorrow morning</button>
+          <button class="rp-opt" data-rp="nextweek">Next week</button>
+          <div class="rp-divider"></div>
+          <label class="rp-custom">Pick date &amp; time
+            <input type="datetime-local" id="reminderInput" value="${reminderForInput}">
+          </label>
         </div>
       </div>
 
@@ -378,8 +434,64 @@
     $("dueInput").addEventListener("change", (e) => {
       patchTask(t.id, { due_at: e.target.value ? new Date(e.target.value).toISOString() : null }).then(() => { loadTasks(); loadLists(); });
     });
-    $("reminderInput").addEventListener("change", (e) => {
-      patchTask(t.id, { reminder_at: e.target.value ? new Date(e.target.value).toISOString() : null });
+    // ----- REMINDER quick-pick -----
+    // Compute a preset reminder time. Mirrors the inbox snooze presets.
+    function presetReminder(kind) {
+      const now = new Date();
+      const d = new Date(now);
+      if (kind === "later") {           // +3h, seconds zeroed
+        d.setHours(d.getHours() + 3, 0, 0, 0);
+      } else if (kind === "evening") {  // today 18:00 (or tomorrow if past)
+        d.setHours(18, 0, 0, 0);
+        if (d <= now) d.setDate(d.getDate() + 1);
+      } else if (kind === "tomorrow") { // tomorrow 09:00
+        d.setDate(d.getDate() + 1);
+        d.setHours(9, 0, 0, 0);
+      } else if (kind === "nextweek") { // next Monday 09:00
+        const daysUntilMon = (1 + 7 - d.getDay()) % 7 || 7;
+        d.setDate(d.getDate() + daysUntilMon);
+        d.setHours(9, 0, 0, 0);
+      }
+      return d;
+    }
+    async function setReminder(when) {
+      const iso = when ? when.toISOString() : null;
+      await patchTask(t.id, { reminder_at: iso });
+      // Keep the in-memory task in sync so renderDetail (which reads
+      // from _tasks) shows the new value immediately. `t` is a
+      // reference into _tasks, so this updates the array too.
+      t.reminder_at = iso;
+      // The moment a user sets their first reminder is the natural
+      // point to ask for notification permission.
+      if (iso) await ensureNotifPermission();
+      const pop = $("reminderPopover");
+      if (pop) pop.hidden = true;
+      renderDetail();   // refresh the value + clear button
+      loadTasks();      // refresh the list (Planned view counts, etc.)
+    }
+
+    const reminderRow = $("reminderRow");
+    const reminderPopover = $("reminderPopover");
+    reminderRow?.addEventListener("click", (e) => {
+      if (e.target.closest("#reminderClear")) return; // handled below
+      reminderPopover.hidden = !reminderPopover.hidden;
+    });
+    $("reminderClear")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setReminder(null);
+    });
+    reminderPopover?.querySelectorAll(".rp-opt").forEach((btn) => {
+      btn.addEventListener("click", () => setReminder(presetReminder(btn.dataset.rp)));
+    });
+    $("reminderInput")?.addEventListener("change", (e) => {
+      setReminder(e.target.value ? new Date(e.target.value) : null);
+    });
+    // Close the popover on outside click.
+    document.addEventListener("click", function closeRP(ev) {
+      if (!reminderPopover || reminderPopover.hidden) return;
+      if (!reminderPopover.contains(ev.target) && !reminderRow.contains(ev.target)) {
+        reminderPopover.hidden = true;
+      }
     });
     $("notesInput").addEventListener("blur", (e) => {
       patchTask(t.id, { notes: e.target.value });
@@ -525,6 +637,12 @@
       switchView(Number(data.id));  // Postgres BIGINT → string; coerce.
     }
   });
+
+  // ----- NOTIFICATION ENABLE CHIP -----
+  $("notifEnableChip")?.addEventListener("click", async () => {
+    await ensureNotifPermission();
+  });
+  refreshNotifChip();
 
   // ----- INIT -----
   loadLists();
