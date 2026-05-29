@@ -246,13 +246,21 @@ window.renderMarkdown = renderMarkdown;
 
   // Per-user model preference — loaded from /api/me on open
   let selectedModel = "basic";
+  let canUseExpert = false;
   function getSelectedModel() { return selectedModel; }
   async function loadUserPrefs() {
     try {
       const r = await fetch("/api/me");
       if (!r.ok) return;
       const me = await r.json();
-      if (me.preferredModel === "basic" || me.preferredModel === "advanced") {
+      canUseExpert = !!me.canUseExpert;
+      // Reveal the Expert option in the popover for senior leadership.
+      const expertOpt = document.getElementById("dmpExpertOpt");
+      if (expertOpt) expertOpt.hidden = !canUseExpert;
+      const allowed = canUseExpert
+        ? ["basic", "advanced", "expert"]
+        : ["basic", "advanced"];
+      if (allowed.includes(me.preferredModel)) {
         selectedModel = me.preferredModel;
         updateModelLabel();
       }
@@ -260,9 +268,16 @@ window.renderMarkdown = renderMarkdown;
   }
   function updateModelLabel() {
     const lbl = document.getElementById("deltaModelLabel");
-    if (lbl) lbl.textContent = selectedModel === "advanced" ? "Advanced" : "Basic";
+    if (!lbl) return;
+    if (selectedModel === "expert")        lbl.textContent = "Expert";
+    else if (selectedModel === "advanced") lbl.textContent = "Advanced";
+    else                                    lbl.textContent = "Basic";
   }
   async function setModel(m) {
+    // Defensive: a tampered click on a hidden option should never
+    // upgrade a non-allowed user. The server enforces this too (PATCH
+    // returns 403; chat-time path silently downgrades to advanced).
+    if (m === "expert" && !canUseExpert) m = "advanced";
     selectedModel = m;
     updateModelLabel();
     try {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Delta Mail — Transform Iran</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/styles.css?v=5CM">
+<link rel="stylesheet" href="/styles.css?v=5CN">
 <link rel="icon" type="image/png" href="/delta-logo.png">
 <script src="/appearance.js" defer></script>
 </head>
@@ -443,6 +443,12 @@
           <strong>Advanced</strong>
           <span>Opus · deeper reasoning</span>
         </button>
+        <!-- Expert: hidden by default; revealed by assistant.js when
+             /api/me returns canUseExpert: true (senior leadership only). -->
+        <button class="dmp-opt" data-model="expert" id="dmpExpertOpt" hidden>
+          <strong>Expert</strong>
+          <span>Opus 4.8 · max reasoning</span>
+        </button>
       </div>
     </div>
   </div>
@@ -604,11 +610,11 @@
 </div>
 
 <script src="/markdown-inline.js?v=1"></script>
-<script src="/inbox.js?v=5CM"></script>
-<script src="/inbox-rightpanel.js?v=5CM"></script>
-<script src="/task-notifier.js?v=5CM"></script>
-<script src="/assistant.js?v=5CM"></script>
-<script src="/voice.js?v=5CM"></script>
+<script src="/inbox.js?v=5CN"></script>
+<script src="/inbox-rightpanel.js?v=5CN"></script>
+<script src="/task-notifier.js?v=5CN"></script>
+<script src="/assistant.js?v=5CN"></script>
+<script src="/voice.js?v=5CN"></script>
 <script src="/shortcuts-global.js?v=1"></script>
 </body>
 </html>

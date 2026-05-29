@@ -351,6 +351,22 @@ app.use(express.static(path.join(__dirname, "public"), {
 // ====================================================================
 // Authed API — me, gmail
 // ====================================================================
+
+// Expert tier (Opus 4.8) — ACL-gated to senior leadership so the
+// cost blast radius of routinely calling the heaviest model stays
+// bounded. Gated server-side both at /api/me (so the UI hides the
+// option) AND at chat-time below (defense in depth: a non-allowed
+// user with `preferred_model='expert'` in the DB gets transparently
+// downgraded to 'advanced'). Override the list via env var
+// EXPERT_ALLOWED_EMAILS (comma-separated) without a code change.
+const EXPERT_ALLOWED_EMAILS = new Set(
+  (process.env.EXPERT_ALLOWED_EMAILS || "shahryar@transformiran.com,pia@transformiran.com,lana@transformiran.com,lazarus@transformiran.com,maggie@transformiran.com")
+    .split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
+);
+function canUseExpert(user) {
+  return EXPERT_ALLOWED_EMAILS.has(String(user?.email || "").toLowerCase());
+}
+
 app.get("/api/me", auth.requireAuth, (req, res) => {
   res.json({
     id: req.user.id,
@@ -359,6 +375,7 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
     pictureUrl: req.user.picture_url,
     welcomedAt: req.user.welcomed_at,
     preferredModel: req.user.preferred_model || "basic",
+    canUseExpert: canUseExpert(req.user),
     humanEA: getHumanEAFor(req.user.email),
     role: getRoleFor(req.user.email),
   });
@@ -2775,8 +2792,15 @@ app.post("/api/prompts/:id/used", auth.requireAuth, async (req, res) => {
 // Update user preferences (currently: preferred_model).
 app.patch("/api/me", auth.requireAuth, async (req, res) => {
   const { preferred_model } = req.body || {};
-  if (preferred_model && !["basic", "advanced"].includes(preferred_model)) {
+  if (preferred_model && !["basic", "advanced", "expert"].includes(preferred_model)) {
     return res.status(400).json({ error: "bad_model" });
+  }
+  // ACL gate — only senior leadership can save preferred_model='expert'.
+  // Defense in depth: chat-time path below ALSO downgrades, so a row
+  // already in this state from a different code path still gets the
+  // safe fallback at runtime.
+  if (preferred_model === "expert" && !canUseExpert(req.user)) {
+    return res.status(403).json({ error: "expert_not_allowed" });
   }
   try {
     await pool.query(
@@ -4544,13 +4568,19 @@ app.post("/api/assistant/stream", auth.requireAuth, async (req, res) => {
     return;
   }
 
+  // ACL gate (defense in depth) — a non-allowed user with
+  // preferred_model='expert' OR a tampered client that sends
+  // model:'expert' silently falls back to 'advanced'. The PATCH
+  // endpoint already 403s the obvious path; this catches the rest.
+  const effectiveModel = (model === "expert" && !canUseExpert(req.user)) ? "advanced" : model;
+
   try {
     const result = await assistant.chat({
       user: req.user,
       history: Array.isArray(history) ? history : [],
       userMessage: message,
       openMessageId,
-      model,
+      model: effectiveModel,
       onProgress: (ev) => send("progress", ev),
     });
     send("done", {
@@ -4585,12 +4615,18 @@ app.post("/api/assistant", auth.requireAuth, async (req, res) => {
     return res.status(400).json({ error: "bad_history" });
   }
   try {
+    // ACL gate — 'expert' is allowed only for users in EXPERT_ALLOWED_EMAILS.
+    // Non-allowed users silently fall back to 'advanced'; bad values to undefined.
+    let effectiveModel;
+    if (model === "expert") effectiveModel = canUseExpert(req.user) ? "expert" : "advanced";
+    else if (model === "advanced" || model === "basic") effectiveModel = model;
+    else effectiveModel = undefined;
     const result = await assistant.chat({
       user: req.user,
       history: history || [],
       userMessage: message.trim(),
       openMessageId: openMessageId || null,
-      model: model === "advanced" || model === "basic" ? model : undefined,
+      model: effectiveModel,
     });
     res.json({
       reply: result.reply,
