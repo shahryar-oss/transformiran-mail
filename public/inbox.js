@@ -2980,15 +2980,60 @@
       generate(instr);
       return;
     }
-    if (prefill && prefill.messageId === msg.id && prefill.body) {
-      // Wait one tick so the DOM is fully mounted before we touch fields.
+    // Phase 5.CO — if the prefill already carries the FULL draft
+    // metadata (to + subject + threadId — as voice/chat drafts now do),
+    // populate currentDraft SYNCHRONOUSLY so the Send button works
+    // immediately (no race against an async re-fetch) and the reply-all
+    // Cc recipients survive. We only fetch the parent's HTML quoted
+    // block in the background — and that's purely cosmetic, never gating
+    // Send. Legacy smart-reply chips (body only, no metadata) fall back
+    // to the old re-fetch path below.
+    const prefillHasFullMeta =
+      prefill && prefill.messageId === msg.id && prefill.body &&
+      prefill.to && prefill.threadId;
+
+    if (prefillHasFullMeta) {
+      window._smartReplyPrefill = null;
+      currentDraft = {
+        to: prefill.to,
+        cc: prefill.cc || "",
+        subject: prefill.subject || "",
+        body: prefill.body,
+        threadId: prefill.threadId,
+        inReplyTo: prefill.inReplyTo,
+        deltaDraftId: prefill.deltaDraftId,
+      };
+      toInput.value = prefill.to || "";
+      if (prefill.cc && String(prefill.cc).trim()) { ccInput.value = prefill.cc; ccRow.hidden = false; }
+      subjInput.value = prefill.subject || "";
+      bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, null);
+      titleEl.textContent = `Reply ready (${prefill.intent || "drafted"})`;
+      regenBtn.disabled = false; saveBtn.disabled = false; setBodyEditable(true);
+      // Background-fetch ONLY the parent's quoted HTML so the composer
+      // shows the original message + signature. Best-effort; if it fails
+      // we keep the plain body. Don't touch to/cc/subject the user may
+      // already be editing.
+      fetch("/api/assistant/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ openMessageId: msg.id, instructions: "", mode }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data && data.quotedHtml) {
+            bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, data.quotedHtml);
+          }
+          // Backfill thread headers if the prefill somehow lacked them.
+          if (data) {
+            if (!currentDraft.threadId && data.threadId) currentDraft.threadId = data.threadId;
+            if (!currentDraft.inReplyTo && data.inReplyTo) currentDraft.inReplyTo = data.inReplyTo;
+          }
+        })
+        .catch(() => {});
+    } else if (prefill && prefill.messageId === msg.id && prefill.body) {
+      // Legacy path: prefill has a body but NO metadata (older smart-
+      // reply chips). Fetch to/subject/quotedHtml, then set currentDraft.
       setTimeout(() => {
-        // We still need the recipient + subject from the standard
-        // draft endpoint — but we can fetch those without paying for
-        // a body regeneration. Pass a sentinel "use_prefill" hint
-        // that the server can recognise OR just call the cheap path:
-        // ask for the metadata only by re-using the existing endpoint
-        // (its returned to/subject are fine — we'll overwrite body).
         fetch("/api/assistant/draft", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -3000,8 +3045,6 @@
             toInput.value = data.to || "";
             if (data.cc) { ccInput.value = data.cc; ccRow.hidden = false; }
             subjInput.value = data.subject || "";
-            // Override Delta's prose with the smart-reply chip's body
-            // while keeping the parent's HTML quoted block.
             bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, data.quotedHtml);
             titleEl.textContent = `Smart reply ready (${prefill.intent || "commit"})`;
             regenBtn.disabled = false; saveBtn.disabled = false; setBodyEditable(true);
@@ -3010,7 +3053,6 @@
             // Fall back to normal generate if metadata fetch fails.
             generate("");
           });
-        // Clear so a subsequent normal Reply doesn't pick this up.
         window._smartReplyPrefill = null;
       }, 0);
     } else {
@@ -4038,14 +4080,35 @@
     if (!draft) return;
     const msgId = draft.messageId;
     if (!msgId) return;
-    // Set the smart-reply prefill mechanism (Phase 5.AL) so
-    // openDraftComposer uses Delta's existing body instead of
-    // re-fetching from /api/assistant/draft.
+    // Phase 5.CO — carry the FULL server draft into the prefill, not
+    // just the body. draft_reply / compose already returned to, cc,
+    // subject, threadId, inReplyTo, deltaDraftId — everything Send
+    // needs. Previously we kept only `body` and openDraftComposer
+    // re-fetched the metadata via a SECOND /api/assistant/draft call;
+    // that re-fetch (a) raced the Send button (currentDraft stayed null
+    // until it resolved, so Send silently did nothing) and (b) always
+    // re-drafted in reply-only mode, dropping reply-all Cc recipients.
+    // Now openDraftComposer can populate currentDraft synchronously.
     window._smartReplyPrefill = {
       messageId: msgId,
       body: draft.body || "",
+      to: draft.to,
+      cc: draft.cc,
+      subject: draft.subject,
+      threadId: draft.threadId,
+      inReplyTo: draft.inReplyTo,
+      deltaDraftId: draft.deltaDraftId,
       intent: "chat-drafted",
     };
+    // Reply mode — honour the mode the draft was created in. Explicit
+    // opts.mode wins; then the draft's own mode; then infer reply-all
+    // from a populated Cc; default reply.
+    const draftMode =
+      opts.mode === "reply-all" ? "reply-all"
+      : draft.mode === "reply-all" ? "reply-all"
+      : (draft.cc && String(draft.cc).trim()) ? "reply-all"
+      : "reply";
+    window._smartReplyPrefill.mode = draftMode;
     // Optionally close the Delta side panel. Voice mode (Phase 5.BK)
     // passes keepDeltaOpen=true so the user can keep talking after a
     // draft is created (e.g. "make it shorter") — the composer still
@@ -4073,8 +4136,9 @@
       }
     }
 
-    // Now open the composer inside the fresh reader DOM.
-    onToolbarAction("reply", existing);
+    // Now open the composer inside the fresh reader DOM, in the same
+    // mode the draft was created in (reply vs reply-all). Phase 5.CO.
+    onToolbarAction(draftMode === "reply-all" ? "reply-all" : "reply", existing);
 
     // Scroll the composer into view + flash a subtle highlight so the
     // user can't miss it when it pops up behind the Delta panel.
