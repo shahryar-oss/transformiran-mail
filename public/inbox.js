@@ -2519,10 +2519,13 @@
     const bodyEl = document.getElementById("readerBody");
     if (!bodyEl) return;
 
-    // mode: 'reply' (default) | 'reply-all' — propagates to the server so
-    // the To/Cc fields get the right recipients. The user can still edit
-    // any field manually after the draft lands.
-    const mode = opts.mode === "reply-all" ? "reply-all" : "reply";
+    // mode: 'reply' | 'reply-all' | 'auto'. The toolbar Reply / Reply All
+    // buttons force a mode; the Delta "Draft a reply" action leaves it
+    // unset → 'auto', which lets the server pick reply-all when the
+    // thread has other participants (so a cc'd colleague isn't dropped).
+    const mode = opts.mode === "reply-all" ? "reply-all"
+               : opts.mode === "reply"     ? "reply"
+               : "auto";
 
     // If a composer is already open for this message, just focus it.
     if (document.getElementById("draftComposer")) {

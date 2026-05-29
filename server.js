@@ -3872,7 +3872,10 @@ app.post("/api/assistant/draft", auth.requireAuth, async (req, res) => {
       user: req.user,
       openMessageId,
       instructions: instructions || "",
-      mode: mode === "reply-all" ? "reply-all" : "reply",
+      // "auto" (the default when the client doesn't force a mode) lets
+      // draftReply pick reply-all when the thread has other participants
+      // — so a cc'd colleague (e.g. Ilse) isn't silently dropped.
+      mode: mode === "reply-all" ? "reply-all" : mode === "reply" ? "reply" : "auto",
     });
     // Tell client whether the signature will be appended on save.
     let signatureAvailable = false;
