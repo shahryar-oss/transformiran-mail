@@ -3523,7 +3523,9 @@
         e.preventDefault();
         const email = f.dataset.impEmail;
         const name = f.dataset.impName;
-        const q = `(from:${email} OR to:${email} OR cc:${email}) newer_than:1y`;
+        // Show only mail SENT BY this person — not threads where they're
+        // merely a To/Cc recipient. "Important: Lana" = what Lana sent me.
+        const q = `from:${email} newer_than:1y`;
         setFolder("important", { query: q, title: name });
         f.classList.add("active");
       });
