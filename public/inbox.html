@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Delta Mail — Transform Iran</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="/styles.css?v=5CQ">
+<link rel="stylesheet" href="/styles.css?v=5CR">
 <link rel="icon" type="image/png" href="/delta-logo.png">
 <script src="/appearance.js" defer></script>
 </head>
@@ -83,6 +83,20 @@
         </a>
       </div>
 
+      <!-- Phase 5.CR — To Do + Promises pulled up here, ABOVE Important,
+           so the user's own action items sit higher than their VIP list. -->
+      <div class="folders-group">
+        <a class="folder" href="/tasks">
+          <span class="folder-i"><svg viewBox="0 0 1024 1024" aria-hidden="true"><path fill="currentColor" d="M280.768 753.728L691.456 167.04a32 32 0 1152.416 36.672L314.24 817.472a32 32 0 01-45.44 7.296l-230.4-172.8a32 32 0 0138.4-51.2l203.968 152.96zM736 448a32 32 0 110-64h192a32 32 0 110 64H736zM608 640a32 32 0 010-64h319.936a32 32 0 110 64H608zM480 832a32 32 0 110-64h447.936a32 32 0 110 64H480z"/></svg></span>
+          <span class="folder-name">To Do</span>
+        </a>
+        <a class="folder" href="/promises" id="promisesFolderLink">
+          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
+          <span class="folder-name">Promises</span>
+          <span class="folder-badge" id="promisesBadge" hidden></span>
+        </a>
+      </div>
+
       <div class="folders-group-label important-label">
         <span>Important</span>
         <button type="button" class="important-add" id="importantAddBtn" title="Add a contact to Important">+</button>
@@ -91,24 +105,11 @@
         <!-- populated by inbox.js from /api/important-contacts -->
       </div>
 
-      <div class="folders-group-label">Folders</div>
-      <div class="folders-group">
-        <a class="folder" href="#donors">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
-          <span class="folder-name">Donors</span>
-        </a>
-        <a class="folder" href="#finance">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
-          <span class="folder-name">Finance</span>
-        </a>
-        <a class="folder" href="#hr">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
-          <span class="folder-name">HR</span>
-        </a>
-        <a class="folder" href="#iran">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>
-          <span class="folder-name">Iran ops</span>
-        </a>
+      <!-- Phase 5.CR — Folders = the user's real Gmail labels, pulled
+           live from their account via /api/gmail/labels. -->
+      <div class="folders-group-label" id="gmailFoldersLabel" hidden>Folders</div>
+      <div class="folders-group" id="gmailFolders">
+        <!-- populated by inbox.js from /api/gmail/labels -->
       </div>
 
       <div class="folders-group-label">Tools</div>
@@ -116,18 +117,6 @@
         <a class="folder" href="/calendar">
           <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg></span>
           <span class="folder-name">Calendar</span>
-        </a>
-        <a class="folder" href="/tasks">
-          <!-- Phase 5.CG — checkmark + checklist lines (SVG Repo "finished").
-               Reads as a tick beside three items, a clearer "To Do" metaphor
-               than the bare check we had before. -->
-          <span class="folder-i"><svg viewBox="0 0 1024 1024" aria-hidden="true"><path fill="currentColor" d="M280.768 753.728L691.456 167.04a32 32 0 1152.416 36.672L314.24 817.472a32 32 0 01-45.44 7.296l-230.4-172.8a32 32 0 0138.4-51.2l203.968 152.96zM736 448a32 32 0 110-64h192a32 32 0 110 64H736zM608 640a32 32 0 010-64h319.936a32 32 0 110 64H608zM480 832a32 32 0 110-64h447.936a32 32 0 110 64H480z"/></svg></span>
-          <span class="folder-name">To Do</span>
-        </a>
-        <a class="folder" href="/promises" id="promisesFolderLink">
-          <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg></span>
-          <span class="folder-name">Promises</span>
-          <span class="folder-badge" id="promisesBadge" hidden></span>
         </a>
         <a class="folder" href="/contacts">
           <span class="folder-i"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></span>
@@ -610,11 +599,11 @@
 </div>
 
 <script src="/markdown-inline.js?v=1"></script>
-<script src="/inbox.js?v=5CQ"></script>
-<script src="/inbox-rightpanel.js?v=5CQ"></script>
-<script src="/task-notifier.js?v=5CQ"></script>
-<script src="/assistant.js?v=5CQ"></script>
-<script src="/voice.js?v=5CQ"></script>
+<script src="/inbox.js?v=5CR"></script>
+<script src="/inbox-rightpanel.js?v=5CR"></script>
+<script src="/task-notifier.js?v=5CR"></script>
+<script src="/assistant.js?v=5CR"></script>
+<script src="/voice.js?v=5CR"></script>
 <script src="/shortcuts-global.js?v=1"></script>
 </body>
 </html>

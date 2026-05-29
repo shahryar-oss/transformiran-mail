@@ -582,6 +582,7 @@
   // Folder + pagination state
   let _currentFolder = "inbox";
   let _currentQuery = "";
+  let _currentLabelId = null;   // set when viewing a Gmail-label folder
   let _nextPageToken = null;
 
   const FOLDER_TITLES = {
@@ -600,9 +601,11 @@
   async function loadInbox(opts = {}) {
     const folder = opts.folder || _currentFolder;
     const q = opts.q !== undefined ? opts.q : _currentQuery;
+    const labelId = opts.labelId !== undefined ? opts.labelId : _currentLabelId;
     const pageToken = opts.pageToken || null;
     const params = new URLSearchParams({ folder, limit: "30" });
     if (q) params.set("q", q);
+    if (labelId) params.set("labelId", labelId);
     if (pageToken) params.set("pageToken", pageToken);
     if (opts.forceFresh) params.set("forceFresh", "1");
     const r = await fetch(`/api/messages?${params}`);
@@ -3437,6 +3440,7 @@
     }
     _currentFolder = folder;
     _currentQuery = opts.query || "";
+    _currentLabelId = opts.labelId || null;   // Gmail-label folder, if any
     _nextPageToken = null;
     _classificationMap = {};
 
@@ -3447,9 +3451,14 @@
       ? `Search: "${_currentQuery}"`
       : title;
 
-    // Update active state in rail
+    // Update active state in rail. For Gmail-label folders highlight by
+    // data-label-id; otherwise by data-folder.
     document.querySelectorAll(".folder.active").forEach((f) => f.classList.remove("active"));
-    document.querySelector(`.folder[data-folder="${folder}"]`)?.classList.add("active");
+    if (_currentLabelId) {
+      document.querySelector(`.folder[data-label-id="${CSS.escape(_currentLabelId)}"]`)?.classList.add("active");
+    } else {
+      document.querySelector(`.folder[data-folder="${folder}"]`)?.classList.add("active");
+    }
 
     // Clear smart-folder filter pill state (don't carry across folders)
     _activeFilter = "all";
@@ -3538,6 +3547,48 @@
         }
       });
     });
+  }
+
+  // -------- GMAIL LABEL FOLDERS (Phase 5.CR) -------------------------
+  // The rail's "Folders" section now mirrors the user's REAL Gmail
+  // labels (their own folder structure), pulled live from their account
+  // via /api/gmail/labels. Clicking one filters the inbox to that label.
+  const FOLDER_SVG = `<svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>`;
+  async function loadGmailFolders() {
+    const wrap = document.getElementById("gmailFolders");
+    const label = document.getElementById("gmailFoldersLabel");
+    if (!wrap) return;
+    try {
+      const r = await fetch("/api/gmail/labels");
+      if (!r.ok) return;
+      const data = await r.json();
+      const labels = data.labels || [];
+      if (!labels.length) {
+        wrap.innerHTML = "";
+        if (label) label.hidden = true;
+        return;
+      }
+      if (label) label.hidden = false;
+      wrap.innerHTML = labels.map((l) => `
+        <a class="folder gmail-label" href="#label-${encodeURIComponent(l.id)}"
+           data-label-id="${escapeHtml(l.id)}"
+           data-label-name="${escapeHtml(l.name)}">
+          <span class="folder-i">${FOLDER_SVG}</span>
+          <span class="folder-name">${escapeHtml(l.name)}</span>
+        </a>
+      `).join("");
+      wrap.querySelectorAll(".folder.gmail-label").forEach((f) => {
+        f.addEventListener("click", (e) => {
+          e.preventDefault();
+          setFolder("gmail-label", {
+            labelId: f.dataset.labelId,
+            title: f.dataset.labelName,
+          });
+        });
+      });
+    } catch (err) {
+      console.warn("[gmail-folders] load failed:", err);
+    }
   }
 
   async function addImportantContact() {
@@ -3791,8 +3842,10 @@
     });
   }
 
-  // Pull the user's Important contacts (auto-seeded with org defaults).
+  // Pull the user's Important contacts (per-user; no longer auto-seeded).
   loadImportantContacts();
+  // Pull the user's real Gmail labels into the "Folders" rail section.
+  loadGmailFolders();
 
   // =============================================================
   // Phase 5.CM-3 — INBOX-SCOPED KEYBOARD SHORTCUTS — Gmail-style hotkeys

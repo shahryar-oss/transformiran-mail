@@ -1971,9 +1971,31 @@ function getRoleFor(email) {
 //   ?q=<gmail search query>  (overrides folder)
 //   ?limit=30
 //   ?pageToken=<next-page-token from previous response>
+// GET /api/gmail/labels — the user's OWN Gmail labels (their folder
+// structure), so the rail can show their real folders instead of a
+// hardcoded list. Excludes Gmail system labels (INBOX/SENT/CATEGORY_*).
+app.get("/api/gmail/labels", auth.requireAuth, async (req, res) => {
+  try {
+    const creds = await auth.loadGoogleCreds(req.user.id);
+    if (!creds) return res.status(400).json({ error: "no_google_creds" });
+    const client = gmail.authedClientFromTokens(creds);
+    const g = google.gmail({ version: "v1", auth: client });
+    const r = await g.users.labels.list({ userId: "me" });
+    const labels = (r.data.labels || [])
+      .filter((l) => l.type === "user")
+      .map((l) => ({ id: l.id, name: l.name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    res.json({ ok: true, labels });
+  } catch (err) {
+    console.error("[/api/gmail/labels] failed:", err);
+    res.status(500).json({ error: "labels_failed", message: err.message });
+  }
+});
+
 app.get("/api/messages", auth.requireAuth, async (req, res) => {
   const folder = String(req.query.folder || "inbox").toLowerCase();
   const q = String(req.query.q || "").trim();
+  const labelId = String(req.query.labelId || "").trim();  // Gmail label folder
   const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 30));
   const pageToken = req.query.pageToken || null;
 
@@ -2095,25 +2117,32 @@ app.get("/api/messages", auth.requireAuth, async (req, res) => {
       }
     }
 
-    // Everything else uses messages.list with the appropriate query.
+    // Everything else uses messages.list. A Gmail-label folder filters by
+    // labelIds; otherwise we map the folder name to a search query.
     let query = q;
-    if (!q) {
-      switch (folder) {
-        case "sent":     query = "in:sent"; break;
-        case "starred":  query = "in:starred"; break;
-        case "trash":    query = "in:trash"; break;
-        case "archive":  query = "-in:inbox -in:sent -in:drafts -in:trash -in:spam"; break;
-        case "inbox":
-        default:         query = "in:inbox"; break;
-      }
-    }
-
-    const list = await g.users.messages.list({
+    const listParams = {
       userId: "me",
       maxResults: limit,
       pageToken: pageToken || undefined,
-      q: query,
-    });
+    };
+    if (!q && labelId) {
+      // Real Gmail label folder (e.g. "Donors", "Finance/Q3").
+      listParams.labelIds = [labelId];
+    } else {
+      if (!q) {
+        switch (folder) {
+          case "sent":     query = "in:sent"; break;
+          case "starred":  query = "in:starred"; break;
+          case "trash":    query = "in:trash"; break;
+          case "archive":  query = "-in:inbox -in:sent -in:drafts -in:trash -in:spam"; break;
+          case "inbox":
+          default:         query = "in:inbox"; break;
+        }
+      }
+      listParams.q = query;
+    }
+
+    const list = await g.users.messages.list(listParams);
     const ids = (list.data.messages || []).map((m) => m.id);
     if (ids.length === 0) {
       return res.json({ messages: [], count: 0, nextPageToken: null, folder, query });
