@@ -184,6 +184,42 @@
   }
   .task-meta .meta-i svg { width: 12px; height: 12px; fill: currentColor; display: block; }
 
+  /* ── Planned (calendar-style) view ─────────────────────────────── */
+  .planned-tabs {
+    display: flex; flex-wrap: wrap; gap: 6px;
+    padding: 4px 4px 14px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 8px;
+  }
+  .planned-tab {
+    border: 1px solid var(--line); background: var(--paper);
+    color: var(--navy-soft); font-family: inherit; font-size: 12.5px; font-weight: 600;
+    padding: 6px 12px; border-radius: 999px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: background .12s, color .12s, border-color .12s;
+  }
+  .planned-tab:hover { background: var(--cream); }
+  .planned-tab.active { background: var(--gold); border-color: var(--gold); color: #fff; }
+  .planned-tab .pt-count {
+    font-size: 11px; font-weight: 700;
+    background: rgba(0,0,0,.08); color: inherit;
+    padding: 0 6px; border-radius: 999px; min-width: 16px; text-align: center;
+  }
+  .planned-tab.active .pt-count { background: rgba(255,255,255,.28); }
+  .planned-tab.has-overdue:not(.active) { color: var(--red); border-color: var(--red); }
+  .planned-tab.has-overdue:not(.active) .pt-count { background: var(--red); color: #fff; }
+
+  .planned-group { margin-bottom: 14px; }
+  .planned-group-head {
+    font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+    color: var(--gold-dark); padding: 4px 6px 8px;
+    position: sticky; top: 0; background: var(--bg, #f7f3e9); z-index: 1;
+  }
+  .planned-group-head.overdue { color: var(--red); }
+  .planned-empty {
+    padding: 40px 16px; text-align: center; color: var(--muted); font-size: 14px;
+  }
+
   .task-star {
     background: transparent; border: none;
     color: var(--muted); cursor: pointer;

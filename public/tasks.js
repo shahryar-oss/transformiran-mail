@@ -29,6 +29,7 @@
   let _lists = [];
   let _tasks = [];
   let _selected = null; // selected task id
+  let _plannedBucket = "all"; // Planned view time filter: all/overdue/today/tomorrow/this-week/later
 
   // ----- LISTS + COUNTS -----
   // Postgres BIGINT comes back as strings — normalize to numbers so
@@ -96,6 +97,7 @@
   // ----- VIEW SWITCHING -----
   async function switchView(view) {
     _view = view;
+    if (view === "planned") _plannedBucket = "all"; // reset filter on entry
     if (typeof view === "number") {
       const list = _lists.find((l) => l.id === view);
       _viewTitle = list ? list.name : "List";
@@ -128,8 +130,118 @@
     renderTasks();
   }
 
+  // Attach click/checkbox/star handlers to every .task-row inside a
+  // container. Shared by the flat list and the Planned calendar view.
+  function wireTaskRows(target) {
+    target.querySelectorAll(".task-row").forEach((row) => {
+      const id = Number(row.dataset.id);
+      row.addEventListener("click", (e) => {
+        if (e.target.closest(".task-checkbox") || e.target.closest(".task-star")) return;
+        selectTask(id);
+      });
+      row.querySelector(".task-checkbox")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleComplete(id);
+      });
+      row.querySelector(".task-star")?.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleImportant(id);
+      });
+    });
+  }
+
+  // ----- PLANNED (calendar-style) -----
+  // Microsoft-To-Do-style Planned view: time-bucket tabs across the top
+  // (All Planned / Overdue / Today / Tomorrow / This Week / Later) and
+  // tasks grouped under date headers so you can see what's coming.
+  function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function endOfWeekStart(today) {
+    // Start-of-day of the upcoming Sunday (end of the current week).
+    const daysToSun = (7 - today.getDay()) % 7;
+    const e = new Date(today);
+    e.setDate(e.getDate() + daysToSun);
+    return e;
+  }
+  function diffDaysFromToday(due) {
+    return Math.round((startOfDay(new Date(due)) - startOfDay(new Date())) / 86400000);
+  }
+  function matchesBucket(due, bucket) {
+    const diff = diffDaysFromToday(due);
+    switch (bucket) {
+      case "all":       return true;
+      case "overdue":   return diff < 0;
+      case "today":     return diff === 0;
+      case "tomorrow":  return diff === 1;
+      case "this-week": return diff >= 0 && startOfDay(new Date(due)) <= endOfWeekStart(startOfDay(new Date()));
+      case "later":     return startOfDay(new Date(due)) > endOfWeekStart(startOfDay(new Date()));
+      default:          return true;
+    }
+  }
+  function dayHeader(due) {
+    const diff = diffDaysFromToday(due);
+    const d = startOfDay(new Date(due));
+    if (diff === 0)  return "Today";
+    if (diff === 1)  return "Tomorrow";
+    if (diff === -1) return "Yesterday";
+    const label = d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+    return diff < 0 ? `Overdue · ${label}` : label;
+  }
+
+  const PLANNED_BUCKETS = [
+    { k: "all",       label: "All Planned" },
+    { k: "overdue",   label: "Overdue" },
+    { k: "today",     label: "Today" },
+    { k: "tomorrow",  label: "Tomorrow" },
+    { k: "this-week", label: "This Week" },
+    { k: "later",     label: "Later" },
+  ];
+
+  function renderPlanned() {
+    const target = $("taskList");
+    const withDue = _tasks.filter((t) => t.due_at);
+
+    const tabsHtml = `<div class="planned-tabs">` + PLANNED_BUCKETS.map((b) => {
+      const count = withDue.filter((t) => matchesBucket(t.due_at, b.k)).length;
+      return `<button class="planned-tab ${_plannedBucket === b.k ? "active" : ""} ${b.k === "overdue" && count ? "has-overdue" : ""}" data-bucket="${b.k}">${b.label}${count ? `<span class="pt-count">${count}</span>` : ""}</button>`;
+    }).join("") + `</div>`;
+
+    const filtered = withDue.filter((t) => matchesBucket(t.due_at, _plannedBucket));
+    let body;
+    if (!filtered.length) {
+      const labelText = (PLANNED_BUCKETS.find((b) => b.k === _plannedBucket) || {}).label || "this view";
+      body = `<div class="planned-empty">Nothing in <strong>${escapeHtml(labelText)}</strong>.</div>`;
+    } else {
+      // Group consecutive tasks (already sorted due_at ASC by the server)
+      // by calendar day.
+      const groups = [];
+      let cur = null;
+      for (const t of filtered) {
+        const key = startOfDay(new Date(t.due_at)).getTime();
+        if (!cur || cur.key !== key) { cur = { key, header: dayHeader(t.due_at), tasks: [] }; groups.push(cur); }
+        cur.tasks.push(t);
+      }
+      body = groups.map((g) => `
+        <div class="planned-group">
+          <div class="planned-group-head ${g.header.startsWith("Overdue") || g.header === "Yesterday" ? "overdue" : ""}">${escapeHtml(g.header)}</div>
+          ${g.tasks.map(taskRowHtml).join("")}
+        </div>`).join("");
+    }
+
+    target.innerHTML = tabsHtml + body;
+    target.querySelectorAll(".planned-tab").forEach((tab) => {
+      tab.addEventListener("click", () => { _plannedBucket = tab.dataset.bucket; renderPlanned(); });
+    });
+    wireTaskRows(target);
+  }
+
   function renderTasks() {
     const target = $("taskList");
+    // Planned view → calendar-style grouped layout (only when there's
+    // something with a due date; otherwise fall through to empty state).
+    if (_view === "planned" && _tasks.some((t) => t.due_at)) {
+      renderPlanned();
+      return;
+    }
     if (!_tasks.length) {
       const emptyIcon = _view === "my-day" ? ICONS.sun
                       : _view === "important" ? `<svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`
@@ -150,21 +262,7 @@
       return;
     }
     target.innerHTML = _tasks.map(taskRowHtml).join("");
-    target.querySelectorAll(".task-row").forEach((row) => {
-      const id = Number(row.dataset.id);
-      row.addEventListener("click", (e) => {
-        if (e.target.closest(".task-checkbox") || e.target.closest(".task-star")) return;
-        selectTask(id);
-      });
-      row.querySelector(".task-checkbox")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleComplete(id);
-      });
-      row.querySelector(".task-star")?.addEventListener("click", (e) => {
-        e.stopPropagation();
-        toggleImportant(id);
-      });
-    });
+    wireTaskRows(target);
   }
 
   function taskRowHtml(t) {
