@@ -1432,6 +1432,34 @@ app.get("/api/slack/admin/stats", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Voice-note transcription — kick a transcription pass now + report
+// progress. ?reset=1 first re-queues previously-errored notes. ?limit=N
+// controls how many to process this call (default 20 for a manual drain).
+app.post("/api/slack/admin/transcribe-now", auth.requireAuth, async (req, res) => {
+  try {
+    const sv = require("./lib/slackVoice");
+    let reset = 0;
+    if (req.query.reset === "1" || req.query.reset === "true") reset = await sv.resetErrors();
+    const limit = Math.max(1, Math.min(100, Number(req.query.limit) || 20));
+    const result = await sv.transcribePending({ limit });
+    const stats = await sv.stats();
+    res.json({ ok: true, reset, ...result, stats });
+  } catch (err) {
+    console.error("[/api/slack/admin/transcribe-now] failed:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Voice-note transcription stats (done / pending / errored).
+app.get("/api/slack/admin/voice-stats", auth.requireAuth, async (req, res) => {
+  try {
+    const sv = require("./lib/slackVoice");
+    res.json({ ok: true, stats: await sv.stats() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin/diagnostic — list all currently-connected users + the
 // workspace install state. Auth-gated but doesn't expose tokens.
 app.get("/api/slack/admin/status", auth.requireAuth, async (req, res) => {
@@ -4723,6 +4751,7 @@ dbReady
     startDecisionRuleMinerWorker();
     startGmailPushRenewerWorker();
     startSlackSyncWorker();
+    startSlackVoiceWorker();
     // Resolve pilot bridge user id at boot (logs a warning if missing).
     resolveBridgeUserId().catch(() => {});
   })
@@ -4869,6 +4898,40 @@ function startSlackSyncWorker() {
   setTimeout(cycle, 60_000);
   setInterval(cycle, 60 * 60 * 1000);
   console.log("[boot] slack sync worker scheduled (cycle 60min, first run T+60s)");
+}
+
+// ====================================================================
+// SLACK VOICE-NOTE TRANSCRIPTION WORKER — Phase 5.CV. Every 5 min,
+// transcribes a few pending Slack voice notes (gpt-4o-transcribe +
+// Farsi→English translation) so their spoken content becomes searchable
+// by Delta. Paced (5/cycle) so the backlog drains without hammering the
+// OpenAI API. No-ops cleanly if Slack or OpenAI isn't configured.
+// ====================================================================
+function startSlackVoiceWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    try {
+      const slack = require("./lib/slack");
+      const transcribeLib = require("./lib/transcribe");
+      if (!slack.isConfigured() || !transcribeLib.isEnabled()) return;
+    } catch (_) { return; }
+    running = true;
+    try {
+      const sv = require("./lib/slackVoice");
+      const res = await sv.transcribePending({ limit: 5 });
+      if (res.processed) console.log(`[slack-voice] transcribed ${res.processed} voice note(s)`);
+    } catch (err) {
+      console.warn("[slack-voice] cycle failed:", err.message);
+    } finally {
+      running = false;
+    }
+  };
+  // First run ~2 min after boot (let the sync worker land some files
+  // first), then every 5 minutes.
+  setTimeout(cycle, 120_000);
+  setInterval(cycle, 5 * 60 * 1000);
+  console.log("[boot] slack voice transcription worker scheduled (cycle 5min, 5/cycle)");
 }
 
 // ====================================================================
