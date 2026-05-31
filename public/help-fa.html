@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>راهنمای کاربر — Transform Iran Mail, powered by Delta</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/delta-logo.png?v=5DB">
+<style>
+  :root{
+    --gold:#B28E44; --gold-dark:#8E6F35; --gold-soft:#d9c69a;
+    --navy:#282F39; --navy-soft:#4a5360;
+    --cream:#F7F3E9; --cream-dark:#efe8d6; --paper:#fff; --line:#e6e0d2;
+    --red:#E92A2E; --good:#3a9d5a; --muted:#8a8270; --blue:#3a6ea5;
+    --ink:#2c3038;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:"Vazirmatn","Tahoma","Segoe UI",Tahoma,-apple-system,BlinkMacSystemFont,Inter,Roboto,sans-serif;
+    background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+  /* ---------- top bar ---------- */
+  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;flex-wrap:wrap;row-gap:8px;
+    padding:14px 30px;background:var(--navy);color:#fff;box-shadow:0 2px 14px rgba(40,47,57,.18);}
+  header.top img.brand{height:30px;width:auto;display:block;filter:brightness(0) invert(1);}
+  header.top .ttl{display:flex;flex-direction:column;line-height:1.15;}
+  header.top .ttl b{font-size:15px;letter-spacing:.2px;font-weight:700;}
+  header.top .ttl span{font-size:11.5px;color:#c8cdd4;letter-spacing:.3px;}
+  header.top .spacer{flex:1;}
+  header.top a.act,header.top button.act{background:rgba(255,255,255,.12);color:#fff;border:none;
+    border-radius:9px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  header.top a.act:hover,header.top button.act:hover{background:rgba(255,255,255,.24);}
+  /* language switcher */
+  header.top .langs{display:flex;gap:3px;align-items:center;background:rgba(255,255,255,.08);
+    border-radius:9px;padding:3px;}
+  header.top .langs a{color:#c8cdd4;text-decoration:none;font-size:12px;font-weight:600;
+    padding:5px 9px;border-radius:7px;white-space:nowrap;}
+  header.top .langs a:hover{color:#fff;background:rgba(255,255,255,.12);}
+  header.top .langs a.active{background:var(--gold);color:#fff;}
+  @media (max-width:560px){
+    header.top{padding:10px 14px;gap:8px;}
+    header.top img.brand{height:22px;}
+    header.top .ttl b{font-size:13px;} header.top .ttl span{display:none;}
+    header.top a.act,header.top button.act{padding:7px 11px;font-size:12px;}
+    header.top button.act{display:none;} /* print: desktop only */
+    header.top .langs a{padding:4px 7px;font-size:11.5px;}
+  }
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:262px 1fr;gap:34px;
+    padding:28px 30px 80px;align-items:start;}
+  nav.toc{position:sticky;top:78px;max-height:calc(100vh - 96px);overflow-y:auto;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 14px;}
+  nav.toc .tlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold-dark);
+    font-weight:800;margin:14px 10px 6px;}
+  nav.toc .tlabel:first-child{margin-top:2px;}
+  nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--navy-soft);
+    text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;}
+  nav.toc a:hover{background:var(--cream);color:var(--navy);}
+  nav.toc a.active{background:var(--cream-dark);color:var(--gold-dark);font-weight:700;border-left-color:var(--gold);}
+  main{min-width:0;}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:18px;}
+    nav.toc{position:static;max-height:none;}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{background:linear-gradient(135deg,#fff 0%,var(--cream-dark) 100%);
+    border:1px solid var(--line);border-radius:20px;padding:30px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+    background:repeating-linear-gradient(-45deg,var(--gold-soft),var(--gold-soft) 7px,transparent 7px,transparent 18px);
+    opacity:.25;transform:rotate(8deg);border-radius:30px;}
+  .hero h1{margin:0 0 8px;font-size:27px;color:var(--navy);letter-spacing:-.3px;}
+  .hero p{margin:0;max-width:640px;color:var(--navy-soft);font-size:15px;}
+  .hero .pills{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero .pills span{background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12px;color:var(--gold-dark);font-weight:600;}
+
+  /* ---------- find-it-fast index ---------- */
+  .finder{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-bottom:30px;}
+  .finder h2{margin:0 0 4px;font-size:17px;color:var(--navy);}
+  .finder .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .finder input{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;
+    font-size:14px;font-family:inherit;background:var(--cream);margin-bottom:16px;}
+  .finder input:focus{outline:none;border-color:var(--gold);background:#fff;}
+  .idxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:12px;}
+  .idxcard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--cream);
+    display:flex;flex-direction:column;gap:7px;transition:.12s;}
+  .idxcard:hover{border-color:var(--gold);box-shadow:0 4px 14px rgba(178,142,68,.13);}
+  .idxcard .subj{font-weight:700;color:var(--navy);font-size:13.5px;}
+  .idxcard .desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1;}
+  .idxcard .links{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .idxcard a{font-size:12px;font-weight:700;text-decoration:none;}
+  .idxcard a.jump{color:var(--gold-dark);}
+  .idxcard a.jump:hover{text-decoration:underline;}
+  .idxcard a.open{color:var(--blue);display:inline-flex;align-items:center;gap:3px;}
+  .idxcard a.open:hover{text-decoration:underline;}
+
+  /* ---------- sections ---------- */
+  section.doc{background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:26px 30px;margin-bottom:22px;scroll-margin-top:80px;}
+  section.doc > h2{margin:0 0 4px;font-size:21px;color:var(--navy);letter-spacing:-.2px;display:flex;align-items:center;gap:11px;}
+  section.doc > h2 .ico{width:34px;height:34px;border-radius:10px;background:var(--cream-dark);
+    display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  section.doc > .lead{color:var(--navy-soft);font-size:14.5px;margin:6px 0 4px;}
+  .openpage{display:inline-flex;align-items:center;gap:6px;margin:14px 0 4px;padding:8px 15px;
+    background:var(--gold);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;}
+  .openpage:hover{background:var(--gold-dark);}
+  .openpage.ghost{background:transparent;color:var(--gold-dark);border:1px solid var(--gold);}
+  .openpage.ghost:hover{background:var(--cream);}
+
+  section.doc h3{font-size:15.5px;color:var(--navy);margin:24px 0 8px;padding-top:4px;border-top:1px dashed var(--line);}
+  section.doc h3:first-of-type{border-top:none;padding-top:0;}
+  section.doc h4{font-size:13.5px;color:var(--gold-dark);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.4px;}
+  section.doc p{margin:8px 0;}
+  section.doc ul{margin:8px 0;padding-left:22px;}
+  section.doc li{margin:5px 0;}
+  section.doc b,section.doc strong{color:var(--navy);}
+  kbd{display:inline-block;background:var(--cream-dark);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:6px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--navy);min-width:18px;text-align:center;}
+  .chip{display:inline-block;background:var(--cream-dark);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;color:var(--navy-soft);}
+  code{background:var(--cream-dark);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--gold-dark);}
+
+  /* callouts */
+  .note{border-left:4px solid var(--gold);background:var(--cream);border-radius:0 11px 11px 0;padding:12px 16px;margin:14px 0;font-size:13.5px;}
+  .note.tip{border-left-color:var(--good);}
+  .note.warn{border-left-color:var(--red);}
+  .note .ntag{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gold-dark);display:block;margin-bottom:3px;}
+  .note.tip .ntag{color:var(--good);}
+  .note.warn .ntag{color:var(--red);}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:var(--cream-dark);color:var(--navy-soft);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  td kbd{margin:1px 0;}
+
+  /* classification legend dots */
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .d-urgent{background:var(--red);} .d-reply{background:#e08a2b;} .d-task{background:var(--blue);}
+  .d-internal{background:#7b5ea7;} .d-receipt{background:#9a9486;} .d-done{background:var(--good);}
+
+  /* capability grid */
+  .caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:14px 0;}
+  .cap{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--cream);}
+  .cap b{display:block;color:var(--navy);font-size:13.5px;margin-bottom:3px;}
+  .cap span{font-size:12.5px;color:var(--navy-soft);}
+
+  /* model tiers */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:14px 0;}
+  .tier{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--cream);}
+  .tier.exp{border-color:var(--gold);background:linear-gradient(160deg,#fff,var(--cream-dark));}
+  .tier .tname{font-size:15px;font-weight:800;color:var(--navy);}
+  .tier .tmodel{font-size:12px;color:var(--gold-dark);font-weight:600;margin:2px 0 8px;}
+  .tier .tdesc{font-size:12.5px;color:var(--navy-soft);}
+  .tier .twho{font-size:11.5px;color:var(--muted);margin-top:9px;border-top:1px dashed var(--line);padding-top:8px;}
+
+  footer.foot{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 0 0;}
+  .talk{background:var(--cream);border:1px solid var(--line);border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.5px;}
+  .talk em{color:var(--navy);font-style:normal;font-weight:600;}
+  @media print{
+    header.top,nav.toc,.openpage,.finder input{display:none!important;}
+    .shell{grid-template-columns:1fr;}
+    section.doc,.hero,.finder{break-inside:avoid;border-color:#ccc;}
+    body{background:#fff;}
+  }
+
+  /* ---------- right-to-left (Farsi) ---------- */
+  /* The grid/flex layout mirrors automatically under dir="rtl"; these rules
+     flip the few physical (left/right) properties and keep code, keyboard
+     keys and email-syntax examples reading left-to-right inside RTL text. */
+  [dir="rtl"] nav.toc a{border-left:none;border-right:3px solid transparent;}
+  [dir="rtl"] nav.toc a.active{border-right-color:var(--gold);}
+  [dir="rtl"] .note{border-left:none;border-right:4px solid var(--gold);border-radius:11px 0 0 11px;}
+  [dir="rtl"] .note.tip{border-right-color:var(--good);}
+  [dir="rtl"] .note.warn{border-right-color:var(--red);}
+  [dir="rtl"] section.doc ul{padding-left:0;padding-right:22px;}
+  [dir="rtl"] th,[dir="rtl"] td{text-align:right;}
+  [dir="rtl"] .hero::after{right:auto;left:-40px;transform:rotate(-8deg);}
+  [dir="rtl"] kbd,[dir="rtl"] code{direction:ltr;unicode-bidi:isolate;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img class="brand" src="/transform-logo.png?v=5DB" alt="Transform Iran Mail">
+  <div class="ttl"><b>راهنمای کاربر</b><span>powered by Delta</span></div>
+  <span class="spacer"></span>
+  <nav class="langs" aria-label="Language">
+    <a href="/help" hreflang="en">English</a>
+    <a href="/help/nl" hreflang="nl">Nederlands</a>
+    <a href="/help/fa" hreflang="fa" lang="fa" class="active">فارسی</a>
+    <a href="/help/hy" hreflang="hy" lang="hy">Հայերեն</a>
+  </nav>
+  <a class="act" href="/">← بازگشت به صندوق ورودی</a>
+  <button class="act" onclick="window.print()">چاپ / ذخیره PDF</button>
+</header>
+
+<div class="shell">
+
+  <!-- ============ SIDEBAR TOC ============ -->
+  <nav class="toc" id="toc">
+    <div class="tlabel">از اینجا شروع کنید</div>
+    <a href="#intro">خوش آمدید</a>
+    <a href="#finder">یافتن سریع</a>
+    <a href="#basics">مبانی</a>
+    <div class="tlabel">صندوق پستی شما</div>
+    <a href="#inbox">صندوق ورودی</a>
+    <a href="#read">خواندن و پاسخ دادن</a>
+    <a href="#compose">نوشتن ایمیل جدید</a>
+    <a href="#important">افراد مهم</a>
+    <a href="#folders">پوشه‌ها و برچسب‌ها</a>
+    <a href="#search">جست‌وجو</a>
+    <a href="#snooze">به تعویق انداختن</a>
+    <a href="#shortcuts">میان‌برهای صفحه‌کلید</a>
+    <div class="tlabel">منظم شوید</div>
+    <a href="#tasks">کارها (To Do)</a>
+    <a href="#calendar">تقویم</a>
+    <a href="#contacts">مخاطبین</a>
+    <a href="#promises">قول‌ها</a>
+    <div class="tlabel">Delta، دستیار شما</div>
+    <a href="#delta">آشنایی با Delta</a>
+    <a href="#delta-do">Delta چه کارهایی می‌تواند بکند</a>
+    <a href="#delta-models">پایه / پیشرفته / متخصص</a>
+    <a href="#delta-voice">حالت صوتی</a>
+    <a href="#delta-memory">حافظه و یادگیری</a>
+    <a href="#delta-slack">Slack و یادداشت‌های صوتی</a>
+    <a href="#delta-brief">خلاصهٔ صبحگاهی</a>
+    <a href="#delta-honest">صداقت و دقت</a>
+    <div class="tlabel">راه‌اندازی و کمک</div>
+    <a href="#settings">تنظیمات</a>
+    <a href="#notifications">اعلان‌ها</a>
+    <a href="#privacy">حریم خصوصی و ایمنی</a>
+    <a href="#faq">نکات و پرسش‌های متداول</a>
+  </nav>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <div class="hero" id="intro">
+      <h1>Transform Iran Mail — راهنمای کاربر</h1>
+      <p>این راهنمای کامل شما برای صندوق پستی و برای <strong>Delta</strong>، دستیاری است که در آن تعبیه شده است.
+      هر صفحه، هر دکمه و هر کاری که Delta می‌تواند انجام دهد، اینجا به زبان ساده توضیح داده شده است. از منوی
+      سمت راست برای پریدن به هر بخش استفاده کنید، یا با <a href="#finder" style="color:var(--gold-dark);font-weight:700;">یافتن سریع</a> مستقیماً به موضوع موردنظرتان بروید.</p>
+      <div class="pills">
+        <span>ایمیلی که خودش پیش‌نویس می‌نویسد</span>
+        <span>کارها و تقویم به‌صورت یکپارچه</span>
+        <span>جست‌وجوی کل سابقهٔ شما</span>
+        <span>به فارسی، انگلیسی، هلندی و بیشتر صحبت می‌کند</span>
+      </div>
+    </div>
+
+    <!-- ============ FIND IT FAST ============ -->
+    <div class="finder" id="finder">
+      <h2>یافتن سریع</h2>
+      <div class="sub">هر موضوع روی کدام صفحه است. روی <b>خواندن</b> کلیک کنید تا همین‌جا یاد بگیرید، یا روی <b>باز کردن</b> تا مستقیماً به صفحهٔ زندهٔ آن بروید.</div>
+      <input id="finderInput" type="text" placeholder="آنچه دنبالش می‌گردید را تایپ کنید… مثلاً «تعویق»، «یادآوری»، «جلسه»، «هزینه»">
+      <div class="idxgrid" id="idxgrid">
+        <!-- cards injected by JS from INDEX below; static fallback also works -->
+      </div>
+    </div>
+
+    <!-- ============ THE BASICS ============ -->
+    <section class="doc" id="basics">
+      <h2><span class="ico">🧭</span> مبانی</h2>
+      <p class="lead">چینش برنامه چگونه است، تا بقیهٔ موارد معنا پیدا کنند.</p>
+      <p>Transform Iran Mail همان صندوق پستی معمولی Gmail شماست با چهره‌ای هوشمندتر روی آن. با حساب
+      Google خود در Transform Iran وارد می‌شوید و هر کاری اینجا انجام دهید (ارسال، بایگانی، برچسب‌زدن) در Gmail واقعی شما هم رخ می‌دهد.</p>
+      <h3>سه ستون</h3>
+      <ul>
+        <li><b>نوار سمت راست</b> — ناوبری شما: دکمهٔ <chip>+ ایمیل جدید</chip>، پوشه‌های شما، <b>کارها</b>، <b>قول‌ها</b>، <b>افراد مهم</b> شما، برچسب‌های واقعی Gmail و پیوندهایی به تقویم، مخاطبین و تنظیمات.</li>
+        <li><b>ستون میانی</b> — فهرست ایمیل‌ها، همراه با نوار جست‌وجو و قرص‌های فیلتر رنگ‌بندی‌شده.</li>
+        <li><b>سمت چپ</b> — ایمیلی که در حال خواندنش هستید، یک تقویم کوچک و پنل گفت‌وگوی <b>Delta</b>.</li>
+      </ul>
+      <h3>صفحه‌های دیگر</h3>
+      <p>از بالای نوار و از طریق میان‌برهای صفحه‌کلید می‌توانید به پنج صفحهٔ اختصاصی برسید: <b>کارها</b>، <b>تقویم</b>، <b>مخاطبین</b>، <b>قول‌ها</b> و <b>تنظیمات</b>. هر کدام در ادامه شرح داده شده است.</p>
+      <div class="note tip"><span class="ntag">بار اول؟</span> همان اولین ورود یک صفحهٔ خوش‌آمدگویی کوتاه نشان داده می‌شود و Delta در پس‌زمینه و بی‌سروصدا سابقهٔ صندوق ورودی شما را می‌خواند تا بتواند نامه‌های گذشته‌تان را جست‌وجو کند. یک نوار پیشرفت در بالای صندوق ورودی نشان می‌دهد این کار چطور پیش می‌رود — می‌توانید همزمان به کارتان ادامه دهید.</div>
+    </section>
+
+    <!-- ============ INBOX ============ -->
+    <section class="doc" id="inbox">
+      <h2><span class="ico">📥</span> صندوق ورودی</h2>
+      <p class="lead">صفحهٔ اصلی شما — نامه‌ها را بخوانید، دسته‌بندی کنید و رویشان اقدام کنید.</p>
+      <a class="openpage" href="/">باز کردن صندوق ورودی →</a>
+
+      <h3>نوار سمت راست، از بالا به پایین</h3>
+      <ul>
+        <li><chip>+ ایمیل جدید</chip> — پنجرهٔ نوشتن را باز می‌کند (ببینید <a href="#compose">نوشتن ایمیل جدید</a>).</li>
+        <li><b>صندوق ورودی، ستاره‌دار، ارسال‌شده، پیش‌نویس‌ها، بایگانی، سطل زباله</b> — پوشه‌های استاندارد شما، هر کدام با یک شمارندهٔ زنده.</li>
+        <li><b>به تعویق افتاده</b> — نامه‌هایی که کنار گذاشته‌اید تا بعداً به آن‌ها برگردید (ببینید <a href="#snooze">به تعویق انداختن</a>).</li>
+        <li><b>تبلیغاتی</b> و <b>انجام‌شده</b> — خبرنامه‌ها، و نامه‌هایی که کارتان با آن‌ها تمام شده.</li>
+        <li><b>کارها</b> و <b>قول‌ها</b> — وظایف شما و تعهدهایی که داده‌اید (این‌ها نزدیک بالا قرار دارند تا به‌راحتی در دسترس باشند).</li>
+        <li><b>مهم</b> — افراد ویژهٔ منتخب خودتان (ببینید <a href="#important">افراد مهم</a>).</li>
+        <li><b>پوشه‌ها</b> — برچسب‌های واقعی Gmail شما، مستقیماً از حسابتان گرفته شده‌اند. روی هر کدام کلیک کنید تا فیلتر شود.</li>
+        <li><b>تقویم، مخاطبین، تنظیمات</b> — پیوند به آن صفحه‌ها. نام شما و یک پیکان خروج درست در پایین قرار دارند.</li>
+      </ul>
+
+      <h3>فهرست ایمیل‌ها</h3>
+      <p>هر ردیف فرستنده، زمان، موضوع، یک پیش‌نمایش تک‌خطی، یک نماد 📎 در صورت وجود پیوست، و یک <b>برچسب دسته‌بندی</b> رنگ‌بندی‌شده را نشان می‌دهد. فهرست با اسکرول کردن، موارد بیشتری بارگذاری می‌کند (بدون صفحه‌بندی).</p>
+      <h4>برچسب‌های دسته‌بندی و قرص‌های فیلتر</h4>
+      <p>Delta هر ایمیل را می‌خواند و آن را برچسب می‌زند تا با یک نگاه ببینید چه چیزی مهم است. روی یک قرص در بالای فهرست کلیک کنید تا فقط همان نوع نمایش داده شود:</p>
+      <table>
+        <tr><th>برچسب</th><th>یعنی</th></tr>
+        <tr><td><span class="dot d-urgent"></span><b>فوری</b></td><td>حساس به زمان و خطاب به شخص شما — همین امروز رسیدگی کنید.</td></tr>
+        <tr><td><span class="dot d-reply"></span><b>پاسخ</b></td><td>کسی منتظر پاسخ شماست.</td></tr>
+        <tr><td><span class="dot d-task"></span><b>کار</b></td><td>شامل یک اقدام برای شماست.</td></tr>
+        <tr><td><span class="dot d-internal"></span><b>داخلی</b></td><td>از تیم، بدون درخواست فوری.</td></tr>
+        <tr><td><span class="dot d-receipt"></span><b>رسید / اطلاعی / خبرنامه / خودکار</b></td><td>فاکتورها، مواردی که فقط در Cc آن‌ها هستید، نامه‌های انبوه و هشدارهای خودکار.</td></tr>
+        <tr><td><span class="dot d-done"></span><b>انجام‌شده</b></td><td>پاسخ داده‌اید و کارتان تمام شده — با یک تیک سبز بایگانی شده است.</td></tr>
+      </table>
+      <div class="note"><span class="ntag">هوشمند، نه لفظی</span> Delta کل ایمیل را می‌خواند، نه فقط پیش‌نمایش را. اگر شما فقط در <b>Cc</b> باشید (نه <b>To</b>)، تمایل به <b>اطلاعی</b> پیدا می‌کند — مگر اینکه متن واقعاً چیزی از <em>شما</em> بخواهد. نامه‌های افراد مهم شما در اولویت کمی بالاتر قرار می‌گیرند.</div>
+      <p>از دکمهٔ تازه‌سازی برای آوردن جدیدترین نامه‌ها استفاده کنید، و از دکمهٔ بازطبقه‌بندی (پیکان دایره‌ای) برای اجرای دوبارهٔ برچسب‌زنی Delta اگر تازه نحوهٔ مرتب‌سازی را به‌روزرسانی کرده‌اید.</p>
+
+      <h3>اقدام‌های سریع هنگام نشانگر</h3>
+      <p>نشانگر را روی هر ردیف ببرید تا دکمه‌های تک‌کلیکی نمایان شوند: <b>علامت‌گذاری خوانده/نخوانده</b>، <b>ستاره</b>، <b>بایگانی</b> و <b>حذف</b>. لازم نیست ابتدا ایمیل را باز کنید.</p>
+      <p>زنگ 🔔 در بالای فهرست، قول‌های سررسیدگذشته، کارهای سررسیده و نامه‌های نخواندهٔ افراد مهم را نشان می‌دهد — برای دیدن فهرست روی آن کلیک کنید.</p>
+    </section>
+
+    <!-- ============ READ & REPLY ============ -->
+    <section class="doc" id="read">
+      <h2><span class="ico">✉️</span> خواندن و پاسخ دادن</h2>
+      <p class="lead">یک ایمیل را باز کنید و خوانندهٔ سمت چپ آن را به‌طور کامل نشان می‌دهد.</p>
+
+      <h3>نوار ابزار خواننده</h3>
+      <p><b>پاسخ</b>، <b>پاسخ به همه</b>، <b>هدایت</b>، <b>بایگانی</b>، <b>به تعویق انداختن</b>، <b>ستاره</b>، <b>علامت‌گذاری نخوانده</b> و <b>حذف</b>. پیوست‌ها به‌صورت قرص ظاهر می‌شوند — روی آن‌ها کلیک کنید تا یک PDF، تصویر یا سند را همان‌جا داخل برنامه پیش‌نمایش کنید، یا با <kbd>⌘</kbd>+کلیک آن را در یک زبانهٔ جدید باز کنید.</p>
+      <div class="note"><span class="ntag">پاسخ به همه، همه را نگه می‌دارد</span> وقتی پاسخ به همه می‌دهید، افرادی که در <b>Cc</b> هستند به‌طور پیش‌فرض حفظ می‌شوند — تا کسی بی‌سروصدا از رشته کنار نرود. هنوز هم می‌توانید هر کسی را پیش از ارسال حذف کنید.</div>
+
+      <h3>بگذارید Delta روی همان ایمیل پیش رویتان کمک کند</h3>
+      <p>زیر ایمیل، دکمه‌های تک‌ضربه‌ای Delta را می‌بینید:</p>
+      <div class="caps">
+        <div class="cap"><b>پیش‌نویس پاسخ</b><span>Delta پاسخی به سبک شما می‌نویسد. آماده برای ویرایش باز می‌شود — تا روی ارسال کلیک نکنید، چیزی ارسال نمی‌شود.</span></div>
+        <div class="cap"><b>خلاصه</b><span>خلاصه‌ای سه‌بندی از یک ایمیل بلند.</span></div>
+        <div class="cap"><b>ترجمه</b><span>فارسی، ارمنی، هلندی و زبان‌های دیگر را به انگلیسی برمی‌گرداند.</span></div>
+        <div class="cap"><b>دربارهٔ این بپرس</b><span>از Delta پرسشی دربارهٔ محتوای ایمیل بپرسید.</span></div>
+        <div class="cap"><b>افزودن به کارها</b><span>اقدام‌ها را بیرون می‌کشد و به وظیفه تبدیل می‌کند.</span></div>
+      </div>
+
+      <h3>پنجرهٔ پاسخ</h3>
+      <p>وقتی Delta پاسخی پیش‌نویس می‌کند، یک پیش‌نویس قابل‌ویرایش به‌علاوهٔ دکمه‌های سریع لحن دریافت می‌کنید — <b>مطابق سبک من</b>، <b>کوتاه‌تر</b>، <b>گرم‌تر</b>، <b>رسمی‌تر</b>، <b>قاطع‌تر</b>، <b>عذرخواهانه</b>، <b>به فارسی</b>، <b>به هلندی</b> — یا دستور خودتان را تایپ کنید (مثلاً <em>«اشاره کن که پرواز ساعت ۴:۵۵ بعدازظهر است»</em>) و Delta دوباره پیش‌نویس می‌کند. یک نوار به شما می‌گوید چقدر مطمئن است (چند ایمیل گذشته به آن شخص با سبک شما تطبیق داده). همچنین یک پنل «Delta از N منبع مشورت گرفت» دقیقاً آنچه را برای نوشتن پیش‌نویس خوانده فهرست می‌کند.</p>
+      <div class="note tip"><span class="ntag">سبک شما را یاد می‌گیرد</span> ویرایش‌هایی که روی پیش‌نویس‌ها انجام می‌دهید به Delta یاد می‌دهند چطور می‌نویسید. به‌مرور، پاسخ‌ها نزدیک‌تر به آن‌چه خودتان می‌گفتید برمی‌گردند.</div>
+      <h4>با خیال راحت ارسال کنید</h4>
+      <p>پس از کلیک روی <b>ارسال</b>، یک شمارش معکوس کوتاه <b>واگرد</b> ظاهر می‌شود (طولش را در تنظیمات تعیین می‌کنید). اگر ایمیلی که به آن پاسخ می‌دهید به یک کار پیوند داشته باشد، آن کار خودبه‌خود تیک می‌خورد.</p>
+    </section>
+
+    <!-- ============ COMPOSE ============ -->
+    <section class="doc" id="compose">
+      <h2><span class="ico">📝</span> نوشتن ایمیل جدید</h2>
+      <p class="lead">روی <chip>+ ایمیل جدید</chip> در نوار کلیک کنید (یا <kbd>c</kbd> را فشار دهید) تا پنجرهٔ نوشتن باز شود.</p>
+      <ul>
+        <li><b>To / Cc / Bcc</b> — شروع به تایپ یک نام یا نشانی کنید و مخاطبین را پیشنهاد می‌دهد. Cc و Bcc تا وقتی رویشان کلیک نکنید پنهان‌اند.</li>
+        <li><b>قالب‌بندی</b> — قلم، اندازه، رنگ، پررنگ/مورب/زیرخط، فهرست‌ها، پیوندها، نقل‌قول‌ها — یک نوار ابزار کامل متن غنی.</li>
+        <li><b>امضا</b> — امضای Gmail شما می‌تواند به‌طور خودکار درج شود؛ این را در تنظیمات کنترل کنید.</li>
+        <li><b>ذخیره به‌عنوان پیش‌نویس</b> — آن را در Drafts از Gmail نگه می‌دارد تا بعداً تمام کنید.</li>
+        <li><b>آگاه از راست‌به‌چپ</b> — متن فارسی و عربی به‌طور خودکار درست تراز می‌شوند.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">به زبان خودشان پاسخ دهید</span> اگر به یک ایمیل فارسی پاسخ دهید اما به انگلیسی تایپ کنید، یک قرص پیشنهاد می‌دهد پیش از ارسال پیام شما را به فارسی ترجمه کند — سابقهٔ نقل‌شده دست‌نخورده می‌ماند.</div>
+    </section>
+
+    <!-- ============ IMPORTANT ============ -->
+    <section class="doc" id="important">
+      <h2><span class="ico">⭐</span> افراد مهم</h2>
+      <p class="lead">فهرست افراد ویژهٔ خودتان — هیچ‌کس برایتان اضافه نمی‌شود.</p>
+      <p>بخش <b>مهم</b> در نوار از آن شماست تا بسازیدش. هر شخص به یک پوشه تبدیل می‌شود؛ با کلیک روی آن
+      <b>فقط ایمیل‌هایی که آن شخص برایتان فرستاده</b> در یک سال گذشته نمایش داده می‌شود — نه رشته‌هایی که فقط در Cc آن‌ها هستند. این کار آن را به گفت‌وگوهایی محدود می‌کند که واقعاً دربارهٔ آن‌هاست.</p>
+      <h4>برای افزودن یک نفر</h4>
+      <ul>
+        <li>روی <b>+</b> کنار «مهم» کلیک کنید و نشانی ایمیلش را وارد کنید، <em>یا</em></li>
+        <li>یکی از ایمیل‌های او را باز کنید و کنار نامش روی <b>مهم</b> کلیک کنید.</li>
+      </ul>
+      <h4>برای حذف یک نفر</h4>
+      <p>روی <b>×</b> کنار نام او در نوار کلیک کنید.</p>
+      <div class="note"><span class="ntag">چرا اهمیت دارد</span> نامه‌های افراد مهم شما در اولویت بالاتری قرار می‌گیرند و به اعلان‌های 🔔 و خلاصهٔ صبحگاهی خوراک می‌دهند — تا افرادی که برایتان مهم‌اند گم نشوند.</div>
+    </section>
+
+    <!-- ============ FOLDERS ============ -->
+    <section class="doc" id="folders">
+      <h2><span class="ico">🗂️</span> پوشه‌ها و برچسب‌ها</h2>
+      <p class="lead">ساختار واقعی Gmail شما، که اینجا بازتاب یافته است.</p>
+      <p>در کنار پوشه‌های استاندارد (صندوق ورودی، ستاره‌دار، ارسال‌شده، پیش‌نویس‌ها، بایگانی، سطل زباله)، بخش <b>پوشه‌ها</b>
+      برچسب‌های واقعی Gmail شما را فهرست می‌کند. در Gmail یک برچسب بسازید و اینجا ظاهر می‌شود؛ روی هر پوشه کلیک کنید تا فهرست به آن فیلتر شود.
+      بایگانی‌کردن اینجا نامه را از صندوق ورودی برمی‌دارد اما آن را در Gmail نگه می‌دارد، پس همیشه قابل جست‌وجوست.</p>
+    </section>
+
+    <!-- ============ SEARCH ============ -->
+    <section class="doc" id="search">
+      <h2><span class="ico">🔍</span> جست‌وجو</h2>
+      <p class="lead">هر چیزی را در سراسر صندوق پستی خود پیدا کنید.</p>
+      <p>در نوار جست‌وجو تایپ کنید (یا <kbd>/</kbd> را فشار دهید) و <kbd>Enter</kbd> را بزنید. جست‌وجوی به‌سبک Gmail را می‌فهمد:</p>
+      <ul>
+        <li><code>from:lana</code> — هر چیزی از Lana</li>
+        <li><code>subject:budget</code> — بر اساس کلمهٔ موضوع</li>
+        <li><code>newer_than:1y</code> — فقط موارد اخیر</li>
+        <li>ترکیبشان کنید: <code>from:simon subject:wire</code></li>
+      </ul>
+      <p>برای پاک‌کردن <kbd>Esc</kbd> را بزنید. همچنین می‌توانید به زبان ساده از <b>Delta</b> بخواهید جست‌وجو کند («ایمیل‌های Lana دربارهٔ بودجه را پیدا کن») — و با کلیک روی یک ایمیل در نتایج Delta، فهرست فقط به همان‌ها فیلتر می‌شود، با یک نوار که می‌توانید پاکش کنید.</p>
+    </section>
+
+    <!-- ============ SNOOZE ============ -->
+    <section class="doc" id="snooze">
+      <h2><span class="ico">⏰</span> به تعویق انداختن</h2>
+      <p class="lead">یک ایمیل را حالا پنهان کنید، بعداً بازگردد.</p>
+      <p>یک ایمیل را باز کنید و روی <b>به تعویق انداختن</b> کلیک کنید (یا <kbd>b</kbd> را فشار دهید). <b>امروز دیرتر</b>، <b>فردا صبح</b>، <b>فردا عصر</b>، <b>۲ روز دیگر</b>، <b>هفتهٔ آینده</b>، <b>یک هفتهٔ دیگر</b> را انتخاب کنید، یا یک تاریخ و زمان دلخواه برگزینید. ایمیل بلافاصله صندوق ورودی شما را ترک می‌کند و در زمانی که انتخاب کردید، با نشان نخوانده، دوباره ظاهر می‌شود. هر چیزی که به تعویق افتاده تا آن زمان در پوشهٔ <b>به تعویق افتاده</b> می‌ماند.</p>
+      <div class="note tip"><span class="ntag">پیش‌فرض‌های خودتان را تنظیم کنید</span> زمان‌های آمادهٔ تعویق را در <a href="#settings">تنظیمات ← صندوق ورودی</a> تغییر دهید.</div>
+    </section>
+
+    <!-- ============ SHORTCUTS ============ -->
+    <section class="doc" id="shortcuts">
+      <h2><span class="ico">⌨️</span> میان‌برهای صفحه‌کلید</h2>
+      <p class="lead">بدون ماوس میان نامه‌ها حرکت کنید. هر میان‌بر در تنظیمات ← میان‌برهای صفحه‌کلید قابل بازتعریف است.</p>
+      <table>
+        <tr><th>کلید</th><th>کار</th><th>کلید</th><th>کار</th></tr>
+        <tr><td><kbd>/</kbd></td><td>تمرکز روی جست‌وجو</td><td><kbd>j</kbd> / <kbd>k</kbd></td><td>ایمیل بعدی / قبلی</td></tr>
+        <tr><td><kbd>c</kbd></td><td>نوشتن نامهٔ جدید</td><td><kbd>Enter</kbd></td><td>باز کردن انتخاب‌شده</td></tr>
+        <tr><td><kbd>r</kbd></td><td>پاسخ</td><td><kbd>e</kbd></td><td>بایگانی</td></tr>
+        <tr><td><kbd>a</kbd></td><td>پاسخ به همه</td><td><kbd>#</kbd></td><td>حذف (به سطل زباله)</td></tr>
+        <tr><td><kbd>f</kbd></td><td>هدایت</td><td><kbd>u</kbd></td><td>علامت‌گذاری نخوانده</td></tr>
+        <tr><td><kbd>s</kbd></td><td>ستاره / بی‌ستاره</td><td><kbd>b</kbd></td><td>به تعویق انداختن</td></tr>
+        <tr><td><kbd>?</kbd></td><td>نمایش این برگهٔ راهنما</td><td><kbd>g</kbd> سپس <kbd>i/c/t/n/s</kbd></td><td>رفتن به صندوق ورودی / تقویم / کارها / مخاطبین / تنظیمات</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ TASKS ============ -->
+    <section class="doc" id="tasks">
+      <h2><span class="ico">✅</span> کارها (To Do)</h2>
+      <p class="lead">یک مدیر کارهای کامل، به سبک Microsoft To Do.</p>
+      <a class="openpage" href="/tasks">باز کردن کارها →</a>
+      <h3>فهرست‌ها در سمت راست</h3>
+      <ul>
+        <li><b>روز من</b> — کاری که امروز انجام می‌دهید.</li>
+        <li><b>مهم</b> — هر چیزی که ستاره زده‌اید.</li>
+        <li><b>برنامه‌ریزی‌شده</b> — نمایی به سبک تقویم که در گروه‌های <b>امروز</b>، <b>فردا</b>، <b>این هفته</b> و <b>بعداً</b> دسته‌بندی شده، تا ببینید چه در راه است. موارد سررسیدگذشته با رنگ قرمز نشان داده می‌شوند.</li>
+        <li><b>همه</b> و <b>تکمیل‌شده</b> — همه‌چیز، و هر کار انجام‌شده.</li>
+        <li><b>فهرست‌های خودتان</b> — با <chip>+ فهرست جدید</chip> هر چند تا که می‌خواهید بسازید.</li>
+      </ul>
+      <h3>کار کردن با یک وظیفه</h3>
+      <p>در <chip>+ افزودن یک کار</chip> تایپ کنید تا یکی بسازید. روی یک کار کلیک کنید تا پنل جزئیاتش باز شود، جایی که می‌توانید این‌ها را تنظیم کنید:</p>
+      <ul>
+        <li><b>تاریخ سررسید</b> — چه زمانی سررسید است.</li>
+        <li><b>یادآوری</b> — «۵ دقیقهٔ دیگر»، «فردا ساعت ۹ صبح»، «دوشنبهٔ آینده» یا زمانی دلخواه را انتخاب کنید. در آن لحظه یک اعلان مرورگر دریافت می‌کنید. اگر اعلان‌ها هنوز روشن نیستند، یک قرص <b>«روشن کردن یادآوری‌ها»</b> در سرصفحه آن‌ها را روشن می‌کند.</li>
+        <li><b>گام‌ها</b> — یک کار را با چک‌باکس‌های مخصوص خودش به گام‌های فرعی بشکنید.</li>
+        <li><b>یادداشت‌ها</b> — متن آزاد.</li>
+        <li><b>ایمیل منبع</b> — اگر کار از یک ایمیل آمده باشد، نسخهٔ اصلی همان‌جا نشان داده می‌شود؛ برای پریدن به آن کلیک کنید.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">بدون دست</span> به Delta بگویید «یادم بنداز جمعه به Reza زنگ بزنم» (تایپی یا صوتی) و کار را برایتان می‌سازد.</div>
+    </section>
+
+    <!-- ============ CALENDAR ============ -->
+    <section class="doc" id="calendar">
+      <h2><span class="ico">📅</span> تقویم</h2>
+      <p class="lead">Google Calendar شما، در یک شبکهٔ تمیز ماهانه.</p>
+      <a class="openpage" href="/calendar">باز کردن تقویم →</a>
+      <ul>
+        <li><b>شبکهٔ ماهانه</b> همراه با یک انتخابگر کوچک ماه برای پریدن به تاریخ‌ها، به‌علاوهٔ یک دستورکار «امروز و پیش‌رو» در سمت چپ.</li>
+        <li><b>ساختن یک رویداد</b> — روی <chip>+ رویداد جدید</chip> کلیک کنید، یا روی یک روز دوبار کلیک کنید تا سریع اضافه شود. عنوان، زمان، تمام‌روز، کدام تقویم، مکان، شرکت‌کنندگان و یک توضیح را تنظیم کنید.</li>
+        <li><b>چند تقویم</b> — هر تقویم Google را روشن یا خاموش کنید.</li>
+        <li><b>جزئیات رویداد</b> — روی هر رویداد کلیک کنید تا زمان، مکان، شرکت‌کنندگان (با اینکه چه کسی پذیرفته) و دکمه‌ای برای باز کردنش در Google Calendar را ببینید.</li>
+        <li><b>پیوند پیش‌فرض جلسه</b> — پیوند ویدیویی همیشگی‌تان را در تنظیمات قرار دهید و به‌طور خودکار به جلسه‌های جدید پیوست می‌شود.</li>
+      </ul>
+      <div class="note"><span class="ntag">Delta هم زمان‌بندی می‌کند</span> از Delta بخواهید «زمانی پیدا کن که Pia و Lana هر دو آزاد باشند» و تقویم همه را بررسی می‌کند، سپس یک بازهٔ زمانی پیشنهاد می‌دهد تا تأیید کنید. به بلوک‌های تمرکز شما و فاصله‌ای که میان جلسه‌ها دوست دارید احترام می‌گذارد — و <b>هرگز پیوند جلسه از خودش نمی‌سازد</b> (ببینید <a href="#delta-honest">صداقت و دقت</a>).</div>
+    </section>
+
+    <!-- ============ CONTACTS ============ -->
+    <section class="doc" id="contacts">
+      <h2><span class="ico">👥</span> مخاطبین</h2>
+      <p class="lead">هر کسی که به او ایمیل می‌زنید، به‌طور خودکار گردآوری شده.</p>
+      <a class="openpage" href="/contacts">باز کردن مخاطبین →</a>
+      <ul>
+        <li><b>خودساخته</b> — مخاطبین از نامه‌های شما گردآوری می‌شوند؛ دکمهٔ <b>تازه‌سازی از صندوق ورودی</b> برای فرستنده‌های جدید بازاسکن می‌کند.</li>
+        <li><b>جست‌وجو و مرتب‌سازی</b> — بر اساس نام، الفبایی، فعال‌شدهٔ اخیر، یا پرتماس‌ترین.</li>
+        <li><b>هر مخاطب</b> ایمیل، تلفن، سازمان، عنوان شغلی و یادداشت‌ها (همه قابل‌ویرایش) را نشان می‌دهد، به‌علاوهٔ <b>ایمیل‌های اخیر</b> او — روی یکی کلیک کنید تا به آن بپرید.</li>
+        <li><b>اقدام‌های سریع</b> — به آن شخص ایمیل بزنید، او را <b>مهم</b> علامت بزنید، یا یک مخاطب جدید را دستی اضافه کنید.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PROMISES ============ -->
+    <section class="doc" id="promises">
+      <h2><span class="ico">🤝</span> قول‌ها</h2>
+      <p class="lead">تعهدهایی که در ایمیل می‌دهید، پیگیری می‌شوند تا فراموششان نکنید.</p>
+      <a class="openpage" href="/promises">باز کردن قول‌ها →</a>
+      <p>وقتی ایمیلی می‌فرستید و چیزی مثل <em>«گزارش را تا جمعه برایتان می‌فرستم»</em> می‌گویید، Delta متوجه می‌شود و آن را به‌عنوان یک <b>قول</b>، همراه با مهلتی که ذکر کردید، ثبت می‌کند. لازم نیست کاری بکنید.</p>
+      <ul>
+        <li><b>باز / سررسیدگذشته / انجام‌شده / لغوشده</b> — بر اساس وضعیت فیلتر کنید. قول‌های سررسیدگذشته با رنگ قرمز نشان داده می‌شوند و به اعلان‌های 🔔 شما خوراک می‌دهند.</li>
+        <li><b>خودکار بسته می‌شود</b> — وقتی طرف مقابل در رشته پاسخ می‌دهد، قول انجام‌شده علامت می‌خورد.</li>
+        <li><b>علامت انجام‌شده / رد کردن</b> — یکی را خودتان ببندید، یا اگر Delta چیزی را برداشته که واقعاً یک تعهد نبوده، ردش کنید.</li>
+        <li>هر قول به ایمیل اصلی که از آن آمده پیوند می‌خورد.</li>
+      </ul>
+      <div class="note"><span class="ntag">فقط قول‌های واقعی</span> Delta تعهدهای مشخص («X را تا جمعه می‌فرستم») را پیگیری می‌کند، نه تعارف‌های مبهم («اگر چیزی لازم داشتی خبرم کن»).</div>
+    </section>
+
+    <!-- ============ DELTA ============ -->
+    <section class="doc" id="delta">
+      <h2><span class="ico">🔺</span> آشنایی با Delta</h2>
+      <p class="lead">دستیار تعبیه‌شدهٔ شما — صندوق ورودی شما را می‌خواند تا کمکتان کند سریع‌تر پاسخ دهید و بر همه‌چیز مسلط بمانید.</p>
+      <p>Delta را با دکمهٔ لوگو در پایین‌سمت‌چپ هر صفحه باز کنید. می‌توانید <b>تایپ</b> کنید یا از <b>صدای</b> خود استفاده کنید. Delta می‌تواند نامه‌هایتان را بخواند، سابقه‌تان را جست‌وجو کند، پاسخ‌ها را پیش‌نویس کند، کارها و تقویمتان را مدیریت کند، در پیوست‌ها کاوش کند و به پرسش‌ها پاسخ دهد — همیشه کارش را نشان می‌دهد و هرگز بدون شما چیزی ارسال نمی‌کند.</p>
+      <h4>چطور با آن حرف بزنید</h4>
+      <p>فقط آنچه می‌خواهید را، همان‌طور که از یک نفر می‌پرسید، بگویید:</p>
+      <div class="talk"><em>«امروز چه چیزی فوری است؟»</em> · <em>«یک پاسخ گرم به Pia دربارهٔ سفر Tehran پیش‌نویس کن.»</em> · <em>«آخرین ایمیل Simon دربارهٔ حواله را پیدا کن.»</em> · <em>«یک کار اضافه کن که بودجه را تا جمعه مرور کنم.»</em> · <em>«PDF که Pia پیوست کرده را خلاصه کن.»</em></div>
+      <p>صفحهٔ خوش‌آمدگویی هم آغازگرهای تک‌ضربه‌ای ارائه می‌دهد: <chip>صندوق ورودی‌ام را منظم کن</chip> <chip>پاک‌سازی سریع</chip> <chip>ایمیل‌های فوری را پیدا کن</chip> <chip>روزم را برنامه‌ریزی کن</chip> <chip>به چه کسی پاسخ نداده‌ام؟</chip> <chip>صندوق ورودی را خلاصه کن</chip> <chip>نامه‌های غیرانگلیسی را ترجمه کن</chip></p>
+      <div class="note tip"><span class="ntag">موارد محبوبتان را ذخیره کنید</span> دستورهایی که زیاد استفاده می‌کنید را می‌توان به‌عنوان پرامپت‌های قابل‌استفادهٔ مجدد ذخیره کرد (دکمهٔ نشانک کنار کادر گفت‌وگو، یا تنظیمات ← حافظه) و هر زمان، به‌صورت متنی یا صوتی، اجرا کرد.</div>
+    </section>
+
+    <!-- ============ DELTA: WHAT IT CAN DO ============ -->
+    <section class="doc" id="delta-do">
+      <h2><span class="ico">🛠️</span> Delta چه کارهایی می‌تواند بکند</h2>
+      <p class="lead">هر کاری که Delta می‌تواند برای شما انجام دهد، گروه‌بندی‌شده بر اساس آن‌چه می‌خواهید انجام شود. نیازی نیست دستورها را حفظ کنید — فقط بپرسید.</p>
+
+      <h3>با ایمیل شما</h3>
+      <div class="caps">
+        <div class="cap"><b>جست‌وجوی صندوق ورودی</b><span>هر چیزی را در سراسر کل سابقهٔ Gmail شما می‌یابد، نه فقط نامه‌های اخیر. در صورت نیاز می‌تواند متن دقیق را نقل کند.</span></div>
+        <div class="cap"><b>پیش‌نویس پاسخ</b><span>پاسخی به سبک شما، به‌طور خودکار خطاب به همهٔ افراد درست می‌نویسد. برای ویرایش باز می‌شود.</span></div>
+        <div class="cap"><b>نوشتن ایمیل جدید</b><span>یک پیام کاملاً تازه از صفر برای هر کسی می‌نویسد.</span></div>
+        <div class="cap"><b>هدایت</b><span>یک ایمیل را با یادداشت مقدماتی که شما توصیف می‌کنید هدایت می‌کند.</span></div>
+        <div class="cap"><b>اقدام روی ایمیل</b><span>بایگانی، حذف، علامت خوانده/نخوانده، ستاره، علامت انجام‌شده یا تعویق — فقط با درخواست.</span></div>
+        <div class="cap"><b>خواندن پیوست‌ها</b><span>فایل‌های PDF، Word، Excel و CSV را باز می‌کند و محتوا را بیرون می‌کشد تا به پرسش‌ها پاسخ دهد یا خلاصه کند.</span></div>
+      </div>
+
+      <h3>منظم نگه‌داشتن شما</h3>
+      <div class="caps">
+        <div class="cap"><b>ساختن کارها</b><span>به کارهای شما با تاریخ سررسید، یادآوری و یک پیوند به ایمیل منبع اضافه می‌کند.</span></div>
+        <div class="cap"><b>تمیز کردن صندوق ورودی</b><span>«پاک‌سازی سریع» خبرنامه‌ها، اعلان‌ها، رسیدها و رشته‌هایی که قبلاً رسیدگی شده‌اند را گروه می‌کند تا دسته‌دسته پاکشان کنید.</span></div>
+        <div class="cap"><b>روال صندوق ورودی</b><span>یک راهنمای گام‌به‌گام که شما را، مرحله به مرحله، از یک صندوق ورودی پر به یک صندوق منظم می‌رساند.</span></div>
+        <div class="cap"><b>برنامه‌ریزی روزتان</b><span>آنچه فوری است، آنچه سررسید است و آنچه روی تقویم شماست را گرد هم می‌آورد.</span></div>
+      </div>
+
+      <h3>تقویم و افراد</h3>
+      <div class="caps">
+        <div class="cap"><b>پیدا کردن یک نفر</b><span>ایمیل کسی را با نام از مخاطبین، سابقه و فهرست افراد مهم شما پیدا می‌کند.</span></div>
+        <div class="cap"><b>پیدا کردن زمان جلسه</b><span>بررسی می‌کند چه زمانی چند نفر از افراد <bdi>@transformiran.com</bdi> همگی آزادند.</span></div>
+        <div class="cap"><b>پیشنهاد و ساختن رویدادها</b><span>یک جلسه برای تأیید شما می‌سازد، سپس آن را با دعوت‌نامه‌ها و پیوند پیش‌فرض شما روی تقویم می‌گذارد.</span></div>
+      </div>
+
+      <h3>فراتر از ایمیل</h3>
+      <div class="caps">
+        <div class="cap"><b>جست‌وجوی Slack</b><span>کانال‌ها، پیام‌های مستقیم و رشته‌های شما را جست‌وجو می‌کند — از جمله یادداشت‌های صوتی رونویسی‌شده (در ادامه ببینید).</span></div>
+        <div class="cap"><b>خواندن فایل‌های Slack</b><span>اسنادی که در Slack به اشتراک گذاشته شده‌اند را باز می‌کند و می‌خواند.</span></div>
+        <div class="cap"><b>به‌خاطر سپردن چیزها</b><span>حقایق و ترجیحاتی که به آن می‌گویید را برای گفت‌وگوهای آینده ذخیره می‌کند.</span></div>
+      </div>
+      <div class="note"><span class="ntag">هیچ‌چیز پشت سر شما رخ نمی‌دهد</span> Delta پیش‌نویس می‌کند، پیشنهاد می‌دهد و توصیه می‌کند — اما <b>هرگز ایمیلی ارسال نمی‌کند، داده‌ای که نخواسته‌اید را حذف نمی‌کند، و پولی جابه‌جا نمی‌کند</b>. همیشه شمایید که دکمهٔ نهایی را می‌زنید.</div>
+    </section>
+
+    <!-- ============ DELTA: MODELS ============ -->
+    <section class="doc" id="delta-models">
+      <h2><span class="ico">🎚️</span> پایه، پیشرفته و متخصص</h2>
+      <p class="lead">Delta روی سه سطح هوش کار می‌کند. سطح را با دکمهٔ مدل کنار کادر گفت‌وگو انتخاب کنید.</p>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tname">پایه</div>
+          <div class="tmodel">Claude Sonnet · سریع‌تر، کم‌هزینه‌تر</div>
+          <div class="tdesc">سریع و کارآمد. انتخاب درست برای ایمیل روزمره — پیش‌نویس، جست‌وجو، دسته‌بندی.</div>
+          <div class="twho">در دسترس همه.</div>
+        </div>
+        <div class="tier">
+          <div class="tname">پیشرفته</div>
+          <div class="tmodel">Claude Opus · استدلال عمیق‌تر</div>
+          <div class="tdesc">کندتر اما باهوش‌تر. برای پیش‌نویس‌های دشوارتر، اسناد طولانی‌تر، یا هر چیزی که به اندیشهٔ دقیق نیاز دارد سراغش بروید.</div>
+          <div class="twho">در دسترس همه.</div>
+        </div>
+        <div class="tier exp">
+          <div class="tname">متخصص</div>
+          <div class="tmodel">Claude Opus 4.8 · بیشینهٔ استدلال</div>
+          <div class="tdesc">کارآمدترین سطح، برای پرمخاطره‌ترین و پیچیده‌ترین پرسش‌ها. قوی‌ترین مدل کمترین خطاها را هم دارد.</div>
+          <div class="twho">فقط رهبری ارشد — Shahryar، Pia، Lana، Lazarus و Maggie.</div>
+        </div>
+      </div>
+      <div class="note"><span class="ntag">خوب است بدانید</span> گزینهٔ متخصص فقط برای افرادی که مجاز هستند ظاهر می‌شود؛ برای بقیه دکمه فقط پایه و پیشرفته را نشان می‌دهد. وقتی شما انتخابی نکنید، Delta هم خودش سنجیده انتخاب می‌کند.</div>
+    </section>
+
+    <!-- ============ DELTA: VOICE ============ -->
+    <section class="doc" id="delta-voice">
+      <h2><span class="ico">🎙️</span> حالت صوتی</h2>
+      <p class="lead">با Delta با صدای بلند حرف بزنید و او هم پاسخ می‌دهد — یک گفت‌وگوی واقعی دوطرفه.</p>
+      <p>روی دکمهٔ صدا در سرصفحهٔ پنل Delta کلیک کنید و به میکروفونتان اجازه دهید. یک کرهٔ متحرک نشان می‌دهد چه زمانی Delta در حال <b>گوش دادن</b>، <b>اندیشیدن</b> و <b>سخن گفتن</b> است، و کلماتتان همان‌طور که می‌گویید ظاهر می‌شوند.</p>
+      <ul>
+        <li>هر کاری که با تایپ می‌توانید بکنید، با صدا هم می‌توانید: پیش‌نویس پاسخ‌ها، ساختن کارها و یادآوری‌ها، جست‌وجوی صندوق ورودی، زمان‌بندی جلسه‌ها.</li>
+        <li>چند زبان از جمله <b>فارسی</b>، انگلیسی و هلندی را می‌فهمد و صحبت می‌کند.</li>
+        <li>هر چیزی که Delta در طول تماس می‌سازد (مثل یک پیش‌نویس) بعداً در برنامه ظاهر می‌شود، آماده برای شما. رونوشت کامل در گفت‌وگو ذخیره می‌شود و می‌توانید کپی‌اش کنید.</li>
+        <li>جلسه را با گفتن خداحافظی یا با زدن دکمهٔ <b>پایان</b> به پایان برسانید.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: MEMORY ============ -->
+    <section class="doc" id="delta-memory">
+      <h2><span class="ico">🧠</span> حافظه و یادگیری</h2>
+      <p class="lead">Delta هرچه بیشتر با شما کار کند، کارآمدتر می‌شود.</p>
+      <ul>
+        <li><b>می‌توانید بگویید به‌خاطر بسپارد</b> — بگویید «به‌خاطر بسپار که Pia مسئول هماهنگی‌های Tehran است» و آن را برای بعد نگه می‌دارد.</li>
+        <li><b>الگوها را متوجه می‌شود</b> — بی‌سروصدا و در طول شب، ممکن است چیزهایی مثل «پاسخ‌ها به Lazarus به فارسی» را یاد بگیرد و ذخیره‌شان را پیشنهاد دهد. همیشه آنچه ذخیره کرده را می‌بینید، با امکان واگرد.</li>
+        <li><b>نوشتن شما را یاد می‌گیرد</b> — ویرایش‌های شما روی پیش‌نویس‌ها شکل می‌دهد که چطور برایتان می‌نویسد.</li>
+        <li><b>کنترل دست شماست</b> — هر چیزی که Delta به‌خاطر می‌سپارد را در <a href="#settings">تنظیمات ← حافظه</a> ببینید، ویرایش یا حذف کنید.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: SLACK ============ -->
+    <section class="doc" id="delta-slack">
+      <h2><span class="ico">💬</span> Slack و یادداشت‌های صوتی</h2>
+      <p class="lead">Slack را (در تنظیمات) وصل کنید تا Delta بتواند آن را در کنار ایمیل شما جست‌وجو کند.</p>
+      <p>چیزهایی مثل <em>«Anet دربارهٔ بودجه چه گفت؟»</em> یا <em>«گفت‌وگویم با Simon را خلاصه کن.»</em> بپرسید. Delta کانال‌ها، پیام‌های مستقیم و رشته‌ها را جست‌وجو می‌کند.</p>
+      <h4>یادداشت‌های صوتی</h4>
+      <p>Delta به‌طور خودکار <b>کلیپ‌های صوتی Slack را رونویسی می‌کند</b> تا بتوانید جست‌وجویشان کنید و دربارهٔ آن‌ها بپرسید — حتی آن‌هایی که خیلی وقت پیش ضبط شده‌اند. بپرسید «من و Anet دربارهٔ چه حرف زدیم؟» و یادداشت‌های صوتی آن گفت‌وگو را بیرون می‌کشد و توضیحشان می‌دهد.</p>
+      <div class="note warn"><span class="ntag">یادداشت‌های صوتی فارسی</span> Delta یادداشت‌های صوتی فارسی را رونویسی و به انگلیسی ترجمه می‌کند، اما آن‌ها را با نشان <b>«رونویسی خودکار، ممکن است بی‌نقص نباشد»</b> علامت می‌زند. از آن‌ها برای فهم کلی استفاده کنید، نه برای واژه‌بندی دقیق.</div>
+    </section>
+
+    <!-- ============ DELTA: BRIEF ============ -->
+    <section class="doc" id="delta-brief">
+      <h2><span class="ico">🌅</span> خلاصهٔ صبحگاهی</h2>
+      <p class="lead">یک سرآغاز روزانه، آمادهٔ همان اولین باری که هر روز Delta را باز می‌کنید.</p>
+      <p>Delta ایمیل شبانه، جلسه‌های امروز، کارهای باز و هر قول سررسیده را در یک خلاصهٔ کوتاه گرد هم می‌آورد: یک تیتر تک‌خطی، مهم‌ترین اولویت‌هایتان، و یک صف از <b>پاسخ‌های از پیش‌نوشته</b> برای فوری‌ترین ایمیل‌ها. یکی را رد کنید و بعدی سُر می‌خورد جلو — با یک کلیک ارسال کنید، یا اول بازش کنید تا ویرایش کنید.</p>
+    </section>
+
+    <!-- ============ DELTA: HONESTY ============ -->
+    <section class="doc" id="delta-honest">
+      <h2><span class="ico">🛡️</span> صداقت و دقت</h2>
+      <p class="lead">Delta چطور از ساختن چیزهای ناواقعی پرهیز می‌کند — و چه انتظاری داشته باشید.</p>
+      <p>مانند همهٔ دستیارهای هوش مصنوعی، Delta هم در تئوری ممکن است چیزی بگوید که درست به‌نظر می‌رسد اما نیست. ما برای پیشگیری از این با داده‌های شما، قواعد محکمی تعبیه کرده‌ایم:</p>
+      <ul>
+        <li><b>حقایق باید از جایی واقعی بیایند</b> — Delta یک حقیقت مشخص (یک تاریخ، یک مبلغ، یک نام، یک کمک‌مالی) را فقط در صورتی بیان می‌کند که آن را در ایمیلی که در حال خواندنش هستید، در چیزی که <em>همین نوبت</em> جست‌وجو کرده، یا در حافظهٔ ذخیره‌شده‌اش یافته باشد. برای پر کردن یک خلأ جزئیات از خودش نمی‌سازد.</li>
+        <li><b>اگر نتواند پیدایش کند، می‌گوید</b> — به جای یک حدس بااطمینان، «آن را پیدا نکردم، بگذار جست‌وجو کنم» دریافت می‌کنید. این عمدی است: یک پاسخ صادقانهٔ کندتر بهتر از یک پاسخ غلط سریع است.</li>
+        <li><b>هرگز پیوند جلسه از خودش نمی‌سازد</b> — برای تماس‌های ویدیویی فقط از پیوند پیش‌فرض ذخیره‌شدهٔ شما، یا پیوندی که در گفت‌وگو می‌چسبانید، استفاده می‌کند. هرگز یک نشانی Zoom از خودش نمی‌سازد.</li>
+        <li><b>پیش‌نویس‌ها منابعشان را نشان می‌دهند</b> — پنل «Delta از N منبع مشورت گرفت» هر ایمیل و پیوستی را که یک پیش‌نویس بر آن استوار بوده فهرست می‌کند، تا بتوانید بررسی‌اش کنید.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">بهترین روش</span> برای هر چیزی که واقعاً مهم است — یک رقم، یک تعهد، یک نام — نگاهی به منبعی که Delta ذکر می‌کند بیندازید، یا از آن بخواهید «ایمیل را نشانم بده». طوری ساخته شده که این کار آسان باشد.</div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="doc" id="settings">
+      <h2><span class="ico">⚙️</span> تنظیمات</h2>
+      <p class="lead">برنامه را از آنِ خود کنید.</p>
+      <a class="openpage" href="/settings">باز کردن تنظیمات →</a>
+      <h3>چه چیزهایی را می‌توانید تغییر دهید</h3>
+      <ul>
+        <li><b>حساب</b> — نمایه و خروج شما.</li>
+        <li><b>صندوق ورودی</b> — مخاطبین مهم شما و زمان‌های پیش‌فرض تعویق.</li>
+        <li><b>نوشتن</b> — تأخیر <b>واگرد ارسال</b> (خاموش، ۵/۱۰/۲۰/۳۰ ثانیه)، اینکه آیا <b>میان‌برهای Markdown</b> هنگام ارسال به قالب‌بندی تبدیل شوند، <b>نام‌های مستعار</b> و <b>امضای</b> شما (روی هر پیام، فقط اولین پیام، یا هرگز)، و <b>قطعه‌متن‌های</b> قابل‌استفادهٔ مجدد.</li>
+        <li><b>تقویم</b> — <b>پیوند پیش‌فرض جلسهٔ</b> شما، بافر میان جلسه‌ها، و <b>بلوک‌های تمرکز</b> (زمان محافظت‌شده‌ای که Delta رویش جلسه نمی‌گذارد).</li>
+        <li><b>ظاهر</b> — تم روشن / تیره / سیستم، یک رنگ تأکیدی، و چگالی و قلم متن.</li>
+        <li><b>یکپارچه‌سازی‌ها</b> — وصل یا قطع کردن <b>Slack</b>.</li>
+        <li><b>حافظه</b> — هر چیزی که Delta به‌خاطر می‌سپارد را مرور، ویرایش و حذف کنید، و پرامپت‌های ذخیره‌شده‌تان را مدیریت کنید.</li>
+        <li><b>میان‌برهای صفحه‌کلید</b> — هر میان‌بر را به کلیدهای دلخواهتان بازتعریف کنید.</li>
+        <li><b>اعلان‌ها</b> — در ادامه ببینید.</li>
+      </ul>
+      <div class="note"><span class="ntag">حریم خصوصی به‌طور پیش‌فرض</span> Transform Iran Mail پیگیری نمی‌کند که آیا افرادی که به آن‌ها ایمیل می‌زنید پیام‌هایتان را باز می‌کنند یا روی پیوندهایتان کلیک می‌کنند. این یک انتخاب عمدی است، نه یک تنظیم.</div>
+    </section>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="doc" id="notifications">
+      <h2><span class="ico">🔔</span> اعلان‌ها</h2>
+      <p class="lead">آگاه بمانید بی‌آنکه زیر بار بروید.</p>
+      <ul>
+        <li>اعلان‌های مرورگر را روشن کنید، سپس انتخاب کنید چه چیزی به شما هشدار دهد: <b>نامهٔ جدید</b>، <b>یادآوری کارها</b>، <b>هشدارهای تقویم</b>.</li>
+        <li><b>ساعات سکوت</b> — یک بازه (و روزها) تعیین کنید که هیچ‌چیز مزاحمتان نشود.</li>
+        <li><b>سقف ساعتی</b> — تعداد هشدارهایی که در هر ساعت می‌توانند فعال شوند را محدود کنید.</li>
+        <li><b>به‌ازای هر مخاطب</b> — برای برخی افراد همیشه اعلان دهید، برخی دیگر را کاملاً بی‌صدا کنید.</li>
+        <li>در صندوق ورودی، زنگ 🔔 قول‌های سررسیدگذشته، کارهای سررسیده و نامه‌های نخواندهٔ افراد مهم شما را گرد هم می‌آورد.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section class="doc" id="privacy">
+      <h2><span class="ico">🔒</span> حریم خصوصی و ایمنی</h2>
+      <ul>
+        <li><b>صندوق پستی شما از آنِ شماست.</b> Delta صندوق ورودی شما را می‌خواند تا کمکتان کند، و داده‌های یک نفر هرگز با دیگری به اشتراک گذاشته نمی‌شود.</li>
+        <li><b>بدون پیگیری بازشدن.</b> برنامه به شما (یا هیچ‌کس) نمی‌گوید چه زمانی گیرنده‌ها ایمیل شما را باز می‌کنند یا روی پیوندها کلیک می‌کنند.</li>
+        <li><b>Delta بدون شما نمی‌تواند اقدام کند.</b> هرگز خودسرانه چیزی ارسال نمی‌کند، حذف نمی‌کند یا پولی جابه‌جا نمی‌کند.</li>
+        <li><b>رازها را از گفت‌وگو دور نگه دارید.</b> گذرواژه‌ها و اطلاعات اعتباری حساس را در تنظیمات مخصوصشان وارد کنید، نه در کادر گفت‌وگو.</li>
+        <li><b>در کنار تیم شما کار می‌کند.</b> برای تصمیم‌های نیازمند قضاوت — سفر پیچیده، تصمیم‌های حساس — دستیار انسانی‌تان را در جریان بگذارید. Delta لایهٔ دیجیتال سریع است، نه جایگزینی برای آدم‌ها.</li>
+      </ul>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="doc" id="faq">
+      <h2><span class="ico">💡</span> نکات و پرسش‌های متداول</h2>
+      <h4>بار اول صفحه کند به‌نظر می‌رسد</h4>
+      <p>همان اولین بارگذاری، فایل‌های برنامه را می‌آورد؛ پس از آن این فایل‌ها ذخیره (cache) می‌شوند و صفحه‌ها تقریباً آنی جابه‌جا می‌شوند. اگر پس از یک به‌روزرسانی چیزی کهنه به‌نظر رسید، یک تازه‌سازی کامل (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) پاکش می‌کند.</p>
+      <h4>Delta می‌گوید ایمیلی را که می‌دانم هست پیدا نمی‌کند</h4>
+      <p>اگر تازه پیوسته‌اید، ممکن است Delta هنوز در حال نمایه‌سازی نامه‌های قدیمی‌ترتان باشد (نوار پیشرفت در بالای صندوق ورودی را نگاه کنید). کمی بعد دوباره امتحان کنید، یا از آن بخواهید دوباره جست‌وجو کند — و یادتان باشد که ترجیح می‌دهد بگوید «نتوانستم پیدایش کنم» تا اینکه حدس بزند.</p>
+      <h4>یک پیش‌نویس جزئیاتی دارد که انتظارش را نداشتم</h4>
+      <p>پنل «Delta از N منبع مشورت گرفت» را باز کنید تا دقیقاً ببینید چه خوانده. اگر یک حقیقت آن‌جا قابل‌ردیابی نیست، آن را یک پیشنهاد پیش‌نویس بدانید و تأییدش کنید.</p>
+      <h4>می‌توانم روی تلفنم از این استفاده کنم؟</h4>
+      <p>بله — چینش با صفحه‌های کوچک‌تر سازگار می‌شود. حالت صوتی هر جا که مرورگرتان بتواند از میکروفون استفاده کند کار می‌کند.</p>
+      <h4>Delta به چه زبانی پاسخ خواهد داد؟</h4>
+      <p>با شما هماهنگ می‌شود. به فارسی برایش بنویسید و به فارسی پاسخ می‌دهد؛ همین برای پیش‌نویس پاسخ به افرادی که به زبان دیگری می‌نویسند هم صدق می‌کند.</p>
+      <h4>چیزی اشتباه است یا کم است</h4>
+      <p>به تیم خبر دهید — رفع‌ها سریع منتشر می‌شوند، و بازخورد شما شکل می‌دهد که بعد چه چیزی ساخته شود.</p>
+    </section>
+
+    <footer class="foot">
+      © ۲۰۲۶ Transform Iran · Transform Iran Mail, powered by Delta · این راهنما برنامه را همان‌گونه که ساخته شده بازتاب می‌دهد. ویژگی‌ها مرتباً اضافه می‌شوند — برای به‌روزرسانی‌ها دوباره سر بزنید.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// ---- Find-it-fast index data: subject -> { where it's documented, the live page } ----
+const INDEX = [
+  ["خواندن و پاسخ دادن به ایمیل","باز کردن ایمیل، پاسخ، پاسخ به همه، هدایت، ترجمه","#read","/","صندوق ورودی"],
+  ["نوشتن ایمیل جدید","پنجرهٔ نوشتن، قالب‌بندی، امضا، Cc/Bcc","#compose","/","صندوق ورودی"],
+  ["برچسب‌های دسته‌بندی و فیلترها","قرص‌های رنگی فوری / پاسخ / کار / اطلاعی","#inbox","/","صندوق ورودی"],
+  ["به تعویق انداختن ایمیل","حالا پنهان کن، بعداً برگردان","#snooze","/","صندوق ورودی"],
+  ["جست‌وجوی نامه‌ها","from:، subject:، فیلترهای تاریخ","#search","/","صندوق ورودی"],
+  ["افراد مهم","فهرست افراد ویژهٔ خودتان را بسازید","#important","/","صندوق ورودی"],
+  ["پوشه‌ها و برچسب‌های Gmail","ساختار واقعی Gmail شما","#folders","/","صندوق ورودی"],
+  ["میان‌برهای صفحه‌کلید","بدون ماوس حرکت کنید","#shortcuts","/","صندوق ورودی"],
+  ["کارها و یادآوری‌ها","روز من، برنامه‌ریزی‌شده، یادآوری‌ها، گام‌ها","#tasks","/tasks","کارها"],
+  ["تقویم و جلسه‌ها","شبکهٔ ماهانه، ساختن رویدادها، پیوند پیش‌فرض","#calendar","/calendar","تقویم"],
+  ["مخاطبین","دفترچهٔ خودساختهٔ افراد","#contacts","/contacts","مخاطبین"],
+  ["قول‌ها","تعهدهای پیگیری‌شده از نامه‌های ارسالی شما","#promises","/promises","قول‌ها"],
+  ["تنظیمات","نوشتن، امضا، تم، تعویق، Slack","#settings","/settings","تنظیمات"],
+  ["حافظهٔ Delta","آنچه Delta به‌خاطر می‌سپارد را ببینید و ویرایش کنید","#delta-memory","/settings","تنظیمات"],
+  ["اعلان‌ها و ساعات سکوت","انتخاب هشدارها، زمان‌های سکوت","#notifications","/settings","تنظیمات"],
+  ["حرف زدن با Delta","چطور بپرسید، آغازگرهای آماده","#delta","/","صندوق ورودی"],
+  ["Delta چه کارهایی می‌تواند بکند","فهرست کامل توانایی‌های Delta","#delta-do","/","صندوق ورودی"],
+  ["پایه / پیشرفته / متخصص","سه سطح هوش Delta","#delta-models","/","صندوق ورودی"],
+  ["حالت صوتی","با Delta با صدای بلند حرف بزنید","#delta-voice","/","صندوق ورودی"],
+  ["Slack و یادداشت‌های صوتی","جست‌وجوی Slack، کلیپ‌های رونویسی‌شده","#delta-slack","/settings","تنظیمات"],
+  ["خلاصهٔ صبحگاهی","سرآغاز روزانهٔ شما","#delta-brief","/","صندوق ورودی"],
+  ["آیا Delta چیزها را از خودش می‌سازد؟","قواعد صداقت و دقت","#delta-honest","/","صندوق ورودی"],
+  ["حریم خصوصی و ایمنی","چه چیزی محافظت می‌شود، Delta چه نمی‌کند","#privacy",null,null],
+];
+
+const grid = document.getElementById('idxgrid');
+function renderIndex(filter){
+  const f = (filter||'').trim().toLowerCase();
+  grid.innerHTML = '';
+  INDEX.filter(r => !f || (r[0]+' '+r[1]+' '+(r[4]||'')).toLowerCase().includes(f)).forEach(r=>{
+    const [subj,desc,jump,page,pageName] = r;
+    const card = document.createElement('div');
+    card.className = 'idxcard';
+    const openLink = page ? `<a class="open" href="${page}">باز کردن ${pageName} ↗</a>` : '';
+    card.innerHTML = `<div class="subj">${subj}</div><div class="desc">${desc}</div>
+      <div class="links"><a class="jump" href="${jump}">خواندن →</a>${openLink}</div>`;
+    grid.appendChild(card);
+  });
+  if(!grid.children.length){
+    grid.innerHTML = '<div class="desc" style="color:var(--muted);padding:6px 2px">موردی یافت نشد — واژهٔ دیگری را امتحان کنید.</div>';
+  }
+}
+renderIndex('');
+document.getElementById('finderInput').addEventListener('input', e=>renderIndex(e.target.value));
+
+// ---- Scrollspy: highlight the active section in the TOC ----
+const links = [...document.querySelectorAll('nav.toc a')];
+const map = {};
+links.forEach(a=>{ const id=a.getAttribute('href').slice(1); if(id) map[id]=a; });
+const targets = Object.keys(map).map(id=>document.getElementById(id)).filter(Boolean);
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a = map[en.target.id];
+      if(a){ a.classList.add('active'); }
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+targets.forEach(t=>spy.observe(t));
+</script>
+</body>
+</html>

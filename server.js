@@ -169,11 +169,17 @@ app.get("/promises", (req, res) => {
 });
 
 // User manual / help — branded, self-contained reference covering every page
-// plus a full guide to Delta. Open to all (it carries no user data, and is
-// useful from the landing page too); its deep links into /tasks, /calendar,
-// etc. enforce their own auth.
+// plus a full guide to Delta. Available in English, Dutch, Farsi (RTL) and
+// Armenian. Open to all (it carries no user data, and is useful from the
+// landing page too); its deep links into /tasks, /calendar, etc. enforce
+// their own auth. Unknown language codes fall back to English.
+const HELP_LANGS = { nl: "help-nl.html", fa: "help-fa.html", hy: "help-hy.html" };
 app.get(["/help", "/manual"], (req, res) => {
   res.sendFile(path.join(__dirname, "public", "help.html"));
+});
+app.get("/help/:lang", (req, res) => {
+  const file = HELP_LANGS[String(req.params.lang || "").toLowerCase()] || "help.html";
+  res.sendFile(path.join(__dirname, "public", file));
 });
 
 // ====================================================================

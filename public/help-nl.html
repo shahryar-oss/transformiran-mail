@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Gebruikershandleiding — Transform Iran Mail, powered by Delta</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/delta-logo.png?v=5DB">
+<style>
+  :root{
+    --gold:#B28E44; --gold-dark:#8E6F35; --gold-soft:#d9c69a;
+    --navy:#282F39; --navy-soft:#4a5360;
+    --cream:#F7F3E9; --cream-dark:#efe8d6; --paper:#fff; --line:#e6e0d2;
+    --red:#E92A2E; --good:#3a9d5a; --muted:#8a8270; --blue:#3a6ea5;
+    --ink:#2c3038;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+  /* ---------- top bar ---------- */
+  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;flex-wrap:wrap;row-gap:8px;
+    padding:14px 30px;background:var(--navy);color:#fff;box-shadow:0 2px 14px rgba(40,47,57,.18);}
+  header.top img.brand{height:30px;width:auto;display:block;filter:brightness(0) invert(1);}
+  header.top .ttl{display:flex;flex-direction:column;line-height:1.15;}
+  header.top .ttl b{font-size:15px;letter-spacing:.2px;font-weight:700;}
+  header.top .ttl span{font-size:11.5px;color:#c8cdd4;letter-spacing:.3px;}
+  header.top .spacer{flex:1;}
+  header.top a.act,header.top button.act{background:rgba(255,255,255,.12);color:#fff;border:none;
+    border-radius:9px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  header.top a.act:hover,header.top button.act:hover{background:rgba(255,255,255,.24);}
+  /* language switcher */
+  header.top .langs{display:flex;gap:3px;align-items:center;background:rgba(255,255,255,.08);
+    border-radius:9px;padding:3px;}
+  header.top .langs a{color:#c8cdd4;text-decoration:none;font-size:12px;font-weight:600;
+    padding:5px 9px;border-radius:7px;white-space:nowrap;}
+  header.top .langs a:hover{color:#fff;background:rgba(255,255,255,.12);}
+  header.top .langs a.active{background:var(--gold);color:#fff;}
+  @media (max-width:560px){
+    header.top{padding:10px 14px;gap:8px;}
+    header.top img.brand{height:22px;}
+    header.top .ttl b{font-size:13px;} header.top .ttl span{display:none;}
+    header.top a.act,header.top button.act{padding:7px 11px;font-size:12px;}
+    header.top button.act{display:none;} /* print: desktop only */
+    header.top .langs a{padding:4px 7px;font-size:11.5px;}
+  }
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:262px 1fr;gap:34px;
+    padding:28px 30px 80px;align-items:start;}
+  nav.toc{position:sticky;top:78px;max-height:calc(100vh - 96px);overflow-y:auto;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 14px;}
+  nav.toc .tlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold-dark);
+    font-weight:800;margin:14px 10px 6px;}
+  nav.toc .tlabel:first-child{margin-top:2px;}
+  nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--navy-soft);
+    text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;}
+  nav.toc a:hover{background:var(--cream);color:var(--navy);}
+  nav.toc a.active{background:var(--cream-dark);color:var(--gold-dark);font-weight:700;border-left-color:var(--gold);}
+  main{min-width:0;}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:18px;}
+    nav.toc{position:static;max-height:none;}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{background:linear-gradient(135deg,#fff 0%,var(--cream-dark) 100%);
+    border:1px solid var(--line);border-radius:20px;padding:30px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+    background:repeating-linear-gradient(-45deg,var(--gold-soft),var(--gold-soft) 7px,transparent 7px,transparent 18px);
+    opacity:.25;transform:rotate(8deg);border-radius:30px;}
+  .hero h1{margin:0 0 8px;font-size:27px;color:var(--navy);letter-spacing:-.3px;}
+  .hero p{margin:0;max-width:640px;color:var(--navy-soft);font-size:15px;}
+  .hero .pills{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero .pills span{background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12px;color:var(--gold-dark);font-weight:600;}
+
+  /* ---------- find-it-fast index ---------- */
+  .finder{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-bottom:30px;}
+  .finder h2{margin:0 0 4px;font-size:17px;color:var(--navy);}
+  .finder .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .finder input{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;
+    font-size:14px;font-family:inherit;background:var(--cream);margin-bottom:16px;}
+  .finder input:focus{outline:none;border-color:var(--gold);background:#fff;}
+  .idxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:12px;}
+  .idxcard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--cream);
+    display:flex;flex-direction:column;gap:7px;transition:.12s;}
+  .idxcard:hover{border-color:var(--gold);box-shadow:0 4px 14px rgba(178,142,68,.13);}
+  .idxcard .subj{font-weight:700;color:var(--navy);font-size:13.5px;}
+  .idxcard .desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1;}
+  .idxcard .links{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .idxcard a{font-size:12px;font-weight:700;text-decoration:none;}
+  .idxcard a.jump{color:var(--gold-dark);}
+  .idxcard a.jump:hover{text-decoration:underline;}
+  .idxcard a.open{color:var(--blue);display:inline-flex;align-items:center;gap:3px;}
+  .idxcard a.open:hover{text-decoration:underline;}
+
+  /* ---------- sections ---------- */
+  section.doc{background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:26px 30px;margin-bottom:22px;scroll-margin-top:80px;}
+  section.doc > h2{margin:0 0 4px;font-size:21px;color:var(--navy);letter-spacing:-.2px;display:flex;align-items:center;gap:11px;}
+  section.doc > h2 .ico{width:34px;height:34px;border-radius:10px;background:var(--cream-dark);
+    display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  section.doc > .lead{color:var(--navy-soft);font-size:14.5px;margin:6px 0 4px;}
+  .openpage{display:inline-flex;align-items:center;gap:6px;margin:14px 0 4px;padding:8px 15px;
+    background:var(--gold);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;}
+  .openpage:hover{background:var(--gold-dark);}
+  .openpage.ghost{background:transparent;color:var(--gold-dark);border:1px solid var(--gold);}
+  .openpage.ghost:hover{background:var(--cream);}
+
+  section.doc h3{font-size:15.5px;color:var(--navy);margin:24px 0 8px;padding-top:4px;border-top:1px dashed var(--line);}
+  section.doc h3:first-of-type{border-top:none;padding-top:0;}
+  section.doc h4{font-size:13.5px;color:var(--gold-dark);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.4px;}
+  section.doc p{margin:8px 0;}
+  section.doc ul{margin:8px 0;padding-left:22px;}
+  section.doc li{margin:5px 0;}
+  section.doc b,section.doc strong{color:var(--navy);}
+  kbd{display:inline-block;background:var(--cream-dark);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:6px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--navy);min-width:18px;text-align:center;}
+  .chip{display:inline-block;background:var(--cream-dark);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;color:var(--navy-soft);}
+  code{background:var(--cream-dark);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--gold-dark);}
+
+  /* callouts */
+  .note{border-left:4px solid var(--gold);background:var(--cream);border-radius:0 11px 11px 0;padding:12px 16px;margin:14px 0;font-size:13.5px;}
+  .note.tip{border-left-color:var(--good);}
+  .note.warn{border-left-color:var(--red);}
+  .note .ntag{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gold-dark);display:block;margin-bottom:3px;}
+  .note.tip .ntag{color:var(--good);}
+  .note.warn .ntag{color:var(--red);}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:var(--cream-dark);color:var(--navy-soft);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  td kbd{margin:1px 0;}
+
+  /* classification legend dots */
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .d-urgent{background:var(--red);} .d-reply{background:#e08a2b;} .d-task{background:var(--blue);}
+  .d-internal{background:#7b5ea7;} .d-receipt{background:#9a9486;} .d-done{background:var(--good);}
+
+  /* capability grid */
+  .caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:14px 0;}
+  .cap{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--cream);}
+  .cap b{display:block;color:var(--navy);font-size:13.5px;margin-bottom:3px;}
+  .cap span{font-size:12.5px;color:var(--navy-soft);}
+
+  /* model tiers */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:14px 0;}
+  .tier{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--cream);}
+  .tier.exp{border-color:var(--gold);background:linear-gradient(160deg,#fff,var(--cream-dark));}
+  .tier .tname{font-size:15px;font-weight:800;color:var(--navy);}
+  .tier .tmodel{font-size:12px;color:var(--gold-dark);font-weight:600;margin:2px 0 8px;}
+  .tier .tdesc{font-size:12.5px;color:var(--navy-soft);}
+  .tier .twho{font-size:11.5px;color:var(--muted);margin-top:9px;border-top:1px dashed var(--line);padding-top:8px;}
+
+  footer.foot{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 0 0;}
+  .talk{background:var(--cream);border:1px solid var(--line);border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.5px;}
+  .talk em{color:var(--navy);font-style:normal;font-weight:600;}
+  @media print{
+    header.top,nav.toc,.openpage,.finder input{display:none!important;}
+    .shell{grid-template-columns:1fr;}
+    section.doc,.hero,.finder{break-inside:avoid;border-color:#ccc;}
+    body{background:#fff;}
+  }
+
+  /* ---------- right-to-left (Farsi) ---------- */
+  /* The grid/flex layout mirrors automatically under dir="rtl"; these rules
+     flip the few physical (left/right) properties and keep code, keyboard
+     keys and email-syntax examples reading left-to-right inside RTL text. */
+  [dir="rtl"] nav.toc a{border-left:none;border-right:3px solid transparent;}
+  [dir="rtl"] nav.toc a.active{border-right-color:var(--gold);}
+  [dir="rtl"] .note{border-left:none;border-right:4px solid var(--gold);border-radius:11px 0 0 11px;}
+  [dir="rtl"] .note.tip{border-right-color:var(--good);}
+  [dir="rtl"] .note.warn{border-right-color:var(--red);}
+  [dir="rtl"] section.doc ul{padding-left:0;padding-right:22px;}
+  [dir="rtl"] th,[dir="rtl"] td{text-align:right;}
+  [dir="rtl"] .hero::after{right:auto;left:-40px;transform:rotate(-8deg);}
+  [dir="rtl"] kbd,[dir="rtl"] code{direction:ltr;unicode-bidi:isolate;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img class="brand" src="/transform-logo.png?v=5DB" alt="Transform Iran Mail">
+  <div class="ttl"><b>Gebruikershandleiding</b><span>powered by Delta</span></div>
+  <span class="spacer"></span>
+  <nav class="langs" aria-label="Language">
+    <a href="/help" hreflang="en">English</a>
+    <a href="/help/nl" class="active" hreflang="nl">Nederlands</a>
+    <a href="/help/fa" hreflang="fa" lang="fa">فارسی</a>
+    <a href="/help/hy" hreflang="hy" lang="hy">Հայերեն</a>
+  </nav>
+  <a class="act" href="/">← Terug naar inbox</a>
+  <button class="act" onclick="window.print()">Afdrukken / Opslaan als PDF</button>
+</header>
+
+<div class="shell">
+
+  <!-- ============ SIDEBAR TOC ============ -->
+  <nav class="toc" id="toc">
+    <div class="tlabel">Begin hier</div>
+    <a href="#intro">Welkom</a>
+    <a href="#finder">Snel vinden</a>
+    <a href="#basics">De basis</a>
+    <div class="tlabel">Uw mailbox</div>
+    <a href="#inbox">De Inbox</a>
+    <a href="#read">Lezen &amp; beantwoorden</a>
+    <a href="#compose">Een nieuwe e-mail schrijven</a>
+    <a href="#important">Belangrijke mensen</a>
+    <a href="#folders">Mappen &amp; labels</a>
+    <a href="#search">Zoeken</a>
+    <a href="#snooze">Snooze</a>
+    <a href="#shortcuts">Sneltoetsen</a>
+    <div class="tlabel">Breng orde aan</div>
+    <a href="#tasks">Taken (To Do)</a>
+    <a href="#calendar">Agenda</a>
+    <a href="#contacts">Contacten</a>
+    <a href="#promises">Toezeggingen</a>
+    <div class="tlabel">Delta, uw assistent</div>
+    <a href="#delta">Maak kennis met Delta</a>
+    <a href="#delta-do">Wat Delta kan</a>
+    <a href="#delta-models">Basis / Geavanceerd / Expert</a>
+    <a href="#delta-voice">Spraakmodus</a>
+    <a href="#delta-memory">Geheugen &amp; leren</a>
+    <a href="#delta-slack">Slack &amp; spraakberichten</a>
+    <a href="#delta-brief">Ochtendbriefing</a>
+    <a href="#delta-honest">Eerlijkheid &amp; nauwkeurigheid</a>
+    <div class="tlabel">Instellen &amp; hulp</div>
+    <a href="#settings">Instellingen</a>
+    <a href="#notifications">Meldingen</a>
+    <a href="#privacy">Privacy &amp; veiligheid</a>
+    <a href="#faq">Tips &amp; veelgestelde vragen</a>
+  </nav>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <div class="hero" id="intro">
+      <h1>Transform Iran Mail — Gebruikershandleiding</h1>
+      <p>Dit is uw complete gids voor de mailbox en voor <strong>Delta</strong>, de assistent die erin is ingebouwd.
+      Elke pagina, elke knop en alles wat Delta kan, wordt hier in gewone taal uitgelegd. Gebruik het menu aan
+      de linkerkant om naar elk onderdeel te springen, of begin met <a href="#finder" style="color:var(--gold-dark);font-weight:700;">Snel vinden</a> om meteen naar het onderwerp te gaan dat u nodig heeft.</p>
+      <div class="pills">
+        <span>E-mail die zichzelf opstelt</span>
+        <span>Taken &amp; Agenda ingebouwd</span>
+        <span>Doorzoekt uw hele geschiedenis</span>
+        <span>Spreekt Farsi, Engels, Nederlands &amp; meer</span>
+      </div>
+    </div>
+
+    <!-- ============ FIND IT FAST ============ -->
+    <div class="finder" id="finder">
+      <h2>Snel vinden</h2>
+      <div class="sub">Welk onderwerp staat op welke pagina. Klik op <b>Lezen</b> om het hier te leren, of op <b>Open</b> om meteen naar de echte pagina te gaan.</div>
+      <input id="finderInput" type="text" placeholder="Typ waar u naar zoekt… bijv. 'snooze', 'herinnering', 'vergadering', 'kosten'">
+      <div class="idxgrid" id="idxgrid">
+        <!-- cards injected by JS from INDEX below; static fallback also works -->
+      </div>
+    </div>
+
+    <!-- ============ THE BASICS ============ -->
+    <section class="doc" id="basics">
+      <h2><span class="ico">🧭</span> De basis</h2>
+      <p class="lead">Hoe de app is opgebouwd, zodat al het andere logisch wordt.</p>
+      <p>Transform Iran Mail is uw gewone Gmail-mailbox met een slimmer gezicht erbovenop. U logt in met uw
+      Transform Iran Google-account, en alles wat u hier doet (versturen, archiveren, labelen) gebeurt ook in uw echte Gmail.</p>
+      <h3>De drie kolommen</h3>
+      <ul>
+        <li><b>Linkerbalk</b> — uw navigatie: de <chip>+ Nieuwe e-mail</chip>-knop, uw mappen, <b>Taken</b>, <b>Toezeggingen</b>, uw <b>Belangrijke</b> mensen, uw echte Gmail-labels, en links naar Agenda, Contacten en Instellingen.</li>
+        <li><b>Middelste kolom</b> — de e-maillijst, met een zoekbalk en kleurgecodeerde filterpillen.</li>
+        <li><b>Rechterkant</b> — de e-mail die u leest, een mini-agenda, en het <b>Delta</b>-chatpaneel.</li>
+      </ul>
+      <h3>De andere pagina's</h3>
+      <p>Bovenaan de balk en via sneltoetsen bereikt u vijf aparte pagina's: <b>Taken</b>, <b>Agenda</b>, <b>Contacten</b>, <b>Toezeggingen</b> en <b>Instellingen</b>. Elke pagina wordt hieronder behandeld.</p>
+      <div class="note tip"><span class="ntag">Voor het eerst?</span> Bij de allereerste aanmelding verschijnt een kort welkomstscherm, en leest Delta stilletjes uw inboxgeschiedenis op de achtergrond in, zodat het uw oude e-mail kan doorzoeken. Een voortgangsbalk bovenaan de inbox laat zien hoe het ervoor staat — u kunt gewoon doorwerken terwijl het loopt.</div>
+    </section>
+
+    <!-- ============ INBOX ============ -->
+    <section class="doc" id="inbox">
+      <h2><span class="ico">📥</span> De Inbox</h2>
+      <p class="lead">Uw hoofdscherm — lezen, sorteren en actie ondernemen op uw mail.</p>
+      <a class="openpage" href="/">Open de inbox →</a>
+
+      <h3>De linkerbalk, van boven naar beneden</h3>
+      <ul>
+        <li><chip>+ Nieuwe e-mail</chip> — opent het schrijfvenster (zie <a href="#compose">Een nieuwe e-mail schrijven</a>).</li>
+        <li><b>Inbox, Met ster, Verzonden, Concepten, Archief, Prullenbak</b> — uw standaardmappen, elk met een actuele teller.</li>
+        <li><b>Gesnoozed</b> — mail die u opzij heeft gezet om later terug te laten komen (zie <a href="#snooze">Snooze</a>).</li>
+        <li><b>Marketing</b> en <b>Klaar</b> — nieuwsbrieven, en mail die u heeft afgehandeld.</li>
+        <li><b>Taken</b> en <b>Toezeggingen</b> — uw taken en de toezeggingen die u heeft gedaan (deze staan bovenaan, zodat ze makkelijk te bereiken zijn).</li>
+        <li><b>Belangrijk</b> — uw zelf gekozen VIP's (zie <a href="#important">Belangrijke mensen</a>).</li>
+        <li><b>Mappen</b> — uw echte Gmail-labels, rechtstreeks uit uw account gehaald. Klik op een willekeurige om te filteren.</li>
+        <li><b>Agenda, Contacten, Instellingen</b> — links naar die pagina's. Uw naam en een uitlog-pijl staan helemaal onderaan.</li>
+      </ul>
+
+      <h3>De e-maillijst</h3>
+      <p>Elke regel toont de afzender, de tijd, het onderwerp, een voorbeeldregel, een 📎-icoon als er bijlagen zijn, en een kleurgecodeerd <b>categorielabel</b>. De lijst laadt meer naarmate u scrolt (geen pagina's).</p>
+      <h4>Categorielabels &amp; filterpillen</h4>
+      <p>Delta leest elke e-mail en geeft hem een label, zodat u in één oogopslag ziet wat ertoe doet. Klik op een pil bovenaan de lijst om alleen die soort te tonen:</p>
+      <table>
+        <tr><th>Label</th><th>Betekent</th></tr>
+        <tr><td><span class="dot d-urgent"></span><b>Urgent</b></td><td>Tijdgevoelig en op u gericht — vandaag afhandelen.</td></tr>
+        <tr><td><span class="dot d-reply"></span><b>Beantwoorden</b></td><td>Iemand wacht op uw antwoord.</td></tr>
+        <tr><td><span class="dot d-task"></span><b>Taak</b></td><td>Bevat een actiepunt voor u.</td></tr>
+        <tr><td><span class="dot d-internal"></span><b>Intern</b></td><td>Van het team, geen dringend verzoek.</td></tr>
+        <tr><td><span class="dot d-receipt"></span><b>Bon / FYI / Nieuwsbrief / Auto</b></td><td>Facturen, dingen waarvoor u alleen in de Cc staat, bulkmail, en geautomatiseerde meldingen.</td></tr>
+        <tr><td><span class="dot d-done"></span><b>Klaar</b></td><td>U heeft geantwoord en afgehandeld — gearchiveerd met een groen vinkje.</td></tr>
+      </table>
+      <div class="note"><span class="ntag">Slim, niet letterlijk</span> Delta leest de hele e-mail, niet alleen het fragment. Als u alleen in de <b>Cc</b> staat (niet in de <b>Aan</b>), neigt het naar <b>FYI</b> — tenzij de tekst echt iets aan <em>u</em> vraagt. Mail van uw Belangrijke mensen krijgt een hogere prioriteit.</div>
+      <p>Gebruik de vernieuwknop om de nieuwste mail op te halen, en de herclassificatieknop (ronddraaiende pijl) om Delta's labeling opnieuw uit te voeren als u zojuist heeft aangepast hoe het dingen sorteert.</p>
+
+      <h3>Snelle acties bij hover</h3>
+      <p>Beweeg met de muis over een regel om knoppen met één klik te onthullen: <b>als gelezen/ongelezen markeren</b>, <b>ster</b>, <b>archiveren</b>, en <b>verwijderen</b>. U hoeft de e-mail niet eerst te openen.</p>
+      <p>De 🔔 bel bovenaan de lijst toont achterstallige toezeggingen, taken die af moeten, en ongelezen mail van Belangrijke mensen — klik erop voor de lijst.</p>
+    </section>
+
+    <!-- ============ READ & REPLY ============ -->
+    <section class="doc" id="read">
+      <h2><span class="ico">✉️</span> Lezen &amp; beantwoorden</h2>
+      <p class="lead">Open een e-mail en de leesweergave rechts toont hem volledig.</p>
+
+      <h3>De werkbalk van de leesweergave</h3>
+      <p><b>Beantwoorden</b>, <b>Allen beantwoorden</b>, <b>Doorsturen</b>, <b>Archiveren</b>, <b>Snooze</b>, <b>Ster</b>, <b>als ongelezen markeren</b>, en <b>Verwijderen</b>. Bijlagen verschijnen als chips — klik om een PDF, afbeelding of document direct in de app te bekijken, of <kbd>⌘</kbd>-klik om in een nieuw tabblad te openen.</p>
+      <div class="note"><span class="ntag">Allen beantwoorden houdt iedereen erbij</span> Wanneer u Allen beantwoordt, blijven de mensen in de <b>Cc</b> standaard behouden — zodat niemand stilletjes uit de conversatie valt. U kunt iedereen alsnog verwijderen voordat u verstuurt.</div>
+
+      <h3>Laat Delta helpen met de e-mail die voor u staat</h3>
+      <p>Onder de e-mail vindt u Delta-knoppen met één tik:</p>
+      <div class="caps">
+        <div class="cap"><b>Een antwoord opstellen</b><span>Delta schrijft een antwoord in uw stijl. Het opent klaar om te bewerken — er wordt niets verstuurd totdat u op Versturen klikt.</span></div>
+        <div class="cap"><b>Samenvatten</b><span>Een samenvatting van drie punten van een lange e-mail.</span></div>
+        <div class="cap"><b>Vertalen</b><span>Zet Farsi, Armeens, Nederlands en andere talen om naar het Engels.</span></div>
+        <div class="cap"><b>Vraag hierover</b><span>Stel Delta een vraag over de inhoud van de e-mail.</span></div>
+        <div class="cap"><b>Toevoegen aan Taken</b><span>Haalt de actiepunten eruit en zet ze om in taken.</span></div>
+      </div>
+
+      <h3>Het antwoordvenster</h3>
+      <p>Wanneer Delta een antwoord opstelt, krijgt u een bewerkbaar concept plus snelle toonknoppen — <b>Pas mijn stijl toe</b>, <b>Korter</b>, <b>Warmer</b>, <b>Formeler</b>, <b>Steviger</b>, <b>Verontschuldigend</b>, <b>In Farsi</b>, <b>In het Nederlands</b> — of typ uw eigen instructie (bijv. <em>"vermeld dat de vlucht om 16:55 uur is"</em>) en Delta stelt het opnieuw op. Een banner vertelt u hoe zeker het is (op hoeveel eerdere e-mails aan die persoon het uw stijl heeft afgestemd), en een paneel "Delta raadpleegde N bronnen" toont precies wat het heeft gelezen om het concept te schrijven.</p>
+      <div class="note tip"><span class="ntag">Het leert uw stijl</span> De wijzigingen die u in concepten aanbrengt, leren Delta hoe u schrijft. Na verloop van tijd komen antwoorden terug die dichter bij staan hoe u het zelf zou zeggen.</div>
+      <h4>Veilig versturen</h4>
+      <p>Nadat u op <b>Versturen</b> klikt, verschijnt een korte <b>Ongedaan maken</b>-aftelling (u stelt de lengte in bij Instellingen). Als de e-mail die u beantwoordt aan een taak was gekoppeld, vinkt die taak zichzelf automatisch af.</p>
+    </section>
+
+    <!-- ============ COMPOSE ============ -->
+    <section class="doc" id="compose">
+      <h2><span class="ico">📝</span> Een nieuwe e-mail schrijven</h2>
+      <p class="lead">Klik op <chip>+ Nieuwe e-mail</chip> in de balk (of druk op <kbd>c</kbd>) om het schrijfvenster te openen.</p>
+      <ul>
+        <li><b>Aan / Cc / Bcc</b> — begin een naam of adres te typen en het stelt contacten voor. Cc en Bcc zijn verborgen totdat u erop klikt.</li>
+        <li><b>Opmaak</b> — lettertype, grootte, kleur, vet/cursief/onderstreept, lijsten, links, citaten — een volledige tekstopmaakbalk.</li>
+        <li><b>Handtekening</b> — uw Gmail-handtekening kan automatisch worden ingevoegd; beheer dit bij Instellingen.</li>
+        <li><b>Opslaan als concept</b> — bewaart het in Gmail-concepten om later af te maken.</li>
+        <li><b>Rechts-naar-links-bewust</b> — Farsi- en Arabische tekst lijnt automatisch correct uit.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Antwoord in hun taal</span> Als u op een Farsi-e-mail antwoordt maar in het Engels typt, biedt een chip aan om uw bericht voor het versturen naar het Farsi te vertalen — de geciteerde geschiedenis blijft onaangeroerd.</div>
+    </section>
+
+    <!-- ============ IMPORTANT ============ -->
+    <section class="doc" id="important">
+      <h2><span class="ico">⭐</span> Belangrijke mensen</h2>
+      <p class="lead">Uw eigen VIP-lijst — niemand wordt voor u toegevoegd.</p>
+      <p>De sectie <b>Belangrijk</b> in de balk bouwt u zelf op. Elke persoon wordt een map; als u erop klikt, ziet u
+      <b>alleen de e-mails die ze u hebben gestuurd</b> in het afgelopen jaar — geen conversaties waarin ze slechts in de Cc staan. Zo blijft het bij de gesprekken die echt over hen gaan.</p>
+      <h4>Iemand toevoegen</h4>
+      <ul>
+        <li>Klik op de <b>+</b> naast "Belangrijk" en voer hun e-mailadres in, <em>of</em></li>
+        <li>Open een van hun e-mails en klik op <b>Belangrijk</b> naast hun naam.</li>
+      </ul>
+      <h4>Iemand verwijderen</h4>
+      <p>Klik op de <b>×</b> naast hun naam in de balk.</p>
+      <div class="note"><span class="ntag">Waarom het ertoe doet</span> Mail van uw Belangrijke mensen krijgt een hogere prioriteit en voedt de 🔔 meldingen en de ochtendbriefing — zodat de mensen die u belangrijk vindt niet verloren gaan.</div>
+    </section>
+
+    <!-- ============ FOLDERS ============ -->
+    <section class="doc" id="folders">
+      <h2><span class="ico">🗂️</span> Mappen &amp; labels</h2>
+      <p class="lead">Uw echte Gmail-structuur, hier weerspiegeld.</p>
+      <p>Naast de standaardmappen (Inbox, Met ster, Verzonden, Concepten, Archief, Prullenbak) toont de sectie <b>Mappen</b>
+      uw werkelijke Gmail-labels. Maak een label in Gmail en het verschijnt hier; klik op een willekeurige map om de lijst daarop te filteren.
+      Hier archiveren haalt de mail uit de inbox maar bewaart hem in Gmail, zodat hij altijd doorzoekbaar blijft.</p>
+    </section>
+
+    <!-- ============ SEARCH ============ -->
+    <section class="doc" id="search">
+      <h2><span class="ico">🔍</span> Zoeken</h2>
+      <p class="lead">Vind alles in uw hele mailbox.</p>
+      <p>Typ in de zoekbalk (of druk op <kbd>/</kbd>) en druk op <kbd>Enter</kbd>. Het begrijpt zoekopdrachten in Gmail-stijl:</p>
+      <ul>
+        <li><code>from:lana</code> — alles van Lana</li>
+        <li><code>subject:budget</code> — op woord in het onderwerp</li>
+        <li><code>newer_than:1y</code> — alleen recent</li>
+        <li>Combineer ze: <code>from:simon subject:wire</code></li>
+      </ul>
+      <p>Druk op <kbd>Esc</kbd> om te wissen. U kunt <b>Delta</b> ook in gewone taal vragen te zoeken ("vind Lana's e-mails over het budget") — en als u op een e-mail in Delta's resultaten klikt, wordt de lijst tot precies die berichten gefilterd, met een banner die u kunt wissen.</p>
+    </section>
+
+    <!-- ============ SNOOZE ============ -->
+    <section class="doc" id="snooze">
+      <h2><span class="ico">⏰</span> Snooze</h2>
+      <p class="lead">Verberg een e-mail nu, laat hem later terugkomen.</p>
+      <p>Open een e-mail en klik op <b>Snooze</b> (of druk op <kbd>b</kbd>). Kies <b>Later vandaag</b>, <b>Morgenochtend</b>, <b>Morgenavond</b>, <b>Over 2 dagen</b>, <b>Volgende week</b>, <b>Over een week</b>, of kies een eigen datum en tijd. De e-mail verlaat uw inbox onmiddellijk en verschijnt opnieuw, gemarkeerd als ongelezen, op het door u gekozen moment. Alles wat gesnoozed is, staat in de map <b>Gesnoozed</b> tot dat moment.</p>
+      <div class="note tip"><span class="ntag">Stel uw eigen standaarden in</span> Wijzig de vooraf ingestelde snooze-tijden bij <a href="#settings">Instellingen → Inbox</a>.</div>
+    </section>
+
+    <!-- ============ SHORTCUTS ============ -->
+    <section class="doc" id="shortcuts">
+      <h2><span class="ico">⌨️</span> Sneltoetsen</h2>
+      <p class="lead">Beweeg door uw mail zonder muis. Elke sneltoets is opnieuw toe te wijzen bij Instellingen → Sneltoetsen.</p>
+      <table>
+        <tr><th>Toets</th><th>Doet</th><th>Toets</th><th>Doet</th></tr>
+        <tr><td><kbd>/</kbd></td><td>Focus op zoeken</td><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Volgende / vorige e-mail</td></tr>
+        <tr><td><kbd>c</kbd></td><td>Nieuwe opstellen</td><td><kbd>Enter</kbd></td><td>Geselecteerde openen</td></tr>
+        <tr><td><kbd>r</kbd></td><td>Beantwoorden</td><td><kbd>e</kbd></td><td>Archiveren</td></tr>
+        <tr><td><kbd>a</kbd></td><td>Allen beantwoorden</td><td><kbd>#</kbd></td><td>Verwijderen (naar Prullenbak)</td></tr>
+        <tr><td><kbd>f</kbd></td><td>Doorsturen</td><td><kbd>u</kbd></td><td>Als ongelezen markeren</td></tr>
+        <tr><td><kbd>s</kbd></td><td>Ster aan/uit</td><td><kbd>b</kbd></td><td>Snooze</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Dit spiekbriefje tonen</td><td><kbd>g</kbd> dan <kbd>i/c/t/n/s</kbd></td><td>Ga naar Inbox / Agenda (Calendar) / Taken (To do) / coNtacten / Instellingen (Settings)</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ TASKS ============ -->
+    <section class="doc" id="tasks">
+      <h2><span class="ico">✅</span> Taken (To Do)</h2>
+      <p class="lead">Een volwaardige takenbeheerder, in de stijl van Microsoft To Do.</p>
+      <a class="openpage" href="/tasks">Open Taken →</a>
+      <h3>Lijsten aan de linkerkant</h3>
+      <ul>
+        <li><b>Mijn dag</b> — wat u vandaag doet.</li>
+        <li><b>Belangrijk</b> — alles waar u een ster bij heeft gezet.</li>
+        <li><b>Gepland</b> — een agenda-achtige weergave gegroepeerd in <b>Vandaag</b>, <b>Morgen</b>, <b>Deze week</b> en <b>Later</b>, zodat u ziet wat eraan komt. Achterstallige items worden rood gemarkeerd.</li>
+        <li><b>Alle</b> en <b>Voltooid</b> — alles, en alles wat af is.</li>
+        <li><b>Uw eigen lijsten</b> — maak er zoveel als u wilt met <chip>+ Nieuwe lijst</chip>.</li>
+      </ul>
+      <h3>Werken met een taak</h3>
+      <p>Typ in <chip>+ Een taak toevoegen</chip> om er een aan te maken. Klik op een taak om het detailpaneel te openen, waar u kunt instellen:</p>
+      <ul>
+        <li><b>Vervaldatum</b> — wanneer het af moet.</li>
+        <li><b>Herinnering</b> — kies "Over 5 minuten", "Morgen 9 uur", "Volgende maandag", of een eigen tijd. U krijgt op dat moment een browsermelding. Als meldingen nog niet aanstaan, schakelt een chip <b>"Herinneringen aanzetten"</b> in de koptekst ze in.</li>
+        <li><b>Stappen</b> — splits een taak op in deelstappen met hun eigen vinkjes.</li>
+        <li><b>Notities</b> — vrije tekst.</li>
+        <li><b>Bron-e-mail</b> — als de taak uit een e-mail kwam, wordt het origineel daar direct getoond; klik om ernaar terug te springen.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Handsfree</span> Zeg tegen Delta "herinner me eraan om Reza vrijdag te bellen" (getypt of met spraak) en het maakt de taak voor u aan.</div>
+    </section>
+
+    <!-- ============ CALENDAR ============ -->
+    <section class="doc" id="calendar">
+      <h2><span class="ico">📅</span> Agenda</h2>
+      <p class="lead">Uw Google Calendar, in een overzichtelijk maandrooster.</p>
+      <a class="openpage" href="/calendar">Open Agenda →</a>
+      <ul>
+        <li><b>Maandrooster</b> met een mini-maandkiezer om naar data te springen, plus een "Vandaag &amp; binnenkort"-agenda aan de rechterkant.</li>
+        <li><b>Een afspraak maken</b> — klik op <chip>+ Nieuwe afspraak</chip>, of dubbelklik op een dag om er snel een toe te voegen. Stel titel, tijd, hele dag, welke agenda, locatie, deelnemers en een beschrijving in.</li>
+        <li><b>Meerdere agenda's</b> — schakel elke Google-agenda aan of uit.</li>
+        <li><b>Afspraakdetails</b> — klik op een afspraak om tijd, locatie, deelnemers (met wie er heeft geaccepteerd) te zien, en een knop om hem in Google Calendar te openen.</li>
+        <li><b>Standaard vergaderlink</b> — stel uw gebruikelijke videolink in bij Instellingen en hij wordt automatisch aan nieuwe vergaderingen toegevoegd.</li>
+      </ul>
+      <div class="note"><span class="ntag">Delta plant ook</span> Vraag Delta om "een tijd te vinden waarop Pia en Lana allebei vrij zijn" en het controleert ieders agenda, en stelt dan een tijdslot voor dat u kunt bevestigen. Het respecteert uw focusblokken en de pauze die u tussen vergaderingen wilt — en het <b>verzint nooit een vergaderlink</b> (zie <a href="#delta-honest">Eerlijkheid &amp; nauwkeurigheid</a>).</div>
+    </section>
+
+    <!-- ============ CONTACTS ============ -->
+    <section class="doc" id="contacts">
+      <h2><span class="ico">👥</span> Contacten</h2>
+      <p class="lead">Iedereen die u e-mailt, automatisch verzameld.</p>
+      <a class="openpage" href="/contacts">Open Contacten →</a>
+      <ul>
+        <li><b>Automatisch opgebouwd</b> — contacten worden uit uw mail verzameld; de knop <b>Vernieuwen vanuit inbox</b> scant opnieuw op nieuwe afzenders.</li>
+        <li><b>Zoeken &amp; sorteren</b> — op naam, A–Z, recent actief, of meest gecontacteerd.</li>
+        <li><b>Elk contact</b> toont e-mailadres, telefoon, organisatie, functietitel en notities (allemaal bewerkbaar), plus hun <b>recente e-mails</b> — klik op een ervan om ernaartoe te springen.</li>
+        <li><b>Snelle acties</b> — de persoon e-mailen, hem als <b>Belangrijk</b> markeren, of met de hand een nieuw contact toevoegen.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PROMISES ============ -->
+    <section class="doc" id="promises">
+      <h2><span class="ico">🤝</span> Toezeggingen</h2>
+      <p class="lead">De toezeggingen die u in e-mail doet, bijgehouden zodat u ze niet laat vallen.</p>
+      <a class="openpage" href="/promises">Open Toezeggingen →</a>
+      <p>Wanneer u een e-mail verstuurt en iets zegt als <em>"ik stuur je het rapport voor vrijdag,"</em> merkt Delta dat op en legt het vast als een <b>toezegging</b>, met de deadline die u noemde. U hoeft niets te doen.</p>
+      <ul>
+        <li><b>Open / Achterstallig / Nagekomen / Geannuleerd</b> — filter op status. Achterstallige toezeggingen worden rood weergegeven en voeden uw 🔔 meldingen.</li>
+        <li><b>Sluit automatisch</b> — wanneer de andere persoon in de conversatie antwoordt, wordt de toezegging als nagekomen gemarkeerd.</li>
+        <li><b>Markeer als gedaan / Negeren</b> — sluit er zelf een, of negeer hem als Delta iets heeft opgepikt dat eigenlijk geen toezegging was.</li>
+        <li>Elke toezegging verwijst terug naar de oorspronkelijke e-mail waaruit hij kwam.</li>
+      </ul>
+      <div class="note"><span class="ntag">Alleen echte toezeggingen</span> Delta houdt concrete toezeggingen bij ("ik stuur X voor vrijdag"), geen vage beleefdheden ("laat het me weten als je iets nodig hebt").</div>
+    </section>
+
+    <!-- ============ DELTA ============ -->
+    <section class="doc" id="delta">
+      <h2><span class="ico">🔺</span> Maak kennis met Delta</h2>
+      <p class="lead">Uw ingebouwde assistent — het leest uw inbox zodat het u kan helpen sneller te antwoorden en overzicht te houden.</p>
+      <p>Open Delta met de logoknop rechtsonder op elk scherm. U kunt <b>typen</b> of uw <b>stem</b> gebruiken. Delta kan uw mail lezen, uw geschiedenis doorzoeken, antwoorden opstellen, taken en uw agenda beheren, bijlagen uitpluizen, en vragen beantwoorden — altijd met inzage in zijn werk en nooit iets versturen zonder u.</p>
+      <h4>Hoe u ermee praat</h4>
+      <p>Zeg gewoon wat u wilt, zoals u het een persoon zou vragen:</p>
+      <div class="talk"><em>"Wat is er vandaag urgent?"</em> · <em>"Stel een warm antwoord op aan Pia over de reis naar Tehran."</em> · <em>"Vind Simons laatste e-mail over de overboeking."</em> · <em>"Voeg een taak toe om het budget voor vrijdag te bekijken."</em> · <em>"Vat de PDF samen die Pia heeft bijgevoegd."</em></div>
+      <p>Het welkomstscherm biedt ook starters met één tik: <chip>Organiseer mijn inbox</chip> <chip>Snelle opschoning</chip> <chip>Vind urgente e-mails</chip> <chip>Plan mijn dag</chip> <chip>Bij wie loop ik achter?</chip> <chip>Vat de inbox samen</chip> <chip>Vertaal niet-Engelse mail</chip></p>
+      <div class="note tip"><span class="ntag">Bewaar uw favorieten</span> Vaak gebruikte instructies kunt u opslaan als herbruikbare prompts (de bladwijzerknop bij het chatvenster, of Instellingen → Geheugen) en op elk moment uitvoeren, met tekst of spraak.</div>
+    </section>
+
+    <!-- ============ DELTA: WHAT IT CAN DO ============ -->
+    <section class="doc" id="delta-do">
+      <h2><span class="ico">🛠️</span> Wat Delta kan</h2>
+      <p class="lead">Alles wat Delta voor u kan doen, gegroepeerd op wat u gedaan wilt krijgen. U hoeft geen commando's te onthouden — vraag het gewoon.</p>
+
+      <h3>Met uw e-mail</h3>
+      <div class="caps">
+        <div class="cap"><b>Uw inbox doorzoeken</b><span>Vindt alles in uw volledige Gmail-geschiedenis, niet alleen recente mail. Kan de exacte tekst citeren wanneer u die nodig heeft.</span></div>
+        <div class="cap"><b>Een antwoord opstellen</b><span>Schrijft een antwoord in uw stijl, automatisch aan alle juiste mensen. Opent zodat u kunt bewerken.</span></div>
+        <div class="cap"><b>Een nieuwe e-mail opstellen</b><span>Schrijft een gloednieuw bericht vanaf nul aan wie dan ook.</span></div>
+        <div class="cap"><b>Doorsturen</b><span>Stuurt een e-mail door met een introductienotitie die u beschrijft.</span></div>
+        <div class="cap"><b>Actie op e-mail</b><span>Archiveren, verwijderen, als gelezen/ongelezen markeren, ster, als gedaan markeren, of snoozen — door erom te vragen.</span></div>
+        <div class="cap"><b>Bijlagen lezen</b><span>Opent PDF-, Word-, Excel- en CSV-bestanden en haalt de inhoud eruit om vragen te beantwoorden of samen te vatten.</span></div>
+      </div>
+
+      <h3>U georganiseerd houden</h3>
+      <div class="caps">
+        <div class="cap"><b>Taken aanmaken</b><span>Voegt toe aan uw Taken met een vervaldatum, herinnering, en een link terug naar de bron-e-mail.</span></div>
+        <div class="cap"><b>Uw inbox opschonen</b><span>"Snelle opschoning" groepeert nieuwsbrieven, meldingen, bonnen en al afgehandelde conversaties zodat u ze in batches kunt opruimen.</span></div>
+        <div class="cap"><b>Inbox-routine</b><span>Een begeleide, stapsgewijze doorloop die u stap voor stap van een volle inbox naar georganiseerd brengt.</span></div>
+        <div class="cap"><b>Uw dag plannen</b><span>Brengt samen wat urgent is, wat af moet en wat er op uw agenda staat.</span></div>
+      </div>
+
+      <h3>Agenda &amp; mensen</h3>
+      <div class="caps">
+        <div class="cap"><b>Een persoon vinden</b><span>Zoekt iemands e-mailadres op naam op, uit uw contacten, geschiedenis en Belangrijk-lijst.</span></div>
+        <div class="cap"><b>Een vergadertijd vinden</b><span>Controleert wanneer meerdere @transformiran.com-mensen allemaal vrij zijn.</span></div>
+        <div class="cap"><b>Afspraken voorstellen &amp; maken</b><span>Bouwt een vergadering die u kunt bevestigen, en zet hem dan op de agenda met uitnodigingen en uw standaardlink.</span></div>
+      </div>
+
+      <h3>Verder dan e-mail</h3>
+      <div class="caps">
+        <div class="cap"><b>Slack doorzoeken</b><span>Doorzoekt uw kanalen, DM's en threads — inclusief getranscribeerde spraakberichten (zie hieronder).</span></div>
+        <div class="cap"><b>Slack-bestanden lezen</b><span>Opent en leest documenten die in Slack zijn gedeeld.</span></div>
+        <div class="cap"><b>Dingen onthouden</b><span>Bewaart feiten en voorkeuren die u het vertelt, voor toekomstige gesprekken.</span></div>
+      </div>
+      <div class="note"><span class="ntag">Er gebeurt niets achter uw rug om</span> Delta stelt op, doet voorstellen en geeft suggesties — maar <b>het verstuurt nooit een e-mail, verwijdert geen gegevens waar u niet om vroeg, en verplaatst geen geld</b>. U bent altijd degene die op de laatste knop klikt.</div>
+    </section>
+
+    <!-- ============ DELTA: MODELS ============ -->
+    <section class="doc" id="delta-models">
+      <h2><span class="ico">🎚️</span> Basis, Geavanceerd &amp; Expert</h2>
+      <p class="lead">Delta draait op drie niveaus van intelligentie. Kies het niveau met de modelknop naast het chatvenster.</p>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tname">Basis</div>
+          <div class="tmodel">Claude Sonnet · sneller, lagere kosten</div>
+          <div class="tdesc">Snel en capabel. De juiste keuze voor dagelijkse e-mail — opstellen, zoeken, sorteren.</div>
+          <div class="twho">Beschikbaar voor iedereen.</div>
+        </div>
+        <div class="tier">
+          <div class="tname">Geavanceerd</div>
+          <div class="tmodel">Claude Opus · diepgaander redeneren</div>
+          <div class="tdesc">Trager maar slimmer. Grijp ernaar voor lastigere concepten, langere documenten, of alles wat zorgvuldig nadenken vereist.</div>
+          <div class="twho">Beschikbaar voor iedereen.</div>
+        </div>
+        <div class="tier exp">
+          <div class="tname">Expert</div>
+          <div class="tmodel">Claude Opus 4.8 · maximaal redeneren</div>
+          <div class="tdesc">Het meest capabele niveau, voor de vragen met de hoogste belangen en de grootste complexiteit. Het sterkste model maakt ook de minste fouten.</div>
+          <div class="twho">Alleen voor de senior leiding — Shahryar, Pia, Lana, Lazarus &amp; Maggie.</div>
+        </div>
+      </div>
+      <div class="note"><span class="ntag">Goed om te weten</span> De Expert-optie verschijnt alleen voor de mensen die hem mogen gebruiken; voor alle anderen toont de knop Basis en Geavanceerd. Delta kiest ook zelf verstandig wanneer u niet kiest.</div>
+    </section>
+
+    <!-- ============ DELTA: VOICE ============ -->
+    <section class="doc" id="delta-voice">
+      <h2><span class="ico">🎙️</span> Spraakmodus</h2>
+      <p class="lead">Praat hardop tegen Delta en het praat terug — een echt gesprek in twee richtingen.</p>
+      <p>Klik op de spraakknop in de koptekst van het Delta-paneel en geef toegang tot uw microfoon. Een geanimeerde bol toont wanneer Delta <b>luistert</b>, <b>nadenkt</b> en <b>spreekt</b>, en uw woorden verschijnen terwijl u praat.</p>
+      <ul>
+        <li>Alles wat u typend kunt doen, kunt u met spraak doen: antwoorden opstellen, taken en herinneringen aanmaken, uw inbox doorzoeken, vergaderingen inplannen.</li>
+        <li>Het begrijpt en spreekt meerdere talen, waaronder <b>Farsi</b>, Engels en Nederlands.</li>
+        <li>Alles wat Delta tijdens het gesprek aanmaakt (zoals een concept) verschijnt daarna in de app, klaar voor u. De volledige transcriptie wordt opgeslagen in de chat, en u kunt hem kopiëren.</li>
+        <li>Beëindig de sessie door gedag te zeggen of op de knop <b>Beëindigen</b> te tikken.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: MEMORY ============ -->
+    <section class="doc" id="delta-memory">
+      <h2><span class="ico">🧠</span> Geheugen &amp; leren</h2>
+      <p class="lead">Delta wordt nuttiger naarmate het langer met u werkt.</p>
+      <ul>
+        <li><b>U kunt het vragen iets te onthouden</b> — zeg "onthoud dat Pia de logistiek voor Tehran regelt" en het bewaart dat voor later.</li>
+        <li><b>Het merkt patronen op</b> — stilletjes, 's nachts, leert het misschien dingen als "antwoordt in het Farsi aan Lazarus" en stelt voor ze op te slaan. U ziet altijd wat het heeft opgeslagen, met een optie om dit ongedaan te maken.</li>
+        <li><b>Het leert uw schrijfstijl</b> — uw wijzigingen in concepten vormen hoe het voor u schrijft.</li>
+        <li><b>U heeft de controle</b> — bekijk, bewerk of verwijder alles wat Delta onthoudt bij <a href="#settings">Instellingen → Geheugen</a>.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: SLACK ============ -->
+    <section class="doc" id="delta-slack">
+      <h2><span class="ico">💬</span> Slack &amp; spraakberichten</h2>
+      <p class="lead">Verbind Slack (bij Instellingen) en Delta kan het naast uw e-mail doorzoeken.</p>
+      <p>Vraag dingen als <em>"wat zei Anet over het budget?"</em> of <em>"vat mijn gesprek met Simon samen."</em> Delta doorzoekt kanalen, directe berichten en threads.</p>
+      <h4>Spraakberichten</h4>
+      <p>Delta <b>transcribeert Slack-spraakfragmenten</b> automatisch zodat u ze kunt doorzoeken en erover kunt vragen — zelfs fragmenten die lang geleden zijn opgenomen. Vraag "waar hadden Anet en ik het over?" en het haalt de spraakberichten uit dat gesprek tevoorschijn en legt ze uit.</p>
+      <div class="note warn"><span class="ntag">Farsi-spraakberichten</span> Delta transcribeert Farsi-spraakberichten en vertaalt ze naar het Engels, maar markeert ze als <b>"automatisch getranscribeerd, kan onvolmaakt zijn."</b> Gebruik ze voor de grote lijnen, niet voor de exacte bewoording.</div>
+    </section>
+
+    <!-- ============ DELTA: BRIEF ============ -->
+    <section class="doc" id="delta-brief">
+      <h2><span class="ico">🌅</span> Ochtendbriefing</h2>
+      <p class="lead">Een dagelijkse voorsprong, klaar de eerste keer dat u Delta die dag opent.</p>
+      <p>Delta brengt uw e-mail van die nacht, de vergaderingen van vandaag, openstaande taken en eventuele aflopende toezeggingen samen in een korte briefing: een kop van één regel, uw belangrijkste prioriteiten, en een wachtrij met <b>vooraf geschreven antwoorden</b> voor de meest urgente e-mails. Verwerp er een en de volgende schuift erin — verstuur met een klik, of open om eerst te bewerken.</p>
+    </section>
+
+    <!-- ============ DELTA: HONESTY ============ -->
+    <section class="doc" id="delta-honest">
+      <h2><span class="ico">🛡️</span> Eerlijkheid &amp; nauwkeurigheid</h2>
+      <p class="lead">Hoe Delta voorkomt dat het dingen verzint — en wat u kunt verwachten.</p>
+      <p>Zoals alle AI-assistenten zou Delta in theorie iets kunnen beweren dat juist klinkt maar het niet is. We hebben strikte regels ingebouwd om dat met uw gegevens te voorkomen:</p>
+      <ul>
+        <li><b>Feiten moeten ergens echt vandaan komen</b> — Delta stelt alleen een specifiek feit vast (een datum, een bedrag, een naam, een subsidie) als het dit heeft gevonden in de e-mail die u leest, in iets waarnaar het <em>deze beurt</em> heeft gezocht, of in zijn opgeslagen geheugen. Het verzint geen details om een gat te vullen.</li>
+        <li><b>Als het iets niet kan vinden, zegt het dat</b> — u krijgt "Dat kon ik niet vinden, laat me zoeken" in plaats van een zelfverzekerde gok. Dat is bewust: een trager eerlijk antwoord verslaat een snel fout antwoord.</li>
+        <li><b>Het verzint nooit een vergaderlink</b> — voor videogesprekken gebruikt het alleen uw opgeslagen standaardlink, of een die u in de chat plakt. Het zal nooit een Zoom-URL verzinnen.</li>
+        <li><b>Concepten tonen hun bronnen</b> — het paneel "Delta raadpleegde N bronnen" toont elke e-mail en bijlage waarop een concept is gebaseerd, zodat u het kunt controleren.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Beste praktijk</span> Voor alles wat echt belangrijk is — een cijfer, een toezegging, een naam — werp een blik op de bron die Delta noemt, of vraag het om "laat me de e-mail zien." Het is gebouwd om dat makkelijk te maken.</div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="doc" id="settings">
+      <h2><span class="ico">⚙️</span> Instellingen</h2>
+      <p class="lead">Maak de app van uzelf.</p>
+      <a class="openpage" href="/settings">Open Instellingen →</a>
+      <h3>Wat u kunt wijzigen</h3>
+      <ul>
+        <li><b>Account</b> — uw profiel en afmelden.</li>
+        <li><b>Inbox</b> — uw Belangrijke contacten en uw standaard snooze-tijden.</li>
+        <li><b>Opstellen</b> — de vertraging van <b>Verzenden ongedaan maken</b> (uit, 5/10/20/30s), of <b>Markdown-snelkoppelingen</b> bij het versturen in opmaak veranderen, uw <b>aliassen</b> en <b>handtekening</b> (bij elk bericht, alleen bij het eerste bericht, of nooit), en herbruikbare <b>tekstfragmenten</b>.</li>
+        <li><b>Agenda</b> — uw <b>standaard vergaderlink</b>, de buffer tussen vergaderingen, en <b>focusblokken</b> (beschermde tijd waar Delta niet overheen boekt).</li>
+        <li><b>Weergave</b> — Licht / Donker / Systeem-thema, een accentkleur, en tekstdichtheid &amp; lettertype.</li>
+        <li><b>Integraties</b> — <b>Slack</b> verbinden of loskoppelen.</li>
+        <li><b>Geheugen</b> — bekijk, bewerk en verwijder alles wat Delta onthoudt, en beheer uw opgeslagen prompts.</li>
+        <li><b>Sneltoetsen</b> — wijs elke sneltoets opnieuw toe aan toetsen die u verkiest.</li>
+        <li><b>Meldingen</b> — zie hieronder.</li>
+      </ul>
+      <div class="note"><span class="ntag">Privacy standaard</span> Transform Iran Mail houdt niet bij of de mensen die u e-mailt uw berichten openen of op uw links klikken. Dat is een bewuste keuze, geen instelling.</div>
+    </section>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="doc" id="notifications">
+      <h2><span class="ico">🔔</span> Meldingen</h2>
+      <p class="lead">Blijf op de hoogte zonder bedolven te worden.</p>
+      <ul>
+        <li>Zet browsermeldingen aan, en kies dan wat u waarschuwt: <b>nieuwe mail</b>, <b>taakherinneringen</b>, <b>agendameldingen</b>.</li>
+        <li><b>Stille uren</b> — stel een venster (en dagen) in waarin niets u onderbreekt.</li>
+        <li><b>Uurbudget</b> — beperk hoeveel meldingen er in een uur mogen afgaan.</li>
+        <li><b>Per contact</b> — waarschuw altijd voor sommige mensen, demp anderen volledig.</li>
+        <li>In de inbox verzamelt de 🔔 bel achterstallige toezeggingen, taken die af moeten en ongelezen mail van uw Belangrijke mensen.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section class="doc" id="privacy">
+      <h2><span class="ico">🔒</span> Privacy &amp; veiligheid</h2>
+      <ul>
+        <li><b>Uw mailbox is van u.</b> Delta leest uw inbox om u te helpen, en de gegevens van de ene persoon worden nooit met een ander gedeeld.</li>
+        <li><b>Geen lees-tracking.</b> De app vertelt u (of iemand anders) niet wanneer ontvangers uw e-mail openen of op links klikken.</li>
+        <li><b>Delta kan niet handelen zonder u.</b> Het verstuurt, verwijdert of verplaatst nooit zelf geld.</li>
+        <li><b>Houd geheimen uit de chat.</b> Voer wachtwoorden en gevoelige inloggegevens in op hun eigen plek in de instellingen, niet in het chatvenster.</li>
+        <li><b>Werkt naast uw team.</b> Voor afwegingen — complexe reizen, gevoelige beslissingen — betrek uw menselijke assistent erbij. Delta is de snelle digitale laag, geen vervanging voor mensen.</li>
+      </ul>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="doc" id="faq">
+      <h2><span class="ico">💡</span> Tips &amp; veelgestelde vragen</h2>
+      <h4>De pagina voelt traag aan bij de eerste keer</h4>
+      <p>De allereerste keer laden worden de bestanden van de app opgehaald; daarna zijn ze in de cache opgeslagen en wisselen pagina's vrijwel direct. Als er iets verouderd uitziet na een update, wist een harde vernieuwing (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) het.</p>
+      <h4>Delta zegt dat het een e-mail niet kan vinden waarvan ik weet dat hij bestaat</h4>
+      <p>Als u net bent begonnen, is Delta misschien nog uw oudere mail aan het indexeren (let op de voortgangsbalk bovenaan de inbox). Probeer het zo dadelijk opnieuw, of vraag het nogmaals te zoeken — en denk eraan dat het liever "Ik kon het niet vinden" zegt dan te gokken.</p>
+      <h4>Een concept bevat een detail dat ik niet had verwacht</h4>
+      <p>Open het paneel "Delta raadpleegde N bronnen" om precies te zien wat het heeft gelezen. Als een feit daar niet te herleiden is, behandel het dan als een conceptsuggestie en bevestig het.</p>
+      <h4>Kan ik dit op mijn telefoon gebruiken?</h4>
+      <p>Ja — de opmaak past zich aan kleinere schermen aan. Spraakmodus werkt overal waar uw browser de microfoon kan gebruiken.</p>
+      <h4>In welke taal antwoordt Delta?</h4>
+      <p>Het stemt zich op u af. Schrijf het in het Farsi en het antwoordt in het Farsi; hetzelfde geldt voor het opstellen van antwoorden aan mensen die in een andere taal schrijven.</p>
+      <h4>Er is iets mis of het ontbreekt</h4>
+      <p>Laat het het team weten — oplossingen worden snel uitgerold, en uw feedback bepaalt wat er als volgende wordt gebouwd.</p>
+    </section>
+
+    <footer class="foot">
+      © 2026 Transform Iran · Transform Iran Mail, powered by Delta · Deze handleiding weerspiegelt de app zoals gebouwd. Er worden regelmatig functies toegevoegd — kom terug voor updates.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// ---- Find-it-fast index data: subject -> { where it's documented, the live page } ----
+const INDEX = [
+  ["E-mail lezen & beantwoorden","Een e-mail openen, beantwoorden, allen beantwoorden, doorsturen, vertalen","#read","/","Inbox"],
+  ["Een nieuwe e-mail schrijven","Schrijfvenster, opmaak, handtekening, Cc/Bcc","#compose","/","Inbox"],
+  ["Categorielabels & filters","Kleurpillen Urgent / Beantwoorden / Taak / FYI","#inbox","/","Inbox"],
+  ["Een e-mail snoozen","Nu verbergen, later terughalen","#snooze","/","Inbox"],
+  ["Uw mail doorzoeken","from:, subject:, datumfilters","#search","/","Inbox"],
+  ["Belangrijke mensen","Bouw uw eigen VIP-lijst","#important","/","Inbox"],
+  ["Mappen & Gmail-labels","Uw echte Gmail-structuur","#folders","/","Inbox"],
+  ["Sneltoetsen","Beweeg zonder muis","#shortcuts","/","Inbox"],
+  ["Taken & herinneringen","Mijn dag, Gepland, herinneringen, stappen","#tasks","/tasks","Taken"],
+  ["Agenda & vergaderingen","Maandrooster, afspraken maken, standaardlink","#calendar","/calendar","Agenda"],
+  ["Contacten","Automatisch opgebouwd personenbestand","#contacts","/contacts","Contacten"],
+  ["Toezeggingen","Toezeggingen bijgehouden uit uw verzonden mail","#promises","/promises","Toezeggingen"],
+  ["Instellingen","Opstellen, handtekening, thema, snooze, Slack","#settings","/settings","Instellingen"],
+  ["Delta's geheugen","Bekijk & bewerk wat Delta onthoudt","#delta-memory","/settings","Instellingen"],
+  ["Meldingen & stille uren","Kies meldingen, stille tijden","#notifications","/settings","Instellingen"],
+  ["Praat met Delta","Hoe u vraagt, startprompts","#delta","/","Inbox"],
+  ["Wat Delta kan","Volledige lijst met Delta's mogelijkheden","#delta-do","/","Inbox"],
+  ["Basis / Geavanceerd / Expert","Delta's drie intelligentieniveaus","#delta-models","/","Inbox"],
+  ["Spraakmodus","Praat hardop tegen Delta","#delta-voice","/","Inbox"],
+  ["Slack & spraakberichten","Slack doorzoeken, getranscribeerde fragmenten","#delta-slack","/settings","Instellingen"],
+  ["Ochtendbriefing","Uw dagelijkse voorsprong","#delta-brief","/","Inbox"],
+  ["Verzint Delta dingen?","Regels voor eerlijkheid & nauwkeurigheid","#delta-honest","/","Inbox"],
+  ["Privacy & veiligheid","Wat beschermd is, wat Delta niet doet","#privacy",null,null],
+];
+
+const grid = document.getElementById('idxgrid');
+function renderIndex(filter){
+  const f = (filter||'').trim().toLowerCase();
+  grid.innerHTML = '';
+  INDEX.filter(r => !f || (r[0]+' '+r[1]+' '+(r[4]||'')).toLowerCase().includes(f)).forEach(r=>{
+    const [subj,desc,jump,page,pageName] = r;
+    const card = document.createElement('div');
+    card.className = 'idxcard';
+    const openLink = page ? `<a class="open" href="${page}">Open ${pageName} ↗</a>` : '';
+    card.innerHTML = `<div class="subj">${subj}</div><div class="desc">${desc}</div>
+      <div class="links"><a class="jump" href="${jump}">Lezen →</a>${openLink}</div>`;
+    grid.appendChild(card);
+  });
+  if(!grid.children.length){
+    grid.innerHTML = '<div class="desc" style="color:var(--muted);padding:6px 2px">Geen resultaat — probeer een ander woord.</div>';
+  }
+}
+renderIndex('');
+document.getElementById('finderInput').addEventListener('input', e=>renderIndex(e.target.value));
+
+// ---- Scrollspy: highlight the active section in the TOC ----
+const links = [...document.querySelectorAll('nav.toc a')];
+const map = {};
+links.forEach(a=>{ const id=a.getAttribute('href').slice(1); if(id) map[id]=a; });
+const targets = Object.keys(map).map(id=>document.getElementById(id)).filter(Boolean);
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a = map[en.target.id];
+      if(a){ a.classList.add('active'); }
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+targets.forEach(t=>spy.observe(t));
+</script>
+</body>
+</html>

@@ -19,7 +19,7 @@
     background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
 
   /* ---------- top bar ---------- */
-  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;flex-wrap:wrap;row-gap:8px;
     padding:14px 30px;background:var(--navy);color:#fff;box-shadow:0 2px 14px rgba(40,47,57,.18);}
   header.top img.brand{height:30px;width:auto;display:block;filter:brightness(0) invert(1);}
   header.top .ttl{display:flex;flex-direction:column;line-height:1.15;}
@@ -30,12 +30,20 @@
     border-radius:9px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
     font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
   header.top a.act:hover,header.top button.act:hover{background:rgba(255,255,255,.24);}
+  /* language switcher */
+  header.top .langs{display:flex;gap:3px;align-items:center;background:rgba(255,255,255,.08);
+    border-radius:9px;padding:3px;}
+  header.top .langs a{color:#c8cdd4;text-decoration:none;font-size:12px;font-weight:600;
+    padding:5px 9px;border-radius:7px;white-space:nowrap;}
+  header.top .langs a:hover{color:#fff;background:rgba(255,255,255,.12);}
+  header.top .langs a.active{background:var(--gold);color:#fff;}
   @media (max-width:560px){
-    header.top{padding:10px 14px;gap:10px;}
+    header.top{padding:10px 14px;gap:8px;}
     header.top img.brand{height:22px;}
     header.top .ttl b{font-size:13px;} header.top .ttl span{display:none;}
     header.top a.act,header.top button.act{padding:7px 11px;font-size:12px;}
     header.top button.act{display:none;} /* print: desktop only */
+    header.top .langs a{padding:4px 7px;font-size:11.5px;}
   }
 
   /* ---------- layout ---------- */
@@ -158,6 +166,20 @@
     section.doc,.hero,.finder{break-inside:avoid;border-color:#ccc;}
     body{background:#fff;}
   }
+
+  /* ---------- right-to-left (Farsi) ---------- */
+  /* The grid/flex layout mirrors automatically under dir="rtl"; these rules
+     flip the few physical (left/right) properties and keep code, keyboard
+     keys and email-syntax examples reading left-to-right inside RTL text. */
+  [dir="rtl"] nav.toc a{border-left:none;border-right:3px solid transparent;}
+  [dir="rtl"] nav.toc a.active{border-right-color:var(--gold);}
+  [dir="rtl"] .note{border-left:none;border-right:4px solid var(--gold);border-radius:11px 0 0 11px;}
+  [dir="rtl"] .note.tip{border-right-color:var(--good);}
+  [dir="rtl"] .note.warn{border-right-color:var(--red);}
+  [dir="rtl"] section.doc ul{padding-left:0;padding-right:22px;}
+  [dir="rtl"] th,[dir="rtl"] td{text-align:right;}
+  [dir="rtl"] .hero::after{right:auto;left:-40px;transform:rotate(-8deg);}
+  [dir="rtl"] kbd,[dir="rtl"] code{direction:ltr;unicode-bidi:isolate;}
 </style>
 </head>
 <body>
@@ -166,6 +188,12 @@
   <img class="brand" src="/transform-logo.png?v=5DB" alt="Transform Iran Mail">
   <div class="ttl"><b>User Manual</b><span>powered by Delta</span></div>
   <span class="spacer"></span>
+  <nav class="langs" aria-label="Language">
+    <a href="/help" class="active" hreflang="en">English</a>
+    <a href="/help/nl" hreflang="nl">Nederlands</a>
+    <a href="/help/fa" hreflang="fa" lang="fa">فارسی</a>
+    <a href="/help/hy" hreflang="hy" lang="hy">Հայերեն</a>
+  </nav>
   <a class="act" href="/">← Back to inbox</a>
   <button class="act" onclick="window.print()">Print / Save PDF</button>
 </header>

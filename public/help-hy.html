@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+<meta charset="utf-8">
+<title>Օգտատիրոջ ձեռնարկ — Transform Iran Mail, powered by Delta</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/delta-logo.png?v=5DB">
+<style>
+  :root{
+    --gold:#B28E44; --gold-dark:#8E6F35; --gold-soft:#d9c69a;
+    --navy:#282F39; --navy-soft:#4a5360;
+    --cream:#F7F3E9; --cream-dark:#efe8d6; --paper:#fff; --line:#e6e0d2;
+    --red:#E92A2E; --good:#3a9d5a; --muted:#8a8270; --blue:#3a6ea5;
+    --ink:#2c3038;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+  /* ---------- top bar ---------- */
+  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;flex-wrap:wrap;row-gap:8px;
+    padding:14px 30px;background:var(--navy);color:#fff;box-shadow:0 2px 14px rgba(40,47,57,.18);}
+  header.top img.brand{height:30px;width:auto;display:block;filter:brightness(0) invert(1);}
+  header.top .ttl{display:flex;flex-direction:column;line-height:1.15;}
+  header.top .ttl b{font-size:15px;letter-spacing:.2px;font-weight:700;}
+  header.top .ttl span{font-size:11.5px;color:#c8cdd4;letter-spacing:.3px;}
+  header.top .spacer{flex:1;}
+  header.top a.act,header.top button.act{background:rgba(255,255,255,.12);color:#fff;border:none;
+    border-radius:9px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  header.top a.act:hover,header.top button.act:hover{background:rgba(255,255,255,.24);}
+  /* language switcher */
+  header.top .langs{display:flex;gap:3px;align-items:center;background:rgba(255,255,255,.08);
+    border-radius:9px;padding:3px;}
+  header.top .langs a{color:#c8cdd4;text-decoration:none;font-size:12px;font-weight:600;
+    padding:5px 9px;border-radius:7px;white-space:nowrap;}
+  header.top .langs a:hover{color:#fff;background:rgba(255,255,255,.12);}
+  header.top .langs a.active{background:var(--gold);color:#fff;}
+  @media (max-width:560px){
+    header.top{padding:10px 14px;gap:8px;}
+    header.top img.brand{height:22px;}
+    header.top .ttl b{font-size:13px;} header.top .ttl span{display:none;}
+    header.top a.act,header.top button.act{padding:7px 11px;font-size:12px;}
+    header.top button.act{display:none;} /* print: desktop only */
+    header.top .langs a{padding:4px 7px;font-size:11.5px;}
+  }
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:262px 1fr;gap:34px;
+    padding:28px 30px 80px;align-items:start;}
+  nav.toc{position:sticky;top:78px;max-height:calc(100vh - 96px);overflow-y:auto;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 14px;}
+  nav.toc .tlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold-dark);
+    font-weight:800;margin:14px 10px 6px;}
+  nav.toc .tlabel:first-child{margin-top:2px;}
+  nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--navy-soft);
+    text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;}
+  nav.toc a:hover{background:var(--cream);color:var(--navy);}
+  nav.toc a.active{background:var(--cream-dark);color:var(--gold-dark);font-weight:700;border-left-color:var(--gold);}
+  main{min-width:0;}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:18px;}
+    nav.toc{position:static;max-height:none;}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{background:linear-gradient(135deg,#fff 0%,var(--cream-dark) 100%);
+    border:1px solid var(--line);border-radius:20px;padding:30px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+    background:repeating-linear-gradient(-45deg,var(--gold-soft),var(--gold-soft) 7px,transparent 7px,transparent 18px);
+    opacity:.25;transform:rotate(8deg);border-radius:30px;}
+  .hero h1{margin:0 0 8px;font-size:27px;color:var(--navy);letter-spacing:-.3px;}
+  .hero p{margin:0;max-width:640px;color:var(--navy-soft);font-size:15px;}
+  .hero .pills{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero .pills span{background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12px;color:var(--gold-dark);font-weight:600;}
+
+  /* ---------- find-it-fast index ---------- */
+  .finder{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-bottom:30px;}
+  .finder h2{margin:0 0 4px;font-size:17px;color:var(--navy);}
+  .finder .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .finder input{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;
+    font-size:14px;font-family:inherit;background:var(--cream);margin-bottom:16px;}
+  .finder input:focus{outline:none;border-color:var(--gold);background:#fff;}
+  .idxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:12px;}
+  .idxcard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--cream);
+    display:flex;flex-direction:column;gap:7px;transition:.12s;}
+  .idxcard:hover{border-color:var(--gold);box-shadow:0 4px 14px rgba(178,142,68,.13);}
+  .idxcard .subj{font-weight:700;color:var(--navy);font-size:13.5px;}
+  .idxcard .desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1;}
+  .idxcard .links{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .idxcard a{font-size:12px;font-weight:700;text-decoration:none;}
+  .idxcard a.jump{color:var(--gold-dark);}
+  .idxcard a.jump:hover{text-decoration:underline;}
+  .idxcard a.open{color:var(--blue);display:inline-flex;align-items:center;gap:3px;}
+  .idxcard a.open:hover{text-decoration:underline;}
+
+  /* ---------- sections ---------- */
+  section.doc{background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:26px 30px;margin-bottom:22px;scroll-margin-top:80px;}
+  section.doc > h2{margin:0 0 4px;font-size:21px;color:var(--navy);letter-spacing:-.2px;display:flex;align-items:center;gap:11px;}
+  section.doc > h2 .ico{width:34px;height:34px;border-radius:10px;background:var(--cream-dark);
+    display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  section.doc > .lead{color:var(--navy-soft);font-size:14.5px;margin:6px 0 4px;}
+  .openpage{display:inline-flex;align-items:center;gap:6px;margin:14px 0 4px;padding:8px 15px;
+    background:var(--gold);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;}
+  .openpage:hover{background:var(--gold-dark);}
+  .openpage.ghost{background:transparent;color:var(--gold-dark);border:1px solid var(--gold);}
+  .openpage.ghost:hover{background:var(--cream);}
+
+  section.doc h3{font-size:15.5px;color:var(--navy);margin:24px 0 8px;padding-top:4px;border-top:1px dashed var(--line);}
+  section.doc h3:first-of-type{border-top:none;padding-top:0;}
+  section.doc h4{font-size:13.5px;color:var(--gold-dark);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.4px;}
+  section.doc p{margin:8px 0;}
+  section.doc ul{margin:8px 0;padding-left:22px;}
+  section.doc li{margin:5px 0;}
+  section.doc b,section.doc strong{color:var(--navy);}
+  kbd{display:inline-block;background:var(--cream-dark);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:6px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--navy);min-width:18px;text-align:center;}
+  .chip{display:inline-block;background:var(--cream-dark);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;color:var(--navy-soft);}
+  code{background:var(--cream-dark);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--gold-dark);}
+
+  /* callouts */
+  .note{border-left:4px solid var(--gold);background:var(--cream);border-radius:0 11px 11px 0;padding:12px 16px;margin:14px 0;font-size:13.5px;}
+  .note.tip{border-left-color:var(--good);}
+  .note.warn{border-left-color:var(--red);}
+  .note .ntag{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gold-dark);display:block;margin-bottom:3px;}
+  .note.tip .ntag{color:var(--good);}
+  .note.warn .ntag{color:var(--red);}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:var(--cream-dark);color:var(--navy-soft);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  td kbd{margin:1px 0;}
+
+  /* classification legend dots */
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .d-urgent{background:var(--red);} .d-reply{background:#e08a2b;} .d-task{background:var(--blue);}
+  .d-internal{background:#7b5ea7;} .d-receipt{background:#9a9486;} .d-done{background:var(--good);}
+
+  /* capability grid */
+  .caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:14px 0;}
+  .cap{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--cream);}
+  .cap b{display:block;color:var(--navy);font-size:13.5px;margin-bottom:3px;}
+  .cap span{font-size:12.5px;color:var(--navy-soft);}
+
+  /* model tiers */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:14px 0;}
+  .tier{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--cream);}
+  .tier.exp{border-color:var(--gold);background:linear-gradient(160deg,#fff,var(--cream-dark));}
+  .tier .tname{font-size:15px;font-weight:800;color:var(--navy);}
+  .tier .tmodel{font-size:12px;color:var(--gold-dark);font-weight:600;margin:2px 0 8px;}
+  .tier .tdesc{font-size:12.5px;color:var(--navy-soft);}
+  .tier .twho{font-size:11.5px;color:var(--muted);margin-top:9px;border-top:1px dashed var(--line);padding-top:8px;}
+
+  footer.foot{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 0 0;}
+  .talk{background:var(--cream);border:1px solid var(--line);border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.5px;}
+  .talk em{color:var(--navy);font-style:normal;font-weight:600;}
+  @media print{
+    header.top,nav.toc,.openpage,.finder input{display:none!important;}
+    .shell{grid-template-columns:1fr;}
+    section.doc,.hero,.finder{break-inside:avoid;border-color:#ccc;}
+    body{background:#fff;}
+  }
+
+  /* ---------- right-to-left (Farsi) ---------- */
+  /* The grid/flex layout mirrors automatically under dir="rtl"; these rules
+     flip the few physical (left/right) properties and keep code, keyboard
+     keys and email-syntax examples reading left-to-right inside RTL text. */
+  [dir="rtl"] nav.toc a{border-left:none;border-right:3px solid transparent;}
+  [dir="rtl"] nav.toc a.active{border-right-color:var(--gold);}
+  [dir="rtl"] .note{border-left:none;border-right:4px solid var(--gold);border-radius:11px 0 0 11px;}
+  [dir="rtl"] .note.tip{border-right-color:var(--good);}
+  [dir="rtl"] .note.warn{border-right-color:var(--red);}
+  [dir="rtl"] section.doc ul{padding-left:0;padding-right:22px;}
+  [dir="rtl"] th,[dir="rtl"] td{text-align:right;}
+  [dir="rtl"] .hero::after{right:auto;left:-40px;transform:rotate(-8deg);}
+  [dir="rtl"] kbd,[dir="rtl"] code{direction:ltr;unicode-bidi:isolate;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img class="brand" src="/transform-logo.png?v=5DB" alt="Transform Iran Mail">
+  <div class="ttl"><b>Օգտատիրոջ ձեռնարկ</b><span>powered by Delta</span></div>
+  <span class="spacer"></span>
+  <nav class="langs" aria-label="Language">
+    <a href="/help" hreflang="en">English</a>
+    <a href="/help/nl" hreflang="nl">Nederlands</a>
+    <a href="/help/fa" hreflang="fa" lang="fa">فارسی</a>
+    <a href="/help/hy" class="active" hreflang="hy" lang="hy">Հայերեն</a>
+  </nav>
+  <a class="act" href="/">← Վերադառնալ մուտքի արկղ</a>
+  <button class="act" onclick="window.print()">Տպել / Պահպանել PDF</button>
+</header>
+
+<div class="shell">
+
+  <!-- ============ SIDEBAR TOC ============ -->
+  <nav class="toc" id="toc">
+    <div class="tlabel">Սկսեք այստեղից</div>
+    <a href="#intro">Բարի գալուստ</a>
+    <a href="#finder">Արագ գտեք</a>
+    <a href="#basics">Հիմունքները</a>
+    <div class="tlabel">Ձեր փոստարկղը</div>
+    <a href="#inbox">Մուտքի արկղը</a>
+    <a href="#read">Կարդալ և պատասխանել</a>
+    <a href="#compose">Նոր նամակ գրել</a>
+    <a href="#important">Կարևոր մարդիկ</a>
+    <a href="#folders">Թղթապանակներ և պիտակներ</a>
+    <a href="#search">Որոնում</a>
+    <a href="#snooze">Հետաձգում</a>
+    <a href="#shortcuts">Ստեղնաշարի դյուրանցումներ</a>
+    <div class="tlabel">Կազմակերպվեք</div>
+    <a href="#tasks">Անելիքներ (առաջադրանքներ)</a>
+    <a href="#calendar">Օրացույց</a>
+    <a href="#contacts">Կոնտակտներ</a>
+    <a href="#promises">Խոստումներ</a>
+    <div class="tlabel">Delta, ձեր օգնականը</div>
+    <a href="#delta">Ծանոթացեք Delta-ի հետ</a>
+    <a href="#delta-do">Ինչ կարող է անել Delta-ն</a>
+    <a href="#delta-models">Հիմնական / Առաջադեմ / Փորձագիտական</a>
+    <a href="#delta-voice">Ձայնային ռեժիմ</a>
+    <a href="#delta-memory">Հիշողություն և սովորում</a>
+    <a href="#delta-slack">Slack և ձայնային հաղորդագրություններ</a>
+    <a href="#delta-brief">Առավոտյան ամփոփագիր</a>
+    <a href="#delta-honest">Ազնվություն և ճշգրտություն</a>
+    <div class="tlabel">Կարգավորում և օգնություն</div>
+    <a href="#settings">Կարգավորումներ</a>
+    <a href="#notifications">Ծանուցումներ</a>
+    <a href="#privacy">Գաղտնիություն և անվտանգություն</a>
+    <a href="#faq">Խորհուրդներ և ՀՏՀ</a>
+  </nav>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <div class="hero" id="intro">
+      <h1>Transform Iran Mail — Օգտատիրոջ ձեռնարկ</h1>
+      <p>Սա ձեր ամբողջական ուղեցույցն է փոստարկղի և <strong>Delta</strong>-ի համար, որը դրա մեջ ներկառուցված օգնականն է։
+      Ամեն էջ, ամեն կոճակ և այն ամենը, ինչ Delta-ն կարող է անել, այստեղ բացատրված է պարզ լեզվով։ Օգտագործեք ձախ կողմի
+      ընտրացանկը՝ ցանկացած տեղ անցնելու համար, կամ սկսեք <a href="#finder" style="color:var(--gold-dark);font-weight:700;">Արագ գտեք</a> բաժնից՝ ուղիղ ձեզ անհրաժեշտ թեմային անցնելու համար։</p>
+      <div class="pills">
+        <span>Փոստ, որը ինքն իրեն է գրում նախագիծը</span>
+        <span>Ներկառուցված Անելիքներ և Օրացույց</span>
+        <span>Որոնում ձեր ողջ պատմության մեջ</span>
+        <span>Խոսում է պարսկերեն, անգլերեն, հոլանդերեն և այլ լեզուներով</span>
+      </div>
+    </div>
+
+    <!-- ============ FIND IT FAST ============ -->
+    <div class="finder" id="finder">
+      <h2>Արագ գտեք</h2>
+      <div class="sub">Որ թեման որ էջում է գտնվում։ Սեղմեք <b>Կարդալ</b>՝ այստեղ սովորելու համար, կամ <b>Բացել</b>՝ ուղիղ կենդանի էջ անցնելու համար։</div>
+      <input id="finderInput" type="text" placeholder="Մուտքագրեք այն, ինչ փնտրում եք… օր.՝ «հետաձգում», «հիշեցում», «հանդիպում», «արժեք»">
+      <div class="idxgrid" id="idxgrid">
+        <!-- cards injected by JS from INDEX below; static fallback also works -->
+      </div>
+    </div>
+
+    <!-- ============ THE BASICS ============ -->
+    <section class="doc" id="basics">
+      <h2><span class="ico">🧭</span> Հիմունքները</h2>
+      <p class="lead">Ինչպես է դասավորված հավելվածը, որպեսզի մնացած ամեն ինչ իմաստ ստանա։</p>
+      <p>Transform Iran Mail-ը ձեր սովորական Gmail փոստարկղն է՝ ավելի խելացի դեմքով։ Դուք մուտք եք գործում ձեր
+      Transform Iran-ի Google հաշվով, և այն ամենը, ինչ անում եք այստեղ (ուղարկում, արխիվացնում, պիտակում), տեղի է ունենում նաև ձեր իրական Gmail-ում։</p>
+      <h3>Երեք սյունակները</h3>
+      <ul>
+        <li><b>Ձախ վահանակ</b> — ձեր նավարկությունը՝ <chip>+ Նոր նամակ</chip> կոճակը, ձեր թղթապանակները, <b>Անելիքներ</b>, <b>Խոստումներ</b>, ձեր <b>Կարևոր</b> մարդիկ, ձեր իրական Gmail պիտակները և հղումներ դեպի Օրացույց, Կոնտակտներ և Կարգավորումներ։</li>
+        <li><b>Միջին սյունակ</b> — նամակների ցանկը՝ որոնման տողով և գունավոր կոդավորված զտիչ հաբերով։</li>
+        <li><b>Աջ կողմ</b> — այն նամակը, որը կարդում եք, մինի-օրացույց և <b>Delta</b> զրույցի վահանակը։</li>
+      </ul>
+      <h3>Մյուս էջերը</h3>
+      <p>Վահանակի վերևից և ստեղնաշարի դյուրանցումների միջոցով կարող եք հասնել հինգ առանձին էջերի՝ <b>Անելիքներ</b>, <b>Օրացույց</b>, <b>Կոնտակտներ</b>, <b>Խոստումներ</b> և <b>Կարգավորումներ</b>։ Յուրաքանչյուրը նկարագրված է ստորև։</p>
+      <div class="note tip"><span class="ntag">Առաջին անգա՞մ եք</span> Ամենաառաջին մուտքը ցույց է տալիս կարճ ողջույնի էկրան, և Delta-ն հանգիստ կարդում է ձեր մուտքի արկղի պատմությունը ֆոնում, որպեսզի կարողանա որոնել ձեր անցյալ նամակները։ Մուտքի արկղի վերևի առաջընթացի գիծը ցույց է տալիս, թե ինչպես է դա ընթանում — դուք կարող եք շարունակել աշխատել, մինչ այն ընթանում է։</div>
+    </section>
+
+    <!-- ============ INBOX ============ -->
+    <section class="doc" id="inbox">
+      <h2><span class="ico">📥</span> Մուտքի արկղը</h2>
+      <p class="lead">Ձեր հիմնական էկրանը — կարդացեք, դասակարգեք և գործ արեք նամակների հետ։</p>
+      <a class="openpage" href="/">Բացել մուտքի արկղը →</a>
+
+      <h3>Ձախ վահանակը՝ վերևից ներքև</h3>
+      <ul>
+        <li><chip>+ Նոր նամակ</chip> — բացում է գրելու պատուհանը (տես <a href="#compose">Նոր նամակ գրել</a>)։</li>
+        <li><b>Մուտքի արկղ, Աստղանշված, Ուղարկված, Սևագրեր, Արխիվ, Աղբարկղ</b> — ձեր ստանդարտ թղթապանակները, յուրաքանչյուրը կենդանի հաշվիչով։</li>
+        <li><b>Հետաձգված</b> — նամակներ, որոնք դուք մի կողմ եք դրել՝ ավելի ուշ վերադառնալու համար (տես <a href="#snooze">Հետաձգում</a>)։</li>
+        <li><b>Մարքեթինգ</b> և <b>Ավարտված</b> — տեղեկագրեր և նամակներ, որոնց հետ ավարտել եք։</li>
+        <li><b>Անելիքներ</b> և <b>Խոստումներ</b> — ձեր առաջադրանքները և ձեր ստանձնած պարտավորությունները (դրանք գտնվում են վերևի մոտ, որպեսզի հեշտ հասանելի լինեն)։</li>
+        <li><b>Կարևոր</b> — ձեր ձեռքով ընտրված VIP-ները (տես <a href="#important">Կարևոր մարդիկ</a>)։</li>
+        <li><b>Թղթապանակներ</b> — ձեր իրական Gmail պիտակները, ուղիղ քաշված ձեր հաշվից։ Սեղմեք որևէ մեկը՝ զտելու համար։</li>
+        <li><b>Օրացույց, Կոնտակտներ, Կարգավորումներ</b> — հղումներ դեպի այդ էջերը։ Ձեր անունը և ելքի սլաքը գտնվում են ամենաներքևում։</li>
+      </ul>
+
+      <h3>Նամակների ցանկը</h3>
+      <p>Յուրաքանչյուր տող ցույց է տալիս ուղարկողին, ժամանակը, թեման, մեկ տողանոց նախադիտում, 📎 պատկերակ, եթե կան կցորդներ, և գունավոր կոդավորված <b>կատեգորիայի պիտակ</b>։ Ցանկը ավելի շատ բեռնում է, երբ ոլորում եք (առանց էջերի)։</p>
+      <h4>Կատեգորիայի պիտակներ և զտիչ հաբեր</h4>
+      <p>Delta-ն կարդում է ամեն նամակ և պիտակում է այն, որպեսզի դուք ակնթարթորեն տեսնեք, թե ինչն է կարևոր։ Սեղմեք ցանկի վերևի հաբը՝ միայն այդ տեսակը ցույց տալու համար.</p>
+      <table>
+        <tr><th>Պիտակ</th><th>Նշանակում է</th></tr>
+        <tr><td><span class="dot d-urgent"></span><b>Հրատապ</b></td><td>Ժամանակային առումով զգայուն և ուղղված ձեզ — լուծեք այսօր։</td></tr>
+        <tr><td><span class="dot d-reply"></span><b>Պատասխան</b></td><td>Ինչ-որ մեկը սպասում է ձեր պատասխանին։</td></tr>
+        <tr><td><span class="dot d-task"></span><b>Առաջադրանք</b></td><td>Պարունակում է ձեզ համար գործողություն։</td></tr>
+        <tr><td><span class="dot d-internal"></span><b>Ներքին</b></td><td>Թիմից, առանց հրատապ խնդրանքի։</td></tr>
+        <tr><td><span class="dot d-receipt"></span><b>Անդորրագիր / Ի գիտություն / Տեղեկագիր / Ավտոմատ</b></td><td>Հաշիվ-ապրանքագրեր, բաներ, որոնցում դուք պարզապես Cc-ում եք, զանգվածային փոստ և ավտոմատացված ծանուցումներ։</td></tr>
+        <tr><td><span class="dot d-done"></span><b>Ավարտված</b></td><td>Դուք պատասխանել եք և ավարտել — արխիվացված է կանաչ թռչնանշանով։</td></tr>
+      </table>
+      <div class="note"><span class="ntag">Խելացի, ոչ բառացի</span> Delta-ն կարդում է ողջ նամակը, ոչ թե միայն հատվածը։ Եթե դուք միայն <b>Cc</b>-ում եք (ոչ <b>To</b>-ում), այն հակվում է դեպի <b>Ի գիտություն</b> — եթե միայն տեքստը իրականում <em>ձեզ</em> ինչ-որ բան չի հարցնում։ Ձեր Կարևոր մարդկանցից եկած նամակը մի փոքր բարձրանում է առաջնահերթության մեջ։</div>
+      <p>Օգտագործեք թարմացման կոճակը՝ ամենավերջին նամակը քաշելու համար, և վերադասակարգման կոճակը (շրջանաձև սլաք)՝ Delta-ի պիտակումը նորից գործարկելու համար, եթե դուք հենց նոր եք թարմացրել, թե ինչպես է այն դասավորում բաները։</p>
+
+      <h3>Արագ գործողություններ սավառնելիս</h3>
+      <p>Սավառնեք ցանկացած տողի վրա՝ բացահայտելու մեկ սեղմումով կոճակները՝ <b>նշել կարդացած/չկարդացած</b>, <b>աստղանշել</b>, <b>արխիվացնել</b> և <b>ջնջել</b>։ Կարիք չկա նախ բացել նամակը։</p>
+      <p>Ցանկի վերևի 🔔 զանգը ցույց է տալիս ժամկետանց խոստումները, ժամկետին հասած առաջադրանքները և Կարևոր մարդկանցից չկարդացած նամակը — սեղմեք այն՝ ցանկը ստանալու համար։</p>
+    </section>
+
+    <!-- ============ READ & REPLY ============ -->
+    <section class="doc" id="read">
+      <h2><span class="ico">✉️</span> Կարդալ և պատասխանել</h2>
+      <p class="lead">Բացեք նամակը, և աջ կողմի ընթերցողը ցույց է տալիս այն ամբողջությամբ։</p>
+
+      <h3>Ընթերցողի գործիքագոտին</h3>
+      <p><b>Պատասխանել</b>, <b>Պատասխանել բոլորին</b>, <b>Փոխանցել</b>, <b>Արխիվացնել</b>, <b>Հետաձգել</b>, <b>Աստղանշել</b>, <b>նշել չկարդացած</b> և <b>Ջնջել</b>։ Կցորդները հայտնվում են որպես հաբեր — սեղմեք՝ PDF, պատկեր կամ փաստաթուղթ նախադիտելու համար հենց հավելվածի ներսում, կամ <kbd>⌘</kbd>-սեղմեք՝ նոր ներդիրում բացելու համար։</p>
+      <div class="note"><span class="ntag">Պատասխանել բոլորին պահում է բոլորին</span> Երբ դուք սեղմում եք Պատասխանել բոլորին, <b>Cc</b>-ում գտնվող մարդիկ լռելյայն պահպանվում են — այնպես որ ոչ ոք լուռ չի դուրս մնում թելից։ Դուք դեռ կարող եք հեռացնել ցանկացածին նախքան ուղարկելը։</div>
+
+      <h3>Թող Delta-ն օգնի ձեր առջևի նամակի հետ</h3>
+      <p>Նամակի տակ դուք կգտնեք մեկ հպումով Delta կոճակներ.</p>
+      <div class="caps">
+        <div class="cap"><b>Կազմել պատասխան</b><span>Delta-ն պատասխան է գրում ձեր ոճով։ Այն բացվում է խմբագրման պատրաստ — ոչինչ չի ուղարկվում, մինչև չսեղմեք Ուղարկել։</span></div>
+        <div class="cap"><b>Ամփոփել</b><span>Երեք կետանոց ամփոփում երկար նամակի համար։</span></div>
+        <div class="cap"><b>Թարգմանել</b><span>Պարսկերեն, հայերեն, հոլանդերեն և այլ լեզուները վերածում է անգլերենի։</span></div>
+        <div class="cap"><b>Հարցնել այս մասին</b><span>Հարցրեք Delta-ին նամակի բովանդակության մասին հարց։</span></div>
+        <div class="cap"><b>Ավելացնել Անելիքներին</b><span>Դուրս է բերում գործողությունները և դրանք վերածում առաջադրանքների։</span></div>
+      </div>
+
+      <h3>Պատասխանի պատուհանը</h3>
+      <p>Երբ Delta-ն կազմում է պատասխան, դուք ստանում եք խմբագրելի սևագիր և արագ տոնի կոճակներ — <b>Համապատասխանեցնել իմ ոճին</b>, <b>Ավելի կարճ</b>, <b>Ավելի ջերմ</b>, <b>Ավելի պաշտոնական</b>, <b>Ավելի կտրուկ</b>, <b>Ներողամիտ</b>, <b>Պարսկերեն</b>, <b>Հոլանդերեն</b> — կամ մուտքագրեք ձեր սեփական հրահանգը (օր.՝ <em>«նշիր, որ չվերթը ժամը 4:55 PM-ին է»</em>), և Delta-ն վերակազմում է։ Պաստառը ձեզ ասում է, թե որքան վստահ է (քանի անցյալ նամակ այդ անձին համապատասխանեցրեց ձեր ոճին), իսկ «Delta-ն խորհրդակցեց N աղբյուրների հետ» վահանակը թվարկում է հենց այն, ինչ կարդացել է սևագիրը գրելու համար։</p>
+      <div class="note tip"><span class="ntag">Այն սովորում է ձեր ոճը</span> Սևագրերի վրա ձեր կատարած խմբագրումները սովորեցնում են Delta-ին, թե ինչպես եք դուք գրում։ Ժամանակի ընթացքում պատասխանները վերադառնում են ավելի մոտ, քան դուք ինքներդ կասեիք։</div>
+      <h4>Ուղարկեք ապահով</h4>
+      <p>Այն բանից հետո, երբ դուք սեղմում եք <b>Ուղարկել</b>, հայտնվում է կարճ <b>Հետարկման</b> հետհաշվարկ (երկարությունը սահմանում եք Կարգավորումներում)։ Եթե նամակը, որին պատասխանում էիք, կապված էր առաջադրանքի հետ, այդ առաջադրանքն ինքն իրեն ավտոմատ կերպով նշվում է կատարված։</p>
+    </section>
+
+    <!-- ============ COMPOSE ============ -->
+    <section class="doc" id="compose">
+      <h2><span class="ico">📝</span> Նոր նամակ գրել</h2>
+      <p class="lead">Սեղմեք <chip>+ Նոր նամակ</chip> վահանակում (կամ սեղմեք <kbd>c</kbd>)՝ գրելու պատուհանը բացելու համար։</p>
+      <ul>
+        <li><b>To / Cc / Bcc</b> — սկսեք մուտքագրել անուն կամ հասցե, և այն կառաջարկի կոնտակտներ։ Cc-ն և Bcc-ն թաքնված են, մինչև չսեղմեք դրանք։</li>
+        <li><b>Ձևաչափում</b> — տառատեսակ, չափ, գույն, թավ/շեղ/ընդգծված, ցանկեր, հղումներ, մեջբերումներ — լիարժեք հարուստ-տեքստի գործիքագոտի։</li>
+        <li><b>Ստորագրություն</b> — ձեր Gmail ստորագրությունը կարող է ավտոմատ տեղադրվել. վերահսկեք դա Կարգավորումներում։</li>
+        <li><b>Պահպանել որպես սևագիր</b> — պահում է այն Gmail Սևագրերում՝ ավելի ուշ ավարտելու համար։</li>
+        <li><b>Աջից-ձախ իրազեկ</b> — պարսկերեն և արաբերեն տեքստը ավտոմատ ճիշտ հավասարեցվում է։</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Պատասխանեք նրանց լեզվով</span> Եթե դուք պատասխանում եք պարսկերեն նամակի, բայց մուտքագրում եք անգլերեն, հաբը առաջարկում է ձեր հաղորդագրությունը պարսկերեն թարգմանել նախքան ուղարկելը — մեջբերված պատմությունը մնում է անձեռնմխելի։</div>
+    </section>
+
+    <!-- ============ IMPORTANT ============ -->
+    <section class="doc" id="important">
+      <h2><span class="ico">⭐</span> Կարևոր մարդիկ</h2>
+      <p class="lead">Ձեր սեփական VIP ցանկը — ոչ ոք ձեզ համար չի ավելացվում։</p>
+      <p>Վահանակի <b>Կարևոր</b> բաժինը ձերն է կառուցելու համար։ Յուրաքանչյուր մարդ դառնում է թղթապանակ. դրա վրա սեղմելը ցույց է տալիս
+      <b>միայն այն նամակները, որ նրանք ուղարկել են ձեզ</b> վերջին տարվա ընթացքում — ոչ թե թելերը, որտեղ նրանք պարզապես Cc-ում են։ Դա այն պահում է զրույցների վրա, որոնք իսկապես նրանց մասին են։</p>
+      <h4>Մեկին ավելացնելու համար</h4>
+      <ul>
+        <li>Սեղմեք «Կարևոր»-ի կողքին գտնվող <b>+</b>-ը և մուտքագրեք նրանց էլ. փոստը, <em>կամ</em></li>
+        <li>Բացեք նրանց նամակներից մեկը և սեղմեք <b>Կարևոր</b>՝ նրանց անվան կողքին։</li>
+      </ul>
+      <h4>Մեկին հեռացնելու համար</h4>
+      <p>Սեղմեք վահանակում նրանց անվան կողքին գտնվող <b>×</b>-ը։</p>
+      <div class="note"><span class="ntag">Ինչու է դա կարևոր</span> Ձեր Կարևոր մարդկանցից եկած նամակը մի փոքր բարձրանում է առաջնահերթության մեջ և սնուցում է 🔔 ծանուցումները և առավոտյան ամփոփագիրը — այնպես որ ձեր հոգատար մարդիկ չեն կորչում։</div>
+    </section>
+
+    <!-- ============ FOLDERS ============ -->
+    <section class="doc" id="folders">
+      <h2><span class="ico">🗂️</span> Թղթապանակներ և պիտակներ</h2>
+      <p class="lead">Ձեր իրական Gmail կառուցվածքը, արտացոլված այստեղ։</p>
+      <p>Ստանդարտ թղթապանակների կողքին (Մուտքի արկղ, Աստղանշված, Ուղարկված, Սևագրեր, Արխիվ, Աղբարկղ), <b>Թղթապանակներ</b> բաժինը թվարկում է
+      ձեր իրական Gmail պիտակները։ Պիտակ ստեղծեք Gmail-ում, և այն կհայտնվի այստեղ. սեղմեք ցանկացած թղթապանակ՝ ցանկը դրանով զտելու համար։
+      Այստեղ արխիվացնելը հեռացնում է նամակը մուտքի արկղից, բայց պահում է այն Gmail-ում, այնպես որ այն միշտ որոնելի է։</p>
+    </section>
+
+    <!-- ============ SEARCH ============ -->
+    <section class="doc" id="search">
+      <h2><span class="ico">🔍</span> Որոնում</h2>
+      <p class="lead">Գտեք ցանկացած բան ձեր ողջ փոստարկղում։</p>
+      <p>Մուտքագրեք որոնման տողում (կամ սեղմեք <kbd>/</kbd>) և սեղմեք <kbd>Enter</kbd>։ Այն հասկանում է Gmail-ի ոճով որոնումը.</p>
+      <ul>
+        <li><code>from:lana</code> — ամեն ինչ Lana-ից</li>
+        <li><code>subject:budget</code> — ըստ թեմայի բառի</li>
+        <li><code>newer_than:1y</code> — միայն վերջինը</li>
+        <li>Համատեղեք դրանք՝ <code>from:simon subject:wire</code></li>
+      </ul>
+      <p>Սեղմեք <kbd>Esc</kbd>՝ մաքրելու համար։ Կարող եք նաև խնդրել <b>Delta</b>-ին որոնել պարզ լեզվով («գտիր Lana-ի նամակները բյուջեի մասին») — և Delta-ի արդյունքներում նամակի վրա սեղմելը զտում է ցանկը միայն դրանց, պաստառով, որը կարող եք մաքրել։</p>
+    </section>
+
+    <!-- ============ SNOOZE ============ -->
+    <section class="doc" id="snooze">
+      <h2><span class="ico">⏰</span> Հետաձգում</h2>
+      <p class="lead">Թաքցրեք նամակը հիմա, թող այն վերադառնա ավելի ուշ։</p>
+      <p>Բացեք նամակը և սեղմեք <b>Հետաձգել</b> (կամ սեղմեք <kbd>b</kbd>)։ Ընտրեք <b>Այսօր ավելի ուշ</b>, <b>Վաղը առավոտյան</b>, <b>Վաղը երեկոյան</b>, <b>2 օրից</b>, <b>Հաջորդ շաբաթ</b>, <b>Մեկ շաբաթից</b> կամ ընտրեք հատուկ ամսաթիվ և ժամ։ Նամակը անմիջապես լքում է ձեր մուտքի արկղը և նորից հայտնվում՝ նշված որպես չկարդացած, ձեր ընտրած պահին։ Հետաձգված ամեն ինչ գտնվում է <b>Հետաձգված</b> թղթապանակում մինչ այդ։</p>
+      <div class="note tip"><span class="ntag">Սահմանեք ձեր սեփական լռելյայն արժեքները</span> Փոխեք կանխադրված հետաձգման ժամանակները <a href="#settings">Կարգավորումներ → Մուտքի արկղ</a>-ում։</div>
+    </section>
+
+    <!-- ============ SHORTCUTS ============ -->
+    <section class="doc" id="shortcuts">
+      <h2><span class="ico">⌨️</span> Ստեղնաշարի դյուրանցումներ</h2>
+      <p class="lead">Շարժվեք նամակների միջով առանց մկնիկի։ Ամեն դյուրանցում վերանշանակելի է Կարգավորումներ → Ստեղնաշարի դյուրանցումներ-ում։</p>
+      <table>
+        <tr><th>Ստեղն</th><th>Անում է</th><th>Ստեղն</th><th>Անում է</th></tr>
+        <tr><td><kbd>/</kbd></td><td>Կենտրոնանալ որոնման վրա</td><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Հաջորդ / նախորդ նամակ</td></tr>
+        <tr><td><kbd>c</kbd></td><td>Կազմել նոր</td><td><kbd>Enter</kbd></td><td>Բացել ընտրվածը</td></tr>
+        <tr><td><kbd>r</kbd></td><td>Պատասխանել</td><td><kbd>e</kbd></td><td>Արխիվացնել</td></tr>
+        <tr><td><kbd>a</kbd></td><td>Պատասխանել բոլորին</td><td><kbd>#</kbd></td><td>Ջնջել (Աղբարկղ)</td></tr>
+        <tr><td><kbd>f</kbd></td><td>Փոխանցել</td><td><kbd>u</kbd></td><td>Նշել չկարդացած</td></tr>
+        <tr><td><kbd>s</kbd></td><td>Աստղանշել / ապաստղանշել</td><td><kbd>b</kbd></td><td>Հետաձգել</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Ցույց տալ այս հուշաթերթիկը</td><td><kbd>g</kbd> ապա <kbd>i/c/t/n/s</kbd></td><td>Անցնել Մուտքի արկղ / Օրացույց / Անելիքներ / Կոնտակտներ / Կարգավորումներ</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ TASKS ============ -->
+    <section class="doc" id="tasks">
+      <h2><span class="ico">✅</span> Անելիքներ (առաջադրանքներ)</h2>
+      <p class="lead">Լիարժեք առաջադրանքների կառավարիչ՝ Microsoft To Do-ի ոճով։</p>
+      <a class="openpage" href="/tasks">Բացել Անելիքները →</a>
+      <h3>Ցանկերը ձախ կողմում</h3>
+      <ul>
+        <li><b>Իմ օրը</b> — ինչ եք անում այսօր։</li>
+        <li><b>Կարևոր</b> — ամեն ինչ, որ դուք աստղանշել եք։</li>
+        <li><b>Պլանավորված</b> — օրացույցի ոճով տեսք՝ խմբավորված <b>Այսօր</b>, <b>Վաղը</b>, <b>Այս շաբաթ</b> և <b>Ավելի ուշ</b>, որպեսզի կարողանաք տեսնել, թե ինչ է գալիս։ Ժամկետանց տարրերը նշվում են կարմիրով։</li>
+        <li><b>Բոլորը</b> և <b>Ավարտված</b> — ամեն ինչ և ամեն ինչ, որ արված է։</li>
+        <li><b>Ձեր սեփական ցանկերը</b> — ստեղծեք այնքան, որքան ցանկանում եք <chip>+ Նոր ցանկ</chip>-ով։</li>
+      </ul>
+      <h3>Աշխատել առաջադրանքի հետ</h3>
+      <p>Մուտքագրեք <chip>+ Ավելացնել առաջադրանք</chip>-ում՝ մեկը ստեղծելու համար։ Սեղմեք առաջադրանքի վրա՝ դրա մանրամասների վահանակը բացելու համար, որտեղ կարող եք սահմանել.</p>
+      <ul>
+        <li><b>Վերջնաժամկետ</b> — երբ պետք է ավարտվի։</li>
+        <li><b>Հիշեցում</b> — ընտրեք «5 րոպեից», «Վաղը ժամը 9 AM», «Հաջորդ երկուշաբթի» կամ հատուկ ժամ։ Դուք այդ պահին կստանաք բրաուզերի ծանուցում։ Եթե ծանուցումները դեռ միացված չեն, վերնագրում <b>«Միացնել հիշեցումները»</b> հաբը միացնում է դրանք։</li>
+        <li><b>Քայլեր</b> — բաժանեք առաջադրանքը ենթաքայլերի՝ իրենց սեփական նշման վանդակներով։</li>
+        <li><b>Նշումներ</b> — ազատ տեքստ։</li>
+        <li><b>Աղբյուր նամակ</b> — եթե առաջադրանքը ստացվել է նամակից, բնագիրը ցույց է տրվում հենց այնտեղ. սեղմեք՝ դրան վերադառնալու համար։</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Առանց ձեռքերի</span> Ասեք Delta-ին «հիշեցրու ինձ ուրբաթ օրը զանգահարել Reza-ին» (մուտքագրված կամ ձայնով), և այն ստեղծում է առաջադրանքը ձեզ համար։</div>
+    </section>
+
+    <!-- ============ CALENDAR ============ -->
+    <section class="doc" id="calendar">
+      <h2><span class="ico">📅</span> Օրացույց</h2>
+      <p class="lead">Ձեր Google Calendar-ը՝ մաքուր ամսվա ցանցում։</p>
+      <a class="openpage" href="/calendar">Բացել Օրացույցը →</a>
+      <ul>
+        <li><b>Ամսվա ցանց</b>՝ մինի-ամսվա ընտրիչով՝ ամսաթվերին անցնելու համար, գումարած «Այսօր և առաջիկա» օրակարգ աջ կողմում։</li>
+        <li><b>Ստեղծել միջոցառում</b> — սեղմեք <chip>+ Նոր միջոցառում</chip> կամ կրկնակի սեղմեք օրը՝ արագ ավելացման համար։ Սահմանեք վերնագիրը, ժամանակը, ողջ օրը, որ օրացույցը, վայրը, մասնակիցները և նկարագրությունը։</li>
+        <li><b>Մի քանի օրացույց</b> — միացրեք կամ անջատեք յուրաքանչյուր Google օրացույց։</li>
+        <li><b>Միջոցառման մանրամասներ</b> — սեղմեք ցանկացած միջոցառման վրա՝ տեսնելու ժամանակը, վայրը, մասնակիցները (ով է ընդունել) և կոճակը՝ այն Google Calendar-ում բացելու համար։</li>
+        <li><b>Կանխադրված հանդիպման հղում</b> — սահմանեք ձեր սովորական տեսահղումը Կարգավորումներում, և այն ավտոմատ կցվում է նոր հանդիպումներին։</li>
+      </ul>
+      <div class="note"><span class="ntag">Delta-ն նույնպես պլանավորում է</span> Խնդրեք Delta-ին «գտնել ժամանակ, երբ Pia-ն և Lana-ն երկուսն էլ ազատ են», և այն ստուգում է բոլորի օրացույցը, ապա առաջարկում ինտերվալ՝ ձեր հաստատման համար։ Այն հարգում է ձեր կենտրոնացման բլոկները և հանդիպումների միջև ձեր սիրած բացակը — և այն <b>երբեք չի հորինում հանդիպման հղում</b> (տես <a href="#delta-honest">Ազնվություն և ճշգրտություն</a>)։</div>
+    </section>
+
+    <!-- ============ CONTACTS ============ -->
+    <section class="doc" id="contacts">
+      <h2><span class="ico">👥</span> Կոնտակտներ</h2>
+      <p class="lead">Բոլորը, ում դուք գրում եք, հավաքված ավտոմատ կերպով։</p>
+      <a class="openpage" href="/contacts">Բացել Կոնտակտները →</a>
+      <ul>
+        <li><b>Ավտո-կառուցված</b> — կոնտակտները հավաքվում են ձեր փոստից. <b>Թարմացնել մուտքի արկղից</b> կոճակը նորից սկանավորում է նոր ուղարկողների համար։</li>
+        <li><b>Որոնում և տեսակավորում</b> — ըստ անվան, Ա–Ֆ, վերջերս ակտիվ կամ ամենաշատ կապ ունեցողի։</li>
+        <li><b>Յուրաքանչյուր կոնտակտ</b> ցույց է տալիս էլ. փոստը, հեռախոսը, կազմակերպությունը, պաշտոնը և նշումները (բոլորը խմբագրելի), գումարած նրանց <b>վերջին նամակները</b> — սեղմեք մեկը՝ դրան անցնելու համար։</li>
+        <li><b>Արագ գործողություններ</b> — գրեք անձին, նշեք նրան <b>Կարևոր</b> կամ ձեռքով ավելացրեք նոր կոնտակտ։</li>
+      </ul>
+    </section>
+
+    <!-- ============ PROMISES ============ -->
+    <section class="doc" id="promises">
+      <h2><span class="ico">🤝</span> Խոստումներ</h2>
+      <p class="lead">Պարտավորությունները, որ ստանձնում եք նամակում, հետևվում են, որպեսզի դրանք բաց չթողնեք։</p>
+      <a class="openpage" href="/promises">Բացել Խոստումները →</a>
+      <p>Երբ դուք նամակ եք ուղարկում և ասում մի բան, ինչպիսին է <em>«Ես ձեզ կուղարկեմ հաշվետվությունը ուրբաթ օրը»</em>, Delta-ն նկատում և գրանցում է այն որպես <b>խոստում</b>՝ ձեր նշած վերջնաժամկետով։ Ձեզ ոչինչ պետք չէ անել։</p>
+      <ul>
+        <li><b>Բաց / Ժամկետանց / Կատարված / Չեղարկված</b> — զտեք ըստ կարգավիճակի։ Ժամկետանց խոստումները ցույց են տրվում կարմիրով և սնուցում են ձեր 🔔 ծանուցումները։</li>
+        <li><b>Ավտո-փակում</b> — երբ մյուս անձը պատասխանում է թելում, խոստումը նշվում է կատարված։</li>
+        <li><b>Նշել կատարված / Մերժել</b> — փակեք մեկը ինքներդ կամ մերժեք այն, եթե Delta-ն բռնել է մի բան, որն իրականում պարտավորություն չէր։</li>
+        <li>Յուրաքանչյուր խոստում հղում է անում դեպի այն բնագիր նամակը, որից այն ստացվել է։</li>
+      </ul>
+      <div class="note"><span class="ntag">Միայն իրական խոստումներ</span> Delta-ն հետևում է կոնկրետ պարտավորություններին («Ես կուղարկեմ X-ը ուրբաթ օրը»), ոչ թե անորոշ սիրալիրություններին («տեղեկացրու, եթե ինչ-որ բան պետք լինի»)։</div>
+    </section>
+
+    <!-- ============ DELTA ============ -->
+    <section class="doc" id="delta">
+      <h2><span class="ico">🔺</span> Ծանոթացեք Delta-ի հետ</h2>
+      <p class="lead">Ձեր ներկառուցված օգնականը — այն կարդում է ձեր մուտքի արկղը, որպեսզի կարողանա օգնել ձեզ ավելի արագ պատասխանել և ամեն ինչին տիրապետել։</p>
+      <p>Բացեք Delta-ն ցանկացած էկրանի ներքևի աջ անկյունի լոգոյի կոճակով։ Դուք կարող եք <b>մուտքագրել</b> կամ օգտագործել ձեր <b>ձայնը</b>։ Delta-ն կարող է կարդալ ձեր փոստը, որոնել ձեր պատմությունը, կազմել պատասխաններ, կառավարել առաջադրանքները և ձեր օրացույցը, փորփրել կցորդները և պատասխանել հարցերին — միշտ ցույց տալով իր աշխատանքը և երբեք ոչինչ չուղարկելով առանց ձեզ։</p>
+      <h4>Ինչպես խոսել նրա հետ</h4>
+      <p>Պարզապես ասեք, թե ինչ եք ուզում, այնպես, ինչպես կհարցնեիք մարդուն.</p>
+      <div class="talk"><em>«Ի՞նչն է հրատապ այսօր»</em> · <em>«Կազմիր ջերմ պատասխան Pia-ին Tehran-ի ճանապարհորդության մասին»</em> · <em>«Գտիր Simon-ի վերջին նամակը փոխանցման մասին»</em> · <em>«Ավելացրու առաջադրանք՝ բյուջեն վերանայել ուրբաթ օրվա ընթացքում»</em> · <em>«Ամփոփիր PDF-ը, որ Pia-ն կցել է»</em></div>
+      <p>Ողջույնի էկրանը նաև առաջարկում է մեկ հպումով սկսնակներ. <chip>Կազմակերպիր իմ մուտքի արկղը</chip> <chip>Արագ սրբում</chip> <chip>Գտիր հրատապ նամակները</chip> <chip>Պլանավորիր իմ օրը</chip> <chip>Ո՞ւմ եմ ուշացրել</chip> <chip>Ամփոփիր մուտքի արկղը</chip> <chip>Թարգմանիր ոչ անգլերեն փոստը</chip></p>
+      <div class="note tip"><span class="ntag">Պահպանեք ձեր սիրվածները</span> Հաճախ օգտագործվող հրահանգները կարող են պահպանվել որպես կրկնակի օգտագործվող հուշումներ (զրույցի վանդակի կողքին գտնվող էջանշանի կոճակը կամ Կարգավորումներ → Հիշողություն) և գործարկվել ցանկացած ժամանակ՝ տեքստով կամ ձայնով։</div>
+    </section>
+
+    <!-- ============ DELTA: WHAT IT CAN DO ============ -->
+    <section class="doc" id="delta-do">
+      <h2><span class="ico">🛠️</span> Ինչ կարող է անել Delta-ն</h2>
+      <p class="lead">Այն ամենը, ինչ Delta-ն կարող է անել ձեզ համար, խմբավորված ըստ այն բանի, ինչ դուք փորձում եք ավարտել։ Դուք հրահանգներ չեք անգիր անում — պարզապես հարցրեք։</p>
+
+      <h3>Ձեր փոստի հետ</h3>
+      <div class="caps">
+        <div class="cap"><b>Որոնել ձեր մուտքի արկղը</b><span>Գտնում է ցանկացած բան ձեր ողջ Gmail պատմության մեջ, ոչ թե միայն վերջին փոստը։ Կարող է մեջբերել ճշգրիտ տեքստը, երբ ձեզ պետք է։</span></div>
+        <div class="cap"><b>Կազմել պատասխան</b><span>Գրում է պատասխան ձեր ոճով՝ ավտոմատ կերպով բոլոր ճիշտ մարդկանց։ Բացվում է ձեր խմբագրման համար։</span></div>
+        <div class="cap"><b>Կազմել նոր նամակ</b><span>Գրում է բոլորովին նոր հաղորդագրություն զրոյից՝ ցանկացածին։</span></div>
+        <div class="cap"><b>Փոխանցել</b><span>Փոխանցում է նամակը ձեր նկարագրած ներածական նշումով։</span></div>
+        <div class="cap"><b>Գործել նամակի հետ</b><span>Արխիվացնել, ջնջել, նշել կարդացած/չկարդացած, աստղանշել, նշել կատարված կամ հետաձգել — հարցնելով։</span></div>
+        <div class="cap"><b>Կարդալ կցորդները</b><span>Բացում է PDF, Word, Excel և CSV ֆայլերը և դուրս է բերում բովանդակությունը՝ հարցերին պատասխանելու կամ ամփոփելու համար։</span></div>
+      </div>
+
+      <h3>Կազմակերպել ձեզ</h3>
+      <div class="caps">
+        <div class="cap"><b>Ստեղծել առաջադրանքներ</b><span>Ավելացնում է ձեր Անելիքներին վերջնաժամկետով, հիշեցումով և հղումով դեպի աղբյուր նամակը։</span></div>
+        <div class="cap"><b>Մաքրել ձեր մուտքի արկղը</b><span>«Արագ սրբումը» խմբավորում է տեղեկագրերը, ծանուցումները, անդորրագրերը և արդեն մշակված թելերը, որպեսզի կարողանաք դրանք մաքրել խմբերով։</span></div>
+        <div class="cap"><b>Մուտքի արկղի սովորույթ</b><span>Ուղեկցվող, քայլ առ քայլ ուղեցույց, որը ձեզ տանում է լեցուն մուտքի արկղից կազմակերպվածի, մեկ փուլ առ փուլ։</span></div>
+        <div class="cap"><b>Պլանավորել ձեր օրը</b><span>Հավաքում է այն, ինչ հրատապ է, ինչ պետք է ավարտվի և ինչ կա ձեր օրացույցում։</span></div>
+      </div>
+
+      <h3>Օրացույց և մարդիկ</h3>
+      <div class="caps">
+        <div class="cap"><b>Գտնել մարդու</b><span>Փնտրում է ինչ-որ մեկի էլ. փոստը ըստ անվան՝ ձեր կոնտակտներից, պատմությունից և Կարևոր ցանկից։</span></div>
+        <div class="cap"><b>Գտնել հանդիպման ժամանակ</b><span>Ստուգում է, թե երբ են @transformiran.com-ի մի քանի մարդիկ բոլորն ազատ։</span></div>
+        <div class="cap"><b>Առաջարկել և ստեղծել միջոցառումներ</b><span>Կառուցում է հանդիպում՝ ձեր հաստատման համար, ապա դնում է այն օրացույցում հրավերներով և ձեր կանխադրված հղումով։</span></div>
+      </div>
+
+      <h3>Փոստից այն կողմ</h3>
+      <div class="caps">
+        <div class="cap"><b>Որոնել Slack-ում</b><span>Որոնում է ձեր ալիքները, ուղիղ հաղորդագրությունները և թելերը — ներառյալ արտագրված ձայնային հաղորդագրությունները (տես ստորև)։</span></div>
+        <div class="cap"><b>Կարդալ Slack-ի ֆայլերը</b><span>Բացում և կարդում է Slack-ում տարածված փաստաթղթերը։</span></div>
+        <div class="cap"><b>Հիշել բաներ</b><span>Պահպանում է փաստերն ու նախապատվությունները, որ դուք ասում եք նրան, ապագա զրույցների համար։</span></div>
+      </div>
+      <div class="note"><span class="ntag">Ոչինչ չի կատարվում ձեր թիկունքում</span> Delta-ն կազմում է, առաջարկում և խորհուրդ է տալիս — բայց <b>այն երբեք չի ուղարկում նամակ, չի ջնջում տվյալներ, որ դուք չեք խնդրել, և չի տեղափոխում գումար</b>։ Դուք միշտ եք սեղմում վերջնական կոճակը։</div>
+    </section>
+
+    <!-- ============ DELTA: MODELS ============ -->
+    <section class="doc" id="delta-models">
+      <h2><span class="ico">🎚️</span> Հիմնական, Առաջադեմ և Փորձագիտական</h2>
+      <p class="lead">Delta-ն աշխատում է բանականության երեք մակարդակով։ Ընտրեք մակարդակը զրույցի վանդակի կողքին գտնվող մոդելի կոճակով։</p>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tname">Հիմնական</div>
+          <div class="tmodel">Claude Sonnet · ավելի արագ, ավելի ցածր արժեք</div>
+          <div class="tdesc">Արագ և ընդունակ։ Ճիշտ ընտրությունը ամենօրյա փոստի համար — կազմում, որոնում, դասակարգում։</div>
+          <div class="twho">Հասանելի է բոլորին։</div>
+        </div>
+        <div class="tier">
+          <div class="tname">Առաջադեմ</div>
+          <div class="tmodel">Claude Opus · ավելի խորը դատողություն</div>
+          <div class="tdesc">Ավելի դանդաղ, բայց ավելի խելացի։ Դիմեք դրան ավելի բարդ սևագրերի, ավելի երկար փաստաթղթերի կամ ուշադիր մտածողություն պահանջող ցանկացած բանի համար։</div>
+          <div class="twho">Հասանելի է բոլորին։</div>
+        </div>
+        <div class="tier exp">
+          <div class="tname">Փորձագիտական</div>
+          <div class="tmodel">Claude Opus 4.8 · առավելագույն դատողություն</div>
+          <div class="tdesc">Ամենաընդունակ մակարդակը՝ ամենաբարձր նշանակության, ամենաբարդ հարցերի համար։ Ամենաուժեղ մոդելը նաև ամենաքիչ սխալներ է թույլ տալիս։</div>
+          <div class="twho">Միայն բարձրաստիճան ղեկավարությանը — Shahryar, Pia, Lana, Lazarus և Maggie։</div>
+        </div>
+      </div>
+      <div class="note"><span class="ntag">Լավ է իմանալ</span> Փորձագիտական տարբերակը հայտնվում է միայն այն մարդկանց համար, ում թույլատրված է. մնացած բոլորի համար կոճակը ցույց է տալիս Հիմնական և Առաջադեմ։ Delta-ն նաև ողջամտորեն ինքն է ընտրում, երբ դուք չեք ընտրում։</div>
+    </section>
+
+    <!-- ============ DELTA: VOICE ============ -->
+    <section class="doc" id="delta-voice">
+      <h2><span class="ico">🎙️</span> Ձայնային ռեժիմ</h2>
+      <p class="lead">Խոսեք Delta-ի հետ բարձրաձայն, և այն ձեզ պատասխանում է — իրական երկկողմանի զրույց։</p>
+      <p>Սեղմեք ձայնի կոճակը Delta վահանակի վերնագրում և թույլատրեք ձեր խոսափողը։ Շարժվող ոլորտը ցույց է տալիս, թե երբ է Delta-ն <b>լսում</b>, <b>մտածում</b> և <b>խոսում</b>, և ձեր խոսքերը հայտնվում են, երբ դուք խոսում եք։</p>
+      <ul>
+        <li>Այն ամենը, ինչ կարող եք անել մուտքագրելով, կարող եք անել ձայնով՝ կազմել պատասխաններ, ստեղծել առաջադրանքներ և հիշեցումներ, որոնել ձեր մուտքի արկղը, պլանավորել հանդիպումներ։</li>
+        <li>Այն հասկանում և խոսում է մի քանի լեզու, ներառյալ <b>պարսկերեն</b>, անգլերեն և հոլանդերեն։</li>
+        <li>Այն ամենը, ինչ Delta-ն ստեղծում է զանգի ընթացքում (օրինակ՝ սևագիր), հետո հայտնվում է հավելվածում՝ պատրաստ ձեզ համար։ Ամբողջ արտագրությունը պահվում է զրույցում, և դուք կարող եք պատճենել այն։</li>
+        <li>Ավարտեք նիստը՝ ասելով ցտեսություն կամ հպելով <b>Ավարտել</b> կոճակին։</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: MEMORY ============ -->
+    <section class="doc" id="delta-memory">
+      <h2><span class="ico">🧠</span> Հիշողություն և սովորում</h2>
+      <p class="lead">Delta-ն ավելի օգտակար է դառնում, որքան երկար է աշխատում ձեզ հետ։</p>
+      <ul>
+        <li><b>Կարող եք ասել նրան հիշել</b> — ասեք «հիշիր, որ Pia-ն զբաղվում է Tehran-ի լոգիստիկայով», և այն դա պահում է հետագայի համար։</li>
+        <li><b>Այն նկատում է օրինաչափություններ</b> — հանգիստ, գիշերը, այն կարող է սովորել այնպիսի բաներ, ինչպիսին է «պարսկերեն պատասխաններ Lazarus-ին» և առաջարկել պահպանել դրանք։ Դուք միշտ կտեսնեք, թե ինչ է պահպանել, հետարկման հնարավորությամբ։</li>
+        <li><b>Այն սովորում է ձեր գրությունը</b> — սևագրերի վրա ձեր խմբագրումները ձևավորում են, թե ինչպես է այն գրում ձեզ համար։</li>
+        <li><b>Դուք եք վերահսկում</b> — դիտեք, խմբագրեք կամ ջնջեք այն ամենը, ինչ Delta-ն հիշում է <a href="#settings">Կարգավորումներ → Հիշողություն</a>-ում։</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: SLACK ============ -->
+    <section class="doc" id="delta-slack">
+      <h2><span class="ico">💬</span> Slack և ձայնային հաղորդագրություններ</h2>
+      <p class="lead">Միացրեք Slack-ը (Կարգավորումներում), և Delta-ն կարող է որոնել այն ձեր փոստի կողքին։</p>
+      <p>Հարցրեք այնպիսի բաներ, ինչպիսին են <em>«ի՞նչ ասաց Anet-ը բյուջեի մասին»</em> կամ <em>«ամփոփիր իմ զրույցը Simon-ի հետ»</em>։ Delta-ն որոնում է ալիքները, ուղիղ հաղորդագրությունները և թելերը։</p>
+      <h4>Ձայնային հաղորդագրություններ</h4>
+      <p>Delta-ն ավտոմատ կերպով <b>արտագրում է Slack-ի ձայնային հատվածները</b>, որպեսզի դուք կարողանաք որոնել և հարցնել դրանց մասին — նույնիսկ վաղուց ձայնագրվածները։ Հարցրեք «ինչի՞ մասին ենք խոսել Anet-ի հետ», և այն դուրս է բերում ձայնային հաղորդագրությունները այդ զրույցից և բացատրում դրանք։</p>
+      <div class="note warn"><span class="ntag">Պարսկերեն ձայնային հաղորդագրություններ</span> Delta-ն արտագրում է պարսկերեն ձայնային հաղորդագրությունները և թարգմանում դրանք անգլերեն, բայց դրանք նշում է որպես <b>«ավտո-արտագրված, կարող է անկատար լինել»</b>։ Օգտագործեք դրանք ընդհանուր իմաստի համար, ոչ թե ճշգրիտ ձևակերպման։</div>
+    </section>
+
+    <!-- ============ DELTA: BRIEF ============ -->
+    <section class="doc" id="delta-brief">
+      <h2><span class="ico">🌅</span> Առավոտյան ամփոփագիր</h2>
+      <p class="lead">Ամենօրյա առավելություն, պատրաստ առաջին անգամ, երբ ամեն օր բացում եք Delta-ն։</p>
+      <p>Delta-ն հավաքում է ձեր գիշերային փոստը, այսօրվա հանդիպումները, բաց առաջադրանքները և ցանկացած ժամկետին հասած խոստումներ կարճ ամփոփագրի մեջ՝ մեկ տողանոց վերնագիր, ձեր լավագույն առաջնահերթությունները և <b>նախապես գրված պատասխանների</b> հերթ ամենահրատապ նամակների համար։ Մերժեք մեկը, և հաջորդը սահում է ներս — ուղարկեք մեկ սեղմումով կամ բացեք՝ նախ խմբագրելու համար։</p>
+    </section>
+
+    <!-- ============ DELTA: HONESTY ============ -->
+    <section class="doc" id="delta-honest">
+      <h2><span class="ico">🛡️</span> Ազնվություն և ճշգրտություն</h2>
+      <p class="lead">Ինչպես է Delta-ն խուսափում բաներ հորինելուց — և ինչ սպասել։</p>
+      <p>Ինչպես բոլոր AI օգնականները, Delta-ն տեսականորեն կարող է ասել մի բան, որը հնչում է ճիշտ, բայց այդպես չէ։ Մենք ներդրել ենք ամուր կանոններ՝ դա ձեր տվյալների հետ կանխելու համար.</p>
+      <ul>
+        <li><b>Փաստերը պետք է գան ինչ-որ իրական տեղից</b> — Delta-ն կնշի կոնկրետ փաստ (ամսաթիվ, գումար, անուն, դրամաշնորհ) միայն եթե այն գտել է այն նամակում, որ դուք կարդում եք, ինչ-որ բանում, որ որոնել է <em>այս ընթացքում</em>, կամ իր պահպանված հիշողության մեջ։ Այն բաց չի լրացնի՝ մանրամասներ հորինելով։</li>
+        <li><b>Եթե այն չի կարող գտնել, ասում է դա</b> — դուք կստանաք «Ես չկարողացա գտնել այն, թույլ տվեք որոնել»՝ վստահ ենթադրության փոխարեն։ Դա միտումնավոր է. ավելի դանդաղ ազնիվ պատասխանը գերազանցում է արագ սխալին։</li>
+        <li><b>Այն երբեք չի հորինում հանդիպման հղում</b> — տեսազանգերի համար այն օգտագործում է միայն ձեր պահպանված կանխադրված հղումը կամ այն, որ դուք փակցնում եք զրույցում։ Այն երբեք չի հորինի Zoom URL։</li>
+        <li><b>Սևագրերը ցույց են տալիս իրենց աղբյուրները</b> — «Delta-ն խորհրդակցեց N աղբյուրների հետ» վահանակը թվարկում է ամեն նամակ և կցորդ, որի վրա հիմնված է եղել սևագիրը, որպեսզի դուք կարողանաք ստուգել այն։</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Լավագույն փորձ</span> Ցանկացած բանի համար, որն իսկապես կարևոր է — թիվ, պարտավորություն, անուն — հայացք գցեք Delta-ի մեջբերած աղբյուրին կամ խնդրեք նրան «ցույց տուր ինձ նամակը»։ Այն կառուցված է, որպեսզի դա հեշտ դարձնի։</div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="doc" id="settings">
+      <h2><span class="ico">⚙️</span> Կարգավորումներ</h2>
+      <p class="lead">Դարձրեք հավելվածը ձերը։</p>
+      <a class="openpage" href="/settings">Բացել Կարգավորումները →</a>
+      <h3>Ինչ կարող եք փոխել</h3>
+      <ul>
+        <li><b>Հաշիվ</b> — ձեր պրոֆիլը և ելքը։</li>
+        <li><b>Մուտքի արկղ</b> — ձեր Կարևոր կոնտակտները և ձեր կանխադրված հետաձգման ժամանակները։</li>
+        <li><b>Կազմում</b> — <b>Ուղարկման հետարկման</b> հապաղումը (անջատ, 5/10/20/30 վրկ), արդյոք <b>Markdown դյուրանցումները</b> ուղարկելիս վերածվում են ձևաչափման, ձեր <b>կեղծանունները</b> և <b>ստորագրությունը</b> (ամեն հաղորդագրության, միայն առաջին հաղորդագրության կամ երբեք) և տեքստի կրկնակի օգտագործվող <b>հատվածներ</b>։</li>
+        <li><b>Օրացույց</b> — ձեր <b>կանխադրված հանդիպման հղումը</b>, հանդիպումների միջև բուֆերը և <b>կենտրոնացման բլոկները</b> (պաշտպանված ժամանակ, որի վրա Delta-ն չի ամրագրի)։</li>
+        <li><b>Արտաքին տեսք</b> — Բաց / Մուգ / Համակարգային թեմա, շեշտադրման գույն և տեքստի խտություն ու տառատեսակ։</li>
+        <li><b>Ինտեգրումներ</b> — միացրեք կամ անջատեք <b>Slack</b>։</li>
+        <li><b>Հիշողություն</b> — վերանայեք, խմբագրեք և ջնջեք այն ամենը, ինչ Delta-ն հիշում է, և կառավարեք ձեր պահպանված հուշումները։</li>
+        <li><b>Ստեղնաշարի դյուրանցումներ</b> — վերանշանակեք ցանկացած դյուրանցում ձեր նախընտրած ստեղներին։</li>
+        <li><b>Ծանուցումներ</b> — տես ստորև։</li>
+      </ul>
+      <div class="note"><span class="ntag">Գաղտնիություն լռելյայն</span> Transform Iran Mail-ը չի հետևում, թե արդյոք այն մարդիկ, ում դուք գրում եք, բացում են ձեր հաղորդագրությունները կամ սեղմում ձեր հղումները։ Դա միտումնավոր ընտրություն է, ոչ թե կարգավորում։</div>
+    </section>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="doc" id="notifications">
+      <h2><span class="ico">🔔</span> Ծանուցումներ</h2>
+      <p class="lead">Մնացեք տեղեկացված՝ առանց ծանրաբեռնվելու։</p>
+      <ul>
+        <li>Միացրեք բրաուզերի ծանուցումները, ապա ընտրեք, թե ինչը ձեզ ազդարարի՝ <b>նոր փոստ</b>, <b>առաջադրանքի հիշեցումներ</b>, <b>օրացույցի ծանուցումներ</b>։</li>
+        <li><b>Հանգիստ ժամեր</b> — սահմանեք ժամանակահատված (և օրեր), երբ ոչինչ չի ընդհատի ձեզ։</li>
+        <li><b>Ժամային սահմանաչափ</b> — սահմանափակեք, թե քանի ծանուցում կարող է հնչել ցանկացած ժամում։</li>
+        <li><b>Ըստ կոնտակտի</b> — միշտ ծանուցել որոշ մարդկանց համար, մյուսներին լրիվ լռեցնել։</li>
+        <li>Մուտքի արկղում 🔔 զանգը հավաքում է ժամկետանց խոստումները, ժամկետին հասած առաջադրանքները և Կարևոր մարդկանցից չկարդացած նամակը։</li>
+      </ul>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section class="doc" id="privacy">
+      <h2><span class="ico">🔒</span> Գաղտնիություն և անվտանգություն</h2>
+      <ul>
+        <li><b>Ձեր փոստարկղը ձերն է։</b> Delta-ն կարդում է ձեր մուտքի արկղը՝ ձեզ օգնելու համար, և մեկ անձի տվյալները երբեք չեն կիսվում մեկ ուրիշի հետ։</li>
+        <li><b>Կարդալու հետևում չկա։</b> Հավելվածը չի ասում ձեզ (կամ որևէ մեկին), երբ ստացողները բացում են ձեր նամակը կամ սեղմում հղումները։</li>
+        <li><b>Delta-ն չի կարող գործել առանց ձեզ։</b> Այն երբեք ինքնուրույն չի ուղարկում, ջնջում կամ տեղափոխում գումար։</li>
+        <li><b>Գաղտնիքները հեռու պահեք զրույցից։</b> Մուտքագրեք գաղտնաբառերը և զգայուն տվյալները իրենց պատշաճ կարգավորումներում, ոչ թե զրույցի վանդակում։</li>
+        <li><b>Աշխատում է ձեր թիմի հետ։</b> Դատողություն պահանջող դեպքերի համար — բարդ ճանապարհորդություն, զգայուն որոշումներ — ներգրավեք ձեր մարդ-օգնականին։ Delta-ն արագ թվային շերտն է, ոչ թե մարդկանց փոխարինող։</li>
+      </ul>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="doc" id="faq">
+      <h2><span class="ico">💡</span> Խորհուրդներ և ՀՏՀ</h2>
+      <h4>Էջը դանդաղ է զգացվում առաջին անգամ</h4>
+      <p>Ամենաառաջին բեռնումը բերում է հավելվածի ֆայլերը. դրանից հետո դրանք պահվում են քեշում, և էջերը փոխվում են գրեթե ակնթարթորեն։ Եթե թարմացումից հետո ինչ-որ բան հնացած տեսք ունի, ուժեղ թարմացումը (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) մաքրում է այն։</p>
+      <h4>Delta-ն ասում է, որ չի կարող գտնել նամակ, որի գոյությունը ես գիտեմ</h4>
+      <p>Եթե դուք հենց նոր եք միացել, Delta-ն կարող է դեռ ինդեքսավորում ձեր ավելի հին փոստը (հետևեք մուտքի արկղի վերևի առաջընթացի գծին)։ Փորձեք քիչ անց կամ խնդրեք նրան նորից որոնել — և հիշեք, որ այն կնախընտրի ասել «Ես չկարողացա գտնել այն»՝ ենթադրելու փոխարեն։</p>
+      <h4>Սևագիրն ունի մանրամասն, որ ես չէի սպասում</h4>
+      <p>Բացեք «Delta-ն խորհրդակցեց N աղբյուրների հետ» վահանակը՝ տեսնելու հենց այն, ինչ կարդացել է։ Եթե փաստն այնտեղ հետագծելի չէ, վերաբերվեք դրան որպես սևագրի առաջարկ և հաստատեք այն։</p>
+      <h4>Կարո՞ղ եմ սա օգտագործել իմ հեռախոսում</h4>
+      <p>Այո — դասավորությունը հարմարվում է ավելի փոքր էկրաններին։ Ձայնային ռեժիմն աշխատում է ամենուր, որտեղ ձեր բրաուզերը կարող է օգտագործել խոսափողը։</p>
+      <h4>Որ լեզվով կպատասխանի Delta-ն</h4>
+      <p>Այն համապատասխանեցնում է ձեզ։ Գրեք նրան պարսկերեն, և այն կպատասխանի պարսկերեն. նույնն է վերաբերում մեկ այլ լեզվով գրող մարդկանց պատասխանների կազմմանը։</p>
+      <h4>Ինչ-որ բան սխալ է կամ բացակայում է</h4>
+      <p>Տեղեկացրեք թիմին — ուղղումներն արագ են հասնում, և ձեր արձագանքը ձևավորում է հաջորդը, ինչ կկառուցվի։</p>
+    </section>
+
+    <footer class="foot">
+      © 2026 Transform Iran · Transform Iran Mail, powered by Delta · Այս ձեռնարկն արտացոլում է հավելվածն այնպես, ինչպես կառուցված է։ Հնարավորություններ ավելացվում են պարբերաբար — ստուգեք նորից թարմացումների համար։
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// ---- Find-it-fast index data: subject -> { where it's documented, the live page } ----
+const INDEX = [
+  ["Կարդալ և պատասխանել նամակին","Բացեք նամակ, պատասխանեք, պատասխանեք բոլորին, փոխանցեք, թարգմանեք","#read","/","Մուտքի արկղ"],
+  ["Նոր նամակ գրել","Կազմման պատուհան, ձևաչափում, ստորագրություն, Cc/Bcc","#compose","/","Մուտքի արկղ"],
+  ["Կատեգորիայի պիտակներ և զտիչներ","Հրատապ / Պատասխան / Առաջադրանք / Ի գիտություն գունավոր հաբեր","#inbox","/","Մուտքի արկղ"],
+  ["Հետաձգել նամակը","Թաքցրեք հիմա, վերադարձրեք ավելի ուշ","#snooze","/","Մուտքի արկղ"],
+  ["Որոնել ձեր փոստը","from:, subject:, ամսաթվի զտիչներ","#search","/","Մուտքի արկղ"],
+  ["Կարևոր մարդիկ","Կառուցեք ձեր սեփական VIP ցանկը","#important","/","Մուտքի արկղ"],
+  ["Թղթապանակներ և Gmail պիտակներ","Ձեր իրական Gmail կառուցվածքը","#folders","/","Մուտքի արկղ"],
+  ["Ստեղնաշարի դյուրանցումներ","Շարժվեք առանց մկնիկի","#shortcuts","/","Մուտքի արկղ"],
+  ["Անելիքներ և հիշեցումներ","Իմ օրը, Պլանավորված, հիշեցումներ, քայլեր","#tasks","/tasks","Անելիքներ"],
+  ["Օրացույց և հանդիպումներ","Ամսվա ցանց, ստեղծել միջոցառումներ, կանխադրված հղում","#calendar","/calendar","Օրացույց"],
+  ["Կոնտակտներ","Ավտո-կառուցված մարդկանց ցուցակ","#contacts","/contacts","Կոնտակտներ"],
+  ["Խոստումներ","Պարտավորություններ, որ հետևվում են ձեր ուղարկած փոստից","#promises","/promises","Խոստումներ"],
+  ["Կարգավորումներ","Կազմում, ստորագրություն, թեմա, հետաձգում, Slack","#settings","/settings","Կարգավորումներ"],
+  ["Delta-ի հիշողությունը","Տեսեք և խմբագրեք այն, ինչ Delta-ն հիշում է","#delta-memory","/settings","Կարգավորումներ"],
+  ["Ծանուցումներ և հանգիստ ժամեր","Ընտրեք ծանուցումներ, հանգիստ ժամանակներ","#notifications","/settings","Կարգավորումներ"],
+  ["Խոսեք Delta-ի հետ","Ինչպես հարցնել, սկսնակ հուշումներ","#delta","/","Մուտքի արկղ"],
+  ["Ինչ կարող է անել Delta-ն","Delta-ի կարողությունների ամբողջական ցանկ","#delta-do","/","Մուտքի արկղ"],
+  ["Հիմնական / Առաջադեմ / Փորձագիտական","Delta-ի բանականության երեք մակարդակները","#delta-models","/","Մուտքի արկղ"],
+  ["Ձայնային ռեժիմ","Խոսեք Delta-ի հետ բարձրաձայն","#delta-voice","/","Մուտքի արկղ"],
+  ["Slack և ձայնային հաղորդագրություններ","Որոնեք Slack-ում, արտագրված հատվածներ","#delta-slack","/settings","Կարգավորումներ"],
+  ["Առավոտյան ամփոփագիր","Ձեր ամենօրյա առավելությունը","#delta-brief","/","Մուտքի արկղ"],
+  ["Արդյո՞ք Delta-ն բաներ է հորինում","Ազնվության և ճշգրտության կանոններ","#delta-honest","/","Մուտքի արկղ"],
+  ["Գաղտնիություն և անվտանգություն","Ինչ է պաշտպանված, ինչ Delta-ն չի անի","#privacy",null,null],
+];
+
+const grid = document.getElementById('idxgrid');
+function renderIndex(filter){
+  const f = (filter||'').trim().toLowerCase();
+  grid.innerHTML = '';
+  INDEX.filter(r => !f || (r[0]+' '+r[1]+' '+(r[4]||'')).toLowerCase().includes(f)).forEach(r=>{
+    const [subj,desc,jump,page,pageName] = r;
+    const card = document.createElement('div');
+    card.className = 'idxcard';
+    const openLink = page ? `<a class="open" href="${page}">Բացել ${pageName} ↗</a>` : '';
+    card.innerHTML = `<div class="subj">${subj}</div><div class="desc">${desc}</div>
+      <div class="links"><a class="jump" href="${jump}">Կարդալ →</a>${openLink}</div>`;
+    grid.appendChild(card);
+  });
+  if(!grid.children.length){
+    grid.innerHTML = '<div class="desc" style="color:var(--muted);padding:6px 2px">Համընկնում չկա — փորձեք այլ բառ։</div>';
+  }
+}
+renderIndex('');
+document.getElementById('finderInput').addEventListener('input', e=>renderIndex(e.target.value));
+
+// ---- Scrollspy: highlight the active section in the TOC ----
+const links = [...document.querySelectorAll('nav.toc a')];
+const map = {};
+links.forEach(a=>{ const id=a.getAttribute('href').slice(1); if(id) map[id]=a; });
+const targets = Object.keys(map).map(id=>document.getElementById(id)).filter(Boolean);
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a = map[en.target.id];
+      if(a){ a.classList.add('active'); }
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+targets.forEach(t=>spy.observe(t));
+</script>
+</body>
+</html>
