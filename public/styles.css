@@ -1,4 +1,4 @@
-/* Transform Iran — Delta Mail
+/* Transform Iran — Transform Iran Mail
    Brand palette (matches dashboard):
      gold  #B28E44   cream #F7F3E9   navy  #282F39
 
@@ -164,12 +164,23 @@ button { font-family: inherit; cursor: pointer; }
 
 .brand {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
   padding: 4px 8px 16px;
   border-bottom: 1px solid var(--line);
   margin-bottom: 12px;
 }
+/* Transform wordmark — the app's identity in the rail. */
+.brand-wordmark {
+  width: 100%; max-width: 150px; height: auto;
+  display: block;
+}
+.brand-sub {
+  font-size: 11px; font-weight: 600; letter-spacing: .2px;
+  color: var(--muted);
+}
+/* Legacy square mark kept for any other reference. */
 .brand-mark {
   width: 32px; height: 32px;
   background: #000;

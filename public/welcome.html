@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Welcome to Delta Mail</title>
+<title>Welcome to Transform Iran Mail</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/styles.css">
 <link rel="icon" type="image/png" href="/delta-logo.png">
@@ -37,17 +37,13 @@
     text-align: center;
   }
   .welcome .big-logo {
-    width: 96px; height: 96px;
-    background: #000;
-    border-radius: 22px;
+    width: 100%; max-width: 300px;
     margin: 0 auto 24px;
-    box-shadow: 0 8px 24px rgba(40,47,57,.18);
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
   }
-  .welcome .big-logo img { width: 70%; height: 70%; object-fit: contain; display: block; }
+  .welcome .big-logo img { width: 100%; height: auto; object-fit: contain; display: block; }
   .welcome h1 {
     margin: 0 0 8px;
     font-size: 30px;
@@ -229,10 +225,10 @@
 <body>
 
 <main class="welcome">
-  <div class="big-logo"><img src="/delta-logo.png" alt="Delta" draggable="false"></div>
+  <div class="big-logo"><img src="/transform-logo.png" alt="Transform Iran Mail" draggable="false"></div>
 
   <h1 id="heading">Hello.</h1>
-  <p class="lede" id="lede">I'm Delta — your AI assistant inside Delta Mail.</p>
+  <p class="lede" id="lede">I'm Delta — your AI assistant inside Transform Iran Mail.</p>
 
   <button class="tts-btn" id="ttsBtn" hidden type="button" aria-label="Listen to Delta's welcome">
     <span class="tts-icon" aria-hidden="true">▶</span>
@@ -297,9 +293,9 @@
   headingEl.textContent = `Hello, ${firstName}.`;
 
   if (isExec) {
-    ledeEl.textContent = `I'm Delta — your AI executive assistant inside Delta Mail.`;
+    ledeEl.textContent = `I'm Delta — your AI executive assistant inside Transform Iran Mail.`;
   } else {
-    ledeEl.textContent = `I'm Delta — your AI assistant inside Delta Mail.`;
+    ledeEl.textContent = `I'm Delta — your AI assistant inside Transform Iran Mail.`;
   }
 
   // ---- Delta's introduction speech -------------------------------------
