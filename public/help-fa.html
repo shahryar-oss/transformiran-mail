@@ -6,6 +6,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="icon" href="/delta-logo.png?v=5DB">
 <style>
+  /* Estedad — the same self-hosted Persian font the Follow-up dashboard uses.
+     Per-weight @font-face so the browser fetches only the weights this page
+     renders; font-display:swap shows text immediately with the fallback. */
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:100; font-display:swap; src:url("/assets/fonts/Estedad-Thin.ttf")        format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:200; font-display:swap; src:url("/assets/fonts/Estedad-ExtraLight.ttf")  format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:300; font-display:swap; src:url("/assets/fonts/Estedad-Light.ttf")       format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:400; font-display:swap; src:url("/assets/fonts/Estedad-Regular.ttf")     format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:500; font-display:swap; src:url("/assets/fonts/Estedad-Medium.ttf")      format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:600; font-display:swap; src:url("/assets/fonts/Estedad-SemiBold.ttf")    format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:700; font-display:swap; src:url("/assets/fonts/Estedad-Bold.ttf")        format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:800; font-display:swap; src:url("/assets/fonts/Estedad-ExtraBold.ttf")   format("truetype"); }
+  @font-face { font-family:"Estedad"; font-style:normal; font-weight:900; font-display:swap; src:url("/assets/fonts/Estedad-Black.ttf")       format("truetype"); }
   :root{
     --gold:#B28E44; --gold-dark:#8E6F35; --gold-soft:#d9c69a;
     --navy:#282F39; --navy-soft:#4a5360;
@@ -15,7 +27,8 @@
   }
   *{box-sizing:border-box;}
   html{scroll-behavior:smooth;}
-  body{margin:0;font-family:"Vazirmatn","Tahoma","Segoe UI",Tahoma,-apple-system,BlinkMacSystemFont,Inter,Roboto,sans-serif;
+  body{margin:0;font-family:"Estedad",Tahoma,"Iran Sans",Arial,sans-serif;
+    font-feature-settings:"ss03" on,"ss06" on; /* Estedad alts: rounded ع / proportional digits */
     background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
 
   /* ---------- top bar ---------- */
