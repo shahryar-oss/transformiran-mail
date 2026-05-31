@@ -388,6 +388,125 @@ app.post("/api/me/heartbeat", auth.requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ====================================================================
+// ADMIN CONSOLE — separate passphrase login + analytics. Gated by a
+// dedicated admin cookie (lib/admin), independent of the mailbox session.
+// ====================================================================
+const admin = require("./lib/admin");
+const ADMIN_DIR = path.join(__dirname, "admin");
+
+app.get("/admin/login", (req, res) => {
+  if (admin.isAdmin(req)) return res.redirect("/admin");
+  res.sendFile(path.join(ADMIN_DIR, "login.html"));
+});
+
+app.post("/admin/login", express.json(), (req, res) => {
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || req.ip || "?";
+  if (admin.loginThrottled(ip)) return res.status(429).json({ error: "throttled" });
+  if (!admin.isConfigured()) return res.status(503).json({ error: "admin_not_configured" });
+  if (admin.verifyPassphrase((req.body || {}).passphrase || "")) {
+    admin.clearLoginAttempts(ip);
+    admin.setAdminSession(res);
+    return res.json({ ok: true });
+  }
+  admin.recordFailedLogin(ip);
+  res.status(401).json({ error: "bad_passphrase" });
+});
+
+app.post("/admin/logout", (req, res) => { admin.clearAdminSession(res); res.json({ ok: true }); });
+
+app.get("/admin", admin.requireAdmin, (req, res) => res.sendFile(path.join(ADMIN_DIR, "dashboard.html")));
+app.get("/admin/app.js", admin.requireAdmin, (req, res) => res.sendFile(path.join(ADMIN_DIR, "app.js")));
+
+// ---- Admin analytics API (all gated) ----
+app.get("/api/admin/overview", admin.requireAdmin, async (req, res) => {
+  try {
+    const q = (sql, p = []) => pool.query(sql, p).then((r) => r.rows[0] || {});
+    const users      = await q(`SELECT COUNT(*)::int n FROM users`);
+    const activeToday= await q(`SELECT COUNT(DISTINCT user_id)::int n FROM user_sessions WHERE last_ping_at >= NOW() - INTERVAL '1 day'`);
+    const active7d   = await q(`SELECT COUNT(DISTINCT user_id)::int n FROM user_sessions WHERE last_ping_at >= NOW() - INTERVAL '7 days'`);
+    const cost30d    = await q(`SELECT COALESCE(SUM(cost_usd),0) c, COUNT(*)::int n FROM delta_usage WHERE created_at >= NOW() - INTERVAL '30 days'`);
+    const costAll    = await q(`SELECT COALESCE(SUM(cost_usd),0) c FROM delta_usage`);
+    const sends30d   = await q(`SELECT COUNT(*)::int n FROM email_sends WHERE created_at >= NOW() - INTERVAL '30 days'`);
+    res.json({
+      users: users.n || 0,
+      activeToday: activeToday.n || 0,
+      active7d: active7d.n || 0,
+      cost30d: Number(cost30d.c || 0),
+      calls30d: cost30d.n || 0,
+      costAllTime: Number(costAll.c || 0),
+      sends30d: sends30d.n || 0,
+    });
+  } catch (err) { console.error("[/api/admin/overview]", err); res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/admin/users", admin.requireAdmin, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT u.id, u.email, u.display_name, u.preferred_model, u.blocked_at,
+             GREATEST(u.last_seen_at, (SELECT MAX(last_ping_at) FROM user_sessions s WHERE s.user_id = u.id)) AS last_active,
+             COALESCE((SELECT SUM(EXTRACT(EPOCH FROM (last_ping_at - started_at))/60) FROM user_sessions s WHERE s.user_id=u.id AND s.last_ping_at >= NOW() - INTERVAL '30 days'),0) AS minutes30d,
+             COALESCE((SELECT COUNT(*) FROM email_sends e WHERE e.user_id=u.id AND e.created_at >= NOW() - INTERVAL '30 days'),0) AS sends30d,
+             COALESCE((SELECT COUNT(*) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - INTERVAL '30 days'),0) AS calls30d,
+             COALESCE((SELECT SUM(cost_usd) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - INTERVAL '30 days'),0) AS cost30d
+        FROM users u
+       ORDER BY last_active DESC NULLS LAST`);
+    res.json({ users: r.rows.map((u) => ({
+      id: Number(u.id), email: u.email, display_name: u.display_name,
+      preferred_model: u.preferred_model, blocked_at: u.blocked_at, last_active: u.last_active,
+      minutes30d: Math.round(Number(u.minutes30d)), sends30d: Number(u.sends30d),
+      calls30d: Number(u.calls30d), cost30d: Number(u.cost30d),
+    })) });
+  } catch (err) { console.error("[/api/admin/users]", err); res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/admin/user/:id", admin.requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  try {
+    const u = (await pool.query(`SELECT id, email, display_name, preferred_model, blocked_at, blocked_reason, created_at, last_seen_at FROM users WHERE id=$1`, [id])).rows[0];
+    if (!u) return res.status(404).json({ error: "not_found" });
+    const one = (sql) => pool.query(sql, [id]).then((r) => r.rows[0] || {});
+    const m30  = await one(`SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (last_ping_at - started_at))/60),0) v FROM user_sessions WHERE user_id=$1 AND last_ping_at >= NOW() - INTERVAL '30 days'`);
+    const sA   = await one(`SELECT COUNT(*)::int v FROM email_sends WHERE user_id=$1`);
+    const s30  = await one(`SELECT COUNT(*)::int v FROM email_sends WHERE user_id=$1 AND created_at >= NOW() - INTERVAL '30 days'`);
+    const c30  = await one(`SELECT COALESCE(SUM(cost_usd),0) c, COUNT(*)::int n FROM delta_usage WHERE user_id=$1 AND created_at >= NOW() - INTERVAL '30 days'`);
+    const cA   = await one(`SELECT COALESCE(SUM(cost_usd),0) c FROM delta_usage WHERE user_id=$1`);
+    const lastSession = await one(`SELECT MAX(last_ping_at) v FROM user_sessions WHERE user_id=$1`);
+    const chats = (await pool.query(`SELECT role, content, model, created_at FROM delta_chat_messages WHERE user_id=$1 ORDER BY created_at DESC LIMIT 30`, [id])).rows.reverse();
+    res.json({
+      user: { ...u, id: Number(u.id), last_active: lastSession.v || u.last_seen_at },
+      minutes30d: Math.round(Number(m30.v)),
+      sendsAll: sA.v || 0, sends30d: s30.v || 0,
+      calls30d: c30.n || 0, cost30d: Number(c30.c || 0), costAll: Number(cA.c || 0),
+      recentChats: chats,
+    });
+  } catch (err) { console.error("[/api/admin/user/:id]", err); res.status(500).json({ error: err.message }); }
+});
+
+app.post("/api/admin/user/:id/block", admin.requireAdmin, express.json(), async (req, res) => {
+  try {
+    await pool.query(`UPDATE users SET blocked_at = NOW(), blocked_reason = $2 WHERE id = $1`,
+      [Number(req.params.id), String((req.body || {}).reason || "").slice(0, 500) || null]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+app.post("/api/admin/user/:id/unblock", admin.requireAdmin, express.json(), async (req, res) => {
+  try {
+    await pool.query(`UPDATE users SET blocked_at = NULL, blocked_reason = NULL WHERE id = $1`, [Number(req.params.id)]);
+    res.json({ ok: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get("/api/admin/chats/recent", admin.requireAdmin, async (req, res) => {
+  try {
+    const r = await pool.query(`
+      SELECT c.role, c.content, c.model, c.created_at, u.email
+        FROM delta_chat_messages c LEFT JOIN users u ON u.id = c.user_id
+       ORDER BY c.created_at DESC LIMIT 120`);
+    res.json({ turns: r.rows });
+  } catch (err) { console.error("[/api/admin/chats/recent]", err); res.status(500).json({ error: err.message }); }
+});
+
 // Phase 5.CI — version / uptime for the Settings "About" panel.
 // Reuses the existing BOOT_TIME_MS constant defined later in the file
 // (const hoisting is fine here — both are initialised before any

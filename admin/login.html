@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Delta Mail — Admin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --gold:#B28E44; --gold-dark:#8E6F35; --navy:#282F39; --cream:#F7F3E9; --line:#e6e0d2; --red:#E92A2E; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--cream); color:var(--navy); display:grid; place-items:center; min-height:100vh; }
+  .card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:36px 32px;
+    width:360px; box-shadow:0 12px 40px rgba(40,47,57,.10); }
+  .brand { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+  .brand img { width:30px; height:30px; }
+  .brand b { font-size:17px; }
+  h1 { font-size:15px; color:var(--gold-dark); margin:0 0 22px; font-weight:600; letter-spacing:.3px; }
+  label { display:block; font-size:12px; color:var(--navy); font-weight:600; margin-bottom:6px; }
+  input { width:100%; padding:11px 13px; border:1px solid var(--line); border-radius:10px;
+    font-size:14px; font-family:inherit; background:var(--cream); color:var(--navy); }
+  input:focus { outline:none; border-color:var(--gold); }
+  button { width:100%; margin-top:18px; padding:12px; border:none; border-radius:10px; cursor:pointer;
+    background:var(--gold); color:#fff; font-weight:700; font-size:14px; font-family:inherit; }
+  button:hover { background:var(--gold-dark); }
+  .err { color:var(--red); font-size:12.5px; margin-top:14px; min-height:16px; }
+  .hint { color:#8a8270; font-size:11.5px; margin-top:18px; text-align:center; }
+</style>
+</head>
+<body>
+  <form class="card" id="loginForm">
+    <div class="brand"><img src="/delta-logo.png" alt=""><b>Delta Mail</b></div>
+    <h1>Admin console</h1>
+    <label for="pass">Admin passphrase</label>
+    <input type="password" id="pass" autocomplete="current-password" autofocus>
+    <button type="submit">Sign in</button>
+    <div class="err" id="err"></div>
+    <div class="hint">Separate from your mailbox login.</div>
+  </form>
+<script>
+  const f = document.getElementById("loginForm");
+  const err = document.getElementById("err");
+  f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    err.textContent = "";
+    const pass = document.getElementById("pass").value;
+    try {
+      const r = await fetch("/admin/login", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ passphrase: pass }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok) { window.location.href = "/admin"; return; }
+      err.textContent = d.error === "throttled" ? "Too many attempts — wait 10 minutes." : "Incorrect passphrase.";
+    } catch (_) { err.textContent = "Network error — try again."; }
+  });
+</script>
+</body>
+</html>
