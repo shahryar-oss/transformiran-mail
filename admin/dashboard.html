@@ -7,29 +7,51 @@
 <style>
   :root { --gold:#B28E44; --gold-dark:#8E6F35; --navy:#282F39; --navy-soft:#4a5360;
     --cream:#F7F3E9; --cream-dark:#efe8d6; --paper:#fff; --line:#e6e0d2; --red:#E92A2E;
-    --good:#3a9d5a; --muted:#8a8270; }
+    --good:#3a9d5a; --muted:#8a8270; --blue:#3a6ea5; }
   * { box-sizing:border-box; }
-  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
     background:var(--cream); color:var(--navy); font-size:14px; }
   header { display:flex; align-items:center; gap:12px; padding:16px 28px; background:var(--navy);
     color:#fff; position:sticky; top:0; z-index:5; }
-  header img { width:26px; height:26px; }
-  header b { font-size:15px; }
+  header b { font-size:15px; letter-spacing:.2px; }
   header .sub { color:#c8cdd4; font-size:12.5px; }
   header .spacer { flex:1; }
+  header .winsel { background:rgba(255,255,255,.10); color:#fff; border:1px solid rgba(255,255,255,.18);
+    border-radius:8px; padding:6px 10px; font-size:12.5px; font-family:inherit; margin-right:8px; }
   header button { background:rgba(255,255,255,.12); color:#fff; border:none; border-radius:8px;
     padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer; font-family:inherit; }
   header button:hover { background:rgba(255,255,255,.22); }
-  .wrap { max-width:1180px; margin:0 auto; padding:24px 28px 60px; }
-  .tabs { display:flex; gap:8px; margin-bottom:20px; }
+  .wrap { max-width:1200px; margin:0 auto; padding:24px 28px 60px; }
+  .tabs { display:flex; gap:8px; margin-bottom:22px; }
   .tab { border:1px solid var(--line); background:var(--paper); color:var(--navy-soft);
     padding:8px 16px; border-radius:999px; cursor:pointer; font-weight:600; font-size:13px; }
   .tab.active { background:var(--gold); border-color:var(--gold); color:#fff; }
-  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:14px; margin-bottom:26px; }
+
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:14px; margin-bottom:22px; }
   .kpi { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:16px 18px; }
-  .kpi .v { font-size:26px; font-weight:800; color:var(--navy); }
+  .kpi .v { font-size:25px; font-weight:800; color:var(--navy); font-variant-numeric:tabular-nums; }
   .kpi .l { font-size:12px; color:var(--muted); margin-top:4px; }
   .kpi .sub2 { font-size:11px; color:var(--gold-dark); margin-top:2px; }
+
+  .card { background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:18px 20px; margin-bottom:16px; }
+  .card h2 { margin:0 0 4px; font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--gold-dark); }
+  .card .csub { font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .grid2 { display:grid; grid-template-columns:1.6fr 1fr; gap:16px; }
+  @media (max-width:860px){ .grid2 { grid-template-columns:1fr; } }
+
+  /* SVG charts */
+  svg.chart { display:block; max-width:100%; font-family:inherit; }
+  svg.chart .grid { stroke:var(--line); stroke-width:.5; }
+  svg.chart .axis-text { fill:var(--muted); font-size:10px; }
+  svg.chart .area { fill:var(--gold); fill-opacity:.13; }
+  svg.chart .line { stroke:var(--gold); stroke-width:2; fill:none; }
+  svg.chart circle.pt { fill:var(--paper); stroke:var(--gold); stroke-width:2; }
+  .model-row { display:flex; align-items:center; gap:10px; margin-bottom:10px; font-size:12.5px; }
+  .model-row .mname { width:130px; flex-shrink:0; font-weight:600; color:var(--navy); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .model-row .mbar { flex:1; height:14px; background:var(--cream-dark); border-radius:5px; overflow:hidden; }
+  .model-row .mbar i { display:block; height:100%; background:var(--gold); border-radius:5px; }
+  .model-row .mval { width:74px; text-align:right; color:var(--navy-soft); font-variant-numeric:tabular-nums; }
+
   table { width:100%; border-collapse:collapse; background:var(--paper); border:1px solid var(--line); border-radius:14px; overflow:hidden; }
   th,td { text-align:left; padding:11px 14px; font-size:13px; border-bottom:1px solid var(--line); }
   th { background:var(--cream-dark); color:var(--navy-soft); font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
@@ -49,22 +71,26 @@
   .clickable:hover { background:var(--cream); }
   .muted { color:var(--muted); }
   .loading { padding:40px; text-align:center; color:var(--muted); }
+
+  /* chat monitoring turns */
+  .turn { background:var(--paper); border:1px solid var(--line); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+  .turn .thead { font-size:11px; color:var(--muted); margin-bottom:8px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .turn .who-u { font-weight:700; color:var(--navy); }
+  .turn .pill { background:var(--cream-dark); border-radius:999px; padding:1px 8px; font-weight:600; }
+  .turn .msg { border-left:3px solid var(--gold); padding:8px 12px; border-radius:8px; background:var(--cream);
+    font-size:13px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; }
+  .turn .reply { border-left:3px solid var(--blue); padding:8px 12px; border-radius:8px; background:var(--cream-dark);
+    font-size:13px; line-height:1.55; white-space:pre-wrap; word-wrap:break-word; margin-top:8px; }
+
   /* drawer */
   .drawer-back { position:fixed; inset:0; background:rgba(40,47,57,.35); display:none; z-index:20; }
   .drawer-back.open { display:block; }
   .drawer { position:fixed; top:0; right:0; height:100vh; width:560px; max-width:92vw; background:var(--cream);
-    box-shadow:-12px 0 40px rgba(40,47,57,.2); transform:translateX(100%); transition:transform .2s; z-index:21;
-    overflow-y:auto; }
+    box-shadow:-12px 0 40px rgba(40,47,57,.2); transform:translateX(100%); transition:transform .2s; z-index:21; overflow-y:auto; }
   .drawer.open { transform:translateX(0); }
   .drawer-head { padding:18px 22px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px; position:sticky; top:0; background:var(--cream); }
   .drawer-head .x { margin-left:auto; cursor:pointer; font-size:22px; color:var(--muted); border:none; background:none; }
   .drawer-body { padding:18px 22px; }
-  .chat-turn { margin-bottom:12px; padding:10px 12px; border-radius:10px; border:1px solid var(--line); background:var(--paper); }
-  .chat-turn.user { background:var(--cream-dark); }
-  .chat-turn .who { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--gold-dark); margin-bottom:4px; }
-  .chat-turn.user .who { color:var(--navy-soft); }
-  .chat-turn .when { float:right; font-weight:400; text-transform:none; color:var(--muted); letter-spacing:0; }
-  .chat-turn .txt { white-space:pre-wrap; font-size:13px; line-height:1.5; }
   .sec-label { font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--gold-dark); font-weight:700; margin:18px 0 10px; }
   [hidden] { display:none !important; }
 </style>
@@ -73,33 +99,58 @@
 <header>
   <b>Transform Iran Mail</b><span class="sub">Admin console</span>
   <span class="spacer"></span>
+  <select class="winsel" id="winSel">
+    <option value="7">Last 7 days</option>
+    <option value="30" selected>Last 30 days</option>
+    <option value="90">Last 90 days</option>
+  </select>
   <button id="logoutBtn">Sign out</button>
 </header>
 <div class="wrap">
   <div class="tabs">
-    <button class="tab active" data-tab="users">Users &amp; analytics</button>
+    <button class="tab active" data-tab="overview">Overview &amp; users</button>
     <button class="tab" data-tab="chats">Delta chat monitoring</button>
   </div>
 
-  <section id="tab-users">
+  <section id="tab-overview">
     <div class="kpis" id="kpis"><div class="loading">Loading…</div></div>
-    <table id="usersTable">
-      <thead><tr>
-        <th>User</th><th>Last active</th><th class="num">Time (30d)</th>
-        <th class="num">Emails (30d)</th><th class="num">Delta calls</th>
-        <th class="num">Delta cost (30d)</th><th>Status</th><th></th>
-      </tr></thead>
-      <tbody id="usersBody"><tr><td colspan="8" class="loading">Loading users…</td></tr></tbody>
-    </table>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Delta cost over time</h2>
+        <div class="csub" id="costChartSub">Daily Anthropic spend.</div>
+        <div id="costChart" class="loading">Loading…</div>
+      </div>
+      <div class="card">
+        <h2>Delta usage by model</h2>
+        <div class="csub">Calls + cost per model.</div>
+        <div id="modelChart" class="loading">Loading…</div>
+      </div>
+    </div>
+
+    <div class="card" style="padding-bottom:6px">
+      <h2>Users</h2>
+      <div class="csub">Click a row for full detail + recent Delta chat. Window applies to the stats below.</div>
+      <table id="usersTable">
+        <thead><tr>
+          <th>User</th><th>Last active</th><th class="num">Time</th>
+          <th class="num">Emails</th><th class="num">Delta calls</th>
+          <th class="num">Delta cost</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="usersBody"><tr><td colspan="8" class="loading">Loading users…</td></tr></tbody>
+      </table>
+    </div>
   </section>
 
   <section id="tab-chats" hidden>
-    <div class="muted" style="margin-bottom:12px">Most recent Delta conversation turns across all users — for quality review.</div>
+    <div class="card" style="margin-bottom:14px">
+      <h2>Delta chat monitoring</h2>
+      <div class="csub">Most recent Delta conversation turns across all users — spot-check tone, accuracy, refusals, and grounding. Newest first.</div>
+    </div>
     <div id="chatsList" class="loading">Loading…</div>
   </section>
 </div>
 
-<!-- per-user drawer -->
 <div class="drawer-back" id="drawerBack"></div>
 <aside class="drawer" id="drawer">
   <div class="drawer-head">

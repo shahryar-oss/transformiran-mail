@@ -440,22 +440,45 @@ app.get("/api/admin/overview", admin.requireAdmin, async (req, res) => {
   } catch (err) { console.error("[/api/admin/overview]", err); res.status(500).json({ error: err.message }); }
 });
 
+// Time-series for the dashboard charts (last N days; default 30).
+app.get("/api/admin/timeseries", admin.requireAdmin, async (req, res) => {
+  const days = Math.max(7, Math.min(90, Number(req.query.days) || 30));
+  try {
+    const byDay = (await pool.query(
+      `SELECT to_char(created_at, 'YYYY-MM-DD') AS day, SUM(cost_usd) AS cost, COUNT(*)::int AS calls
+         FROM delta_usage WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL
+        GROUP BY day ORDER BY day`, [days])).rows
+      .map((r) => ({ day: r.day, cost: Number(r.cost || 0), calls: r.calls }));
+    const byModel = (await pool.query(
+      `SELECT COALESCE(model,'?') AS model, COUNT(*)::int AS calls, SUM(cost_usd) AS cost
+         FROM delta_usage WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL
+        GROUP BY model ORDER BY cost DESC`, [days])).rows
+      .map((r) => ({ model: r.model, calls: r.calls, cost: Number(r.cost || 0) }));
+    const sendsByDay = (await pool.query(
+      `SELECT to_char(created_at, 'YYYY-MM-DD') AS day, COUNT(*)::int AS n
+         FROM email_sends WHERE created_at >= NOW() - ($1 || ' days')::INTERVAL
+        GROUP BY day ORDER BY day`, [days])).rows;
+    res.json({ days, byDay, byModel, sendsByDay });
+  } catch (err) { console.error("[/api/admin/timeseries]", err); res.status(500).json({ error: err.message }); }
+});
+
 app.get("/api/admin/users", admin.requireAdmin, async (req, res) => {
+  const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
   try {
     const r = await pool.query(`
       SELECT u.id, u.email, u.display_name, u.preferred_model, u.blocked_at,
              GREATEST(u.last_seen_at, (SELECT MAX(last_ping_at) FROM user_sessions s WHERE s.user_id = u.id)) AS last_active,
-             COALESCE((SELECT SUM(EXTRACT(EPOCH FROM (last_ping_at - started_at))/60) FROM user_sessions s WHERE s.user_id=u.id AND s.last_ping_at >= NOW() - INTERVAL '30 days'),0) AS minutes30d,
-             COALESCE((SELECT COUNT(*) FROM email_sends e WHERE e.user_id=u.id AND e.created_at >= NOW() - INTERVAL '30 days'),0) AS sends30d,
-             COALESCE((SELECT COUNT(*) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - INTERVAL '30 days'),0) AS calls30d,
-             COALESCE((SELECT SUM(cost_usd) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - INTERVAL '30 days'),0) AS cost30d
+             COALESCE((SELECT SUM(EXTRACT(EPOCH FROM (last_ping_at - started_at))/60) FROM user_sessions s WHERE s.user_id=u.id AND s.last_ping_at >= NOW() - ($1 || ' days')::INTERVAL),0) AS minutes_w,
+             COALESCE((SELECT COUNT(*) FROM email_sends e WHERE e.user_id=u.id AND e.created_at >= NOW() - ($1 || ' days')::INTERVAL),0) AS sends_w,
+             COALESCE((SELECT COUNT(*) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - ($1 || ' days')::INTERVAL),0) AS calls_w,
+             COALESCE((SELECT SUM(cost_usd) FROM delta_usage d WHERE d.user_id=u.id AND d.created_at >= NOW() - ($1 || ' days')::INTERVAL),0) AS cost_w
         FROM users u
-       ORDER BY last_active DESC NULLS LAST`);
-    res.json({ users: r.rows.map((u) => ({
+       ORDER BY last_active DESC NULLS LAST`, [days]);
+    res.json({ days, users: r.rows.map((u) => ({
       id: Number(u.id), email: u.email, display_name: u.display_name,
       preferred_model: u.preferred_model, blocked_at: u.blocked_at, last_active: u.last_active,
-      minutes30d: Math.round(Number(u.minutes30d)), sends30d: Number(u.sends30d),
-      calls30d: Number(u.calls30d), cost30d: Number(u.cost30d),
+      minutes30d: Math.round(Number(u.minutes_w)), sends30d: Number(u.sends_w),
+      calls30d: Number(u.calls_w), cost30d: Number(u.cost_w),
     })) });
   } catch (err) { console.error("[/api/admin/users]", err); res.status(500).json({ error: err.message }); }
 });
