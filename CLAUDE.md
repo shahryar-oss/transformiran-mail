@@ -9,22 +9,43 @@ An executive-assistant email tool for Transform Iran staff, replacing **Shortwav
 
 This is a **sibling project** to the Transform Iran Financial Dashboard at `~/Desktop/Account report/dashboard-app/` (deployed at `transformiran.info`). They share the **Transform Iran brand + Delta name + Delta UI component + magic-link auth pattern**. **They share NOTHING else.** Different DB, different repo, different Render service, different system prompt, different tools, different mission. See "Project hygiene" below.
 
-## V1 scope (Phase 0 → Phase 5)
+## Current state (2026-05-31)
 
-| Phase | Scope |
+In active daily use by Shahryar + multiple TI staff. Phases 0–5 all shipped + iterated. Today TI Mail is in feature parity with NexaMails (the public SaaS fork at `~/Desktop/NexaCore Mail/`) on day-to-day UX, **plus** TI-only:
+- Slack integration (search + DM reads + file parsing)
+- `consult_finance_delta` bridge to the Finance dashboard
+- `find_meeting_time` tool — Google `freebusy.query` across `@transformiran.com` Workspace
+
+### What's shipped
+
+| Surface | Status |
 |---|---|
-| **0 (now)** | Empty shell deployed. Outlook-style layout. Delta FAB in corner. No backend wiring. |
-| **1** | Magic-link login. Google OAuth (Gmail readonly+modify+send + Calendar). Display recent Gmail messages in the inbox list. |
-| **2** | Backfill 3-4 years of mail history. Build per-contact profiles. Drafting workflow (instruct → AI draft → user edits → user sends). |
-| **3** | Morning briefing. Task extraction. Reply tracking. Priority inbox. |
-| **4** | Multilingual translate (Farsi/Armenian/English/Dutch). Travel mode. Calendar integration. |
-| **5** | Multi-user (add Lana → Pia → team). Slack integration. Desktop apps (Tauri). |
+| Inbox 3-pane + Delta chat + voice (OpenAI Realtime) | ✅ |
+| Compose (rich text + Markdown shortcuts + undo-send) | ✅ |
+| Calendar (focus blocks, meeting buffer, meeting prep notifications, default Zoom link) | ✅ |
+| Tasks (To Do) + Snooze + Important contacts + Smart folders + Snippets | ✅ |
+| Cross-page shortcuts (`g+i/c/t/n/s`, `?` cheat sheet) | ✅ |
+| Memory page Shortwave-style (flat list + Saved prompts) | ✅ |
+| **Settings — 11-panel sidebar version** (Account/Compose/Memory/Inbox/Notifications/Appearance/Calendar/Integrations/Shortcuts/Support) | ✅ shipped 2026-05-31 |
+| Appearance (theme/accent/density/font — app-wide via `public/appearance.js`) | ✅ |
+| Notifications (Smart/Custom/Off mode, quiet hours, hourly budget, dry-run estimator) | ✅ |
+| Slack: workspace install + per-user connect + search + read files | ✅ |
+| Finance Delta bridge: `consult_finance_delta` tool + bridgeMode prompt | ✅ |
+| Bug-report form + admin list | ✅ |
+| Account export + delete | ✅ |
 
-WhatsApp explicitly deferred — Meta Business approval is too painful. Mobile native app deferred to later phase.
+### Key AI tools (in `lib/assistant.js`)
 
-## V1 user
-
-`shahryar@transformiran.com` only. Single-user pilot. Once it works for him, roll out to Lana, then Pia, then full team.
+- `search_inbox`, `draft_reply`, `compose_email`, `forward_email`, `email_action`
+- `read_attachments` (PDF/DOCX/XLSX/CSV)
+- `search_slack`, `read_slack_file`
+- `create_task`, `propose_inbox_cleanup`, `start_inbox_routine`
+- `remember` — saves to `delta_memory`. ALL paths (explicit + proactive + voice) render the chat confirmation card.
+- `find_person` — name→email union query across `contacts`+`gmail_contacts`+`important_contacts`+`delta_memory.subject_email`. ALWAYS call BEFORE saying "I don't have their email"
+- `propose_calendar_event` — Shortwave-style preview flow with conflict check, NO Google Calendar write; UI shows Skip/Create card
+- `create_calendar_event` — only after user confirms a preview
+- **`find_meeting_time` (TI-only)** — Google `freebusy.query` across attendees. Works because all `@transformiran.com` are same Workspace. Returns up to 5 candidate slots; UI renders slot-picker.
+- `consult_finance_delta` — bridge to Finance Delta (Account-report dashboard's `/api/delta-bridge/query`)
 
 ## Architecture (Phase 0 → 1)
 
