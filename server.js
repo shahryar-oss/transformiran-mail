@@ -381,6 +381,13 @@ app.get("/api/me", auth.requireAuth, (req, res) => {
   });
 });
 
+// Activity heartbeat — the client pings while a tab is open so the admin
+// console can measure time-on-app. Best-effort; never errors the client.
+app.post("/api/me/heartbeat", auth.requireAuth, async (req, res) => {
+  try { await require("./lib/usage").touchSession(req.user.id); } catch (_) {}
+  res.json({ ok: true });
+});
+
 // Phase 5.CI — version / uptime for the Settings "About" panel.
 // Reuses the existing BOOT_TIME_MS constant defined later in the file
 // (const hoisting is fine here — both are initialised before any
@@ -4196,6 +4203,17 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
         ...(threadId ? { threadId } : {}),
       },
     });
+
+    // Admin telemetry — count this outbound email per user (best-effort).
+    try {
+      require("./lib/usage").recordEmailSend({
+        userId: req.user.id,
+        to,
+        subject,
+        kind: threadId ? "reply" : "compose",
+        threadId: threadId || null,
+      });
+    } catch (_) {}
 
     // After-send hygiene: if this was a REPLY (we have a threadId from the
     // original message), auto-archive the thread + mark all messages in it

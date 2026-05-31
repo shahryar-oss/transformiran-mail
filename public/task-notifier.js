@@ -350,16 +350,28 @@
   }
 
   // =============================================================
+  // ACTIVITY HEARTBEAT — pings the server while the tab is visible so
+  // the admin console can measure time-on-app. Only fires when the tab
+  // is actually in the foreground (no time credited while hidden).
+  // =============================================================
+  function heartbeat() {
+    if (document.hidden) return;
+    fetch("/api/me/heartbeat", { method: "POST" }).catch(() => {});
+  }
+
+  // =============================================================
   // RUN
   // =============================================================
   refreshOverdueCount();
   pollTasks();
   pollEmails();
   pollMeetingPrep();
+  heartbeat();
   setInterval(refreshOverdueCount, 60_000);     // badge refresh every 60s
   setInterval(pollTasks,           60_000);     // due-soon poll every 60s
   setInterval(pollEmails,          60_000);     // new-email poll every 60s
   setInterval(pollMeetingPrep,    120_000);     // meeting-prep poll every 2 min
+  setInterval(heartbeat,           60_000);     // activity heartbeat every 60s
 
   // Also refresh when the tab regains focus.
   document.addEventListener("visibilitychange", () => {
@@ -368,6 +380,7 @@
       pollTasks();
       pollEmails();
       pollMeetingPrep();
+      heartbeat();
     }
   });
 })();
