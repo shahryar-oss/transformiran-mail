@@ -338,13 +338,24 @@ app.delete("/api/tasks/:taskId/steps/:stepId", auth.requireAuth, async (req, res
 // but Safari can stick with a stale copy for hours; explicit
 // `no-cache` forces a conditional GET on every request. Images
 // and stylesheets still get the default short-lived cache.
+// Asset caching for speed. Files requested with a ?v= cache-bust (every
+// JS/CSS ref in our HTML carries one) are immutable → the browser serves
+// them from disk with ZERO network on repeat loads + navigations. A new
+// deploy bumps ?v=, which is a new URL, so users still get changes
+// instantly. Unversioned assets get a short 10-min window. HTML always
+// revalidates so a new ?v= is always picked up.
+app.use((req, res, next) => {
+  if (/\.(js|css|png|svg|webp|jpe?g|gif|ico|woff2?)$/i.test(req.path)) {
+    res.setHeader("Cache-Control", req.query.v != null
+      ? "public, max-age=31536000, immutable"
+      : "public, max-age=600");
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, "public"), {
+  cacheControl: false,           // we set Cache-Control ourselves above
   setHeaders(res, filePath) {
-    if (/\.(html|js)$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "no-cache, must-revalidate");
-    } else if (/\.css$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "no-cache, must-revalidate");
-    }
+    if (/\.html$/i.test(filePath)) res.setHeader("Cache-Control", "no-cache, must-revalidate");
   },
 }));
 
