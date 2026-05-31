@@ -168,6 +168,14 @@ app.get("/promises", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "promises.html"));
 });
 
+// User manual / help — branded, self-contained reference covering every page
+// plus a full guide to Delta. Open to all (it carries no user data, and is
+// useful from the landing page too); its deep links into /tasks, /calendar,
+// etc. enforce their own auth.
+app.get(["/help", "/manual"], (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "help.html"));
+});
+
 // ====================================================================
 // Tasks API
 // ====================================================================

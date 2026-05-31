@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>User Manual — Transform Iran Mail, powered by Delta</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="/delta-logo.png?v=5DB">
+<style>
+  :root{
+    --gold:#B28E44; --gold-dark:#8E6F35; --gold-soft:#d9c69a;
+    --navy:#282F39; --navy-soft:#4a5360;
+    --cream:#F7F3E9; --cream-dark:#efe8d6; --paper:#fff; --line:#e6e0d2;
+    --red:#E92A2E; --good:#3a9d5a; --muted:#8a8270; --blue:#3a6ea5;
+    --ink:#2c3038;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    background:var(--cream);color:var(--ink);font-size:15px;line-height:1.6;-webkit-font-smoothing:antialiased;}
+
+  /* ---------- top bar ---------- */
+  header.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:16px;
+    padding:14px 30px;background:var(--navy);color:#fff;box-shadow:0 2px 14px rgba(40,47,57,.18);}
+  header.top img.brand{height:30px;width:auto;display:block;filter:brightness(0) invert(1);}
+  header.top .ttl{display:flex;flex-direction:column;line-height:1.15;}
+  header.top .ttl b{font-size:15px;letter-spacing:.2px;font-weight:700;}
+  header.top .ttl span{font-size:11.5px;color:#c8cdd4;letter-spacing:.3px;}
+  header.top .spacer{flex:1;}
+  header.top a.act,header.top button.act{background:rgba(255,255,255,.12);color:#fff;border:none;
+    border-radius:9px;padding:8px 15px;font-size:12.5px;font-weight:600;cursor:pointer;
+    font-family:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;}
+  header.top a.act:hover,header.top button.act:hover{background:rgba(255,255,255,.24);}
+  @media (max-width:560px){
+    header.top{padding:10px 14px;gap:10px;}
+    header.top img.brand{height:22px;}
+    header.top .ttl b{font-size:13px;} header.top .ttl span{display:none;}
+    header.top a.act,header.top button.act{padding:7px 11px;font-size:12px;}
+    header.top button.act{display:none;} /* print: desktop only */
+  }
+
+  /* ---------- layout ---------- */
+  .shell{max-width:1280px;margin:0 auto;display:grid;grid-template-columns:262px 1fr;gap:34px;
+    padding:28px 30px 80px;align-items:start;}
+  nav.toc{position:sticky;top:78px;max-height:calc(100vh - 96px);overflow-y:auto;
+    background:var(--paper);border:1px solid var(--line);border-radius:16px;padding:16px 14px;}
+  nav.toc .tlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold-dark);
+    font-weight:800;margin:14px 10px 6px;}
+  nav.toc .tlabel:first-child{margin-top:2px;}
+  nav.toc a{display:block;padding:6px 10px;border-radius:8px;color:var(--navy-soft);
+    text-decoration:none;font-size:13px;font-weight:500;border-left:3px solid transparent;}
+  nav.toc a:hover{background:var(--cream);color:var(--navy);}
+  nav.toc a.active{background:var(--cream-dark);color:var(--gold-dark);font-weight:700;border-left-color:var(--gold);}
+  main{min-width:0;}
+
+  @media (max-width:900px){
+    .shell{grid-template-columns:1fr;gap:18px;}
+    nav.toc{position:static;max-height:none;}
+  }
+
+  /* ---------- hero ---------- */
+  .hero{background:linear-gradient(135deg,#fff 0%,var(--cream-dark) 100%);
+    border:1px solid var(--line);border-radius:20px;padding:30px 32px;margin-bottom:24px;position:relative;overflow:hidden;}
+  .hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+    background:repeating-linear-gradient(-45deg,var(--gold-soft),var(--gold-soft) 7px,transparent 7px,transparent 18px);
+    opacity:.25;transform:rotate(8deg);border-radius:30px;}
+  .hero h1{margin:0 0 8px;font-size:27px;color:var(--navy);letter-spacing:-.3px;}
+  .hero p{margin:0;max-width:640px;color:var(--navy-soft);font-size:15px;}
+  .hero .pills{margin-top:16px;display:flex;flex-wrap:wrap;gap:8px;}
+  .hero .pills span{background:var(--paper);border:1px solid var(--line);border-radius:999px;
+    padding:5px 12px;font-size:12px;color:var(--gold-dark);font-weight:600;}
+
+  /* ---------- find-it-fast index ---------- */
+  .finder{background:var(--paper);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-bottom:30px;}
+  .finder h2{margin:0 0 4px;font-size:17px;color:var(--navy);}
+  .finder .sub{color:var(--muted);font-size:13px;margin-bottom:14px;}
+  .finder input{width:100%;padding:11px 14px;border:1px solid var(--line);border-radius:11px;
+    font-size:14px;font-family:inherit;background:var(--cream);margin-bottom:16px;}
+  .finder input:focus{outline:none;border-color:var(--gold);background:#fff;}
+  .idxgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(216px,1fr));gap:12px;}
+  .idxcard{border:1px solid var(--line);border-radius:13px;padding:13px 15px;background:var(--cream);
+    display:flex;flex-direction:column;gap:7px;transition:.12s;}
+  .idxcard:hover{border-color:var(--gold);box-shadow:0 4px 14px rgba(178,142,68,.13);}
+  .idxcard .subj{font-weight:700;color:var(--navy);font-size:13.5px;}
+  .idxcard .desc{font-size:12px;color:var(--muted);line-height:1.45;flex:1;}
+  .idxcard .links{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .idxcard a{font-size:12px;font-weight:700;text-decoration:none;}
+  .idxcard a.jump{color:var(--gold-dark);}
+  .idxcard a.jump:hover{text-decoration:underline;}
+  .idxcard a.open{color:var(--blue);display:inline-flex;align-items:center;gap:3px;}
+  .idxcard a.open:hover{text-decoration:underline;}
+
+  /* ---------- sections ---------- */
+  section.doc{background:var(--paper);border:1px solid var(--line);border-radius:18px;
+    padding:26px 30px;margin-bottom:22px;scroll-margin-top:80px;}
+  section.doc > h2{margin:0 0 4px;font-size:21px;color:var(--navy);letter-spacing:-.2px;display:flex;align-items:center;gap:11px;}
+  section.doc > h2 .ico{width:34px;height:34px;border-radius:10px;background:var(--cream-dark);
+    display:inline-flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+  section.doc > .lead{color:var(--navy-soft);font-size:14.5px;margin:6px 0 4px;}
+  .openpage{display:inline-flex;align-items:center;gap:6px;margin:14px 0 4px;padding:8px 15px;
+    background:var(--gold);color:#fff;border-radius:10px;text-decoration:none;font-weight:700;font-size:13px;}
+  .openpage:hover{background:var(--gold-dark);}
+  .openpage.ghost{background:transparent;color:var(--gold-dark);border:1px solid var(--gold);}
+  .openpage.ghost:hover{background:var(--cream);}
+
+  section.doc h3{font-size:15.5px;color:var(--navy);margin:24px 0 8px;padding-top:4px;border-top:1px dashed var(--line);}
+  section.doc h3:first-of-type{border-top:none;padding-top:0;}
+  section.doc h4{font-size:13.5px;color:var(--gold-dark);margin:16px 0 6px;text-transform:uppercase;letter-spacing:.4px;}
+  section.doc p{margin:8px 0;}
+  section.doc ul{margin:8px 0;padding-left:22px;}
+  section.doc li{margin:5px 0;}
+  section.doc b,section.doc strong{color:var(--navy);}
+  kbd{display:inline-block;background:var(--cream-dark);border:1px solid var(--line);border-bottom-width:2px;
+    border-radius:6px;padding:1px 7px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;color:var(--navy);min-width:18px;text-align:center;}
+  .chip{display:inline-block;background:var(--cream-dark);border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;color:var(--navy-soft);}
+  code{background:var(--cream-dark);border-radius:5px;padding:1px 6px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;color:var(--gold-dark);}
+
+  /* callouts */
+  .note{border-left:4px solid var(--gold);background:var(--cream);border-radius:0 11px 11px 0;padding:12px 16px;margin:14px 0;font-size:13.5px;}
+  .note.tip{border-left-color:var(--good);}
+  .note.warn{border-left-color:var(--red);}
+  .note .ntag{font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--gold-dark);display:block;margin-bottom:3px;}
+  .note.tip .ntag{color:var(--good);}
+  .note.warn .ntag{color:var(--red);}
+
+  /* tables */
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  th,td{text-align:left;padding:9px 13px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{background:var(--cream-dark);color:var(--navy-soft);font-size:11px;text-transform:uppercase;letter-spacing:.5px;}
+  tr:last-child td{border-bottom:none;}
+  td kbd{margin:1px 0;}
+
+  /* classification legend dots */
+  .dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .d-urgent{background:var(--red);} .d-reply{background:#e08a2b;} .d-task{background:var(--blue);}
+  .d-internal{background:#7b5ea7;} .d-receipt{background:#9a9486;} .d-done{background:var(--good);}
+
+  /* capability grid */
+  .caps{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px;margin:14px 0;}
+  .cap{border:1px solid var(--line);border-radius:12px;padding:13px 15px;background:var(--cream);}
+  .cap b{display:block;color:var(--navy);font-size:13.5px;margin-bottom:3px;}
+  .cap span{font-size:12.5px;color:var(--navy-soft);}
+
+  /* model tiers */
+  .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:14px 0;}
+  .tier{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--cream);}
+  .tier.exp{border-color:var(--gold);background:linear-gradient(160deg,#fff,var(--cream-dark));}
+  .tier .tname{font-size:15px;font-weight:800;color:var(--navy);}
+  .tier .tmodel{font-size:12px;color:var(--gold-dark);font-weight:600;margin:2px 0 8px;}
+  .tier .tdesc{font-size:12.5px;color:var(--navy-soft);}
+  .tier .twho{font-size:11.5px;color:var(--muted);margin-top:9px;border-top:1px dashed var(--line);padding-top:8px;}
+
+  footer.foot{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 0 0;}
+  .talk{background:var(--cream);border:1px solid var(--line);border-radius:11px;padding:13px 16px;margin:12px 0;font-size:13.5px;}
+  .talk em{color:var(--navy);font-style:normal;font-weight:600;}
+  @media print{
+    header.top,nav.toc,.openpage,.finder input{display:none!important;}
+    .shell{grid-template-columns:1fr;}
+    section.doc,.hero,.finder{break-inside:avoid;border-color:#ccc;}
+    body{background:#fff;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <img class="brand" src="/transform-logo.png?v=5DB" alt="Transform Iran Mail">
+  <div class="ttl"><b>User Manual</b><span>powered by Delta</span></div>
+  <span class="spacer"></span>
+  <a class="act" href="/">← Back to inbox</a>
+  <button class="act" onclick="window.print()">Print / Save PDF</button>
+</header>
+
+<div class="shell">
+
+  <!-- ============ SIDEBAR TOC ============ -->
+  <nav class="toc" id="toc">
+    <div class="tlabel">Start here</div>
+    <a href="#intro">Welcome</a>
+    <a href="#finder">Find it fast</a>
+    <a href="#basics">The basics</a>
+    <div class="tlabel">Your mailbox</div>
+    <a href="#inbox">The Inbox</a>
+    <a href="#read">Reading &amp; replying</a>
+    <a href="#compose">Writing a new email</a>
+    <a href="#important">Important people</a>
+    <a href="#folders">Folders &amp; labels</a>
+    <a href="#search">Search</a>
+    <a href="#snooze">Snooze</a>
+    <a href="#shortcuts">Keyboard shortcuts</a>
+    <div class="tlabel">Get organised</div>
+    <a href="#tasks">To Do (tasks)</a>
+    <a href="#calendar">Calendar</a>
+    <a href="#contacts">Contacts</a>
+    <a href="#promises">Promises</a>
+    <div class="tlabel">Delta, your assistant</div>
+    <a href="#delta">Meet Delta</a>
+    <a href="#delta-do">What Delta can do</a>
+    <a href="#delta-models">Basic / Advanced / Expert</a>
+    <a href="#delta-voice">Voice mode</a>
+    <a href="#delta-memory">Memory &amp; learning</a>
+    <a href="#delta-slack">Slack &amp; voice notes</a>
+    <a href="#delta-brief">Morning brief</a>
+    <a href="#delta-honest">Honesty &amp; accuracy</a>
+    <div class="tlabel">Setup &amp; admin</div>
+    <a href="#settings">Settings</a>
+    <a href="#notifications">Notifications</a>
+    <a href="#admin">Admin console</a>
+    <a href="#privacy">Privacy &amp; safety</a>
+    <a href="#faq">Tips &amp; FAQ</a>
+  </nav>
+
+  <main>
+
+    <!-- ============ HERO ============ -->
+    <div class="hero" id="intro">
+      <h1>Transform Iran Mail — User Manual</h1>
+      <p>This is your complete guide to the mailbox and to <strong>Delta</strong>, the assistant built into it.
+      Every page, every button, and everything Delta can do is explained here in plain language. Use the menu on
+      the left to jump anywhere, or start with <a href="#finder" style="color:var(--gold-dark);font-weight:700;">Find it fast</a> to go straight to the topic you need.</p>
+      <div class="pills">
+        <span>Email that drafts itself</span>
+        <span>To Do &amp; Calendar built in</span>
+        <span>Searches your whole history</span>
+        <span>Speaks Farsi, English, Dutch &amp; more</span>
+      </div>
+    </div>
+
+    <!-- ============ FIND IT FAST ============ -->
+    <div class="finder" id="finder">
+      <h2>Find it fast</h2>
+      <div class="sub">Which subject lives on which page. Click <b>Read</b> to learn it here, or <b>Open</b> to go straight to the live page.</div>
+      <input id="finderInput" type="text" placeholder="Type what you're looking for… e.g. 'snooze', 'reminder', 'meeting', 'cost'">
+      <div class="idxgrid" id="idxgrid">
+        <!-- cards injected by JS from INDEX below; static fallback also works -->
+      </div>
+    </div>
+
+    <!-- ============ THE BASICS ============ -->
+    <section class="doc" id="basics">
+      <h2><span class="ico">🧭</span> The basics</h2>
+      <p class="lead">How the app is laid out, so everything else makes sense.</p>
+      <p>Transform Iran Mail is your normal Gmail mailbox with a smarter face on top. You sign in with your
+      Transform Iran Google account, and everything you do here (send, archive, label) happens in your real Gmail too.</p>
+      <h3>The three columns</h3>
+      <ul>
+        <li><b>Left rail</b> — your navigation: the <chip>+ New email</chip> button, your folders, <b>To Do</b>, <b>Promises</b>, your <b>Important</b> people, your real Gmail labels, and links to Calendar, Contacts and Settings.</li>
+        <li><b>Middle column</b> — the email list, with a search bar and colour-coded filter pills.</li>
+        <li><b>Right side</b> — the email you're reading, a mini-calendar, and the <b>Delta</b> chat panel.</li>
+      </ul>
+      <h3>The other pages</h3>
+      <p>Across the top of the rail and via keyboard shortcuts you can reach five dedicated pages: <b>To Do</b>, <b>Calendar</b>, <b>Contacts</b>, <b>Promises</b> and <b>Settings</b>. Each is covered below.</p>
+      <div class="note tip"><span class="ntag">First time?</span> The very first sign-in shows a short welcome screen, and Delta quietly reads your inbox history in the background so it can search your past mail. A progress bar at the top of the inbox shows how that's going — you can keep working while it runs.</div>
+    </section>
+
+    <!-- ============ INBOX ============ -->
+    <section class="doc" id="inbox">
+      <h2><span class="ico">📥</span> The Inbox</h2>
+      <p class="lead">Your main screen — read, triage and act on mail.</p>
+      <a class="openpage" href="/">Open the inbox →</a>
+
+      <h3>The left rail, top to bottom</h3>
+      <ul>
+        <li><chip>+ New email</chip> — opens the writing window (see <a href="#compose">Writing a new email</a>).</li>
+        <li><b>Inbox, Starred, Sent, Drafts, Archive, Trash</b> — your standard folders, each with a live count.</li>
+        <li><b>Snoozed</b> — mail you've set aside to return later (see <a href="#snooze">Snooze</a>).</li>
+        <li><b>Marketing</b> and <b>Done</b> — newsletters, and mail you've finished with.</li>
+        <li><b>To Do</b> and <b>Promises</b> — your tasks and the commitments you've made (these sit near the top so they're easy to reach).</li>
+        <li><b>Important</b> — your hand-picked VIPs (see <a href="#important">Important people</a>).</li>
+        <li><b>Folders</b> — your real Gmail labels, pulled straight from your account. Click any to filter.</li>
+        <li><b>Calendar, Contacts, Settings</b> — links to those pages. Your name and a sign-out arrow sit at the very bottom.</li>
+      </ul>
+
+      <h3>The email list</h3>
+      <p>Each row shows the sender, time, subject, a one-line preview, a 📎 icon if there are attachments, and a colour-coded <b>category tag</b>. The list loads more as you scroll (no paging).</p>
+      <h4>Category tags &amp; filter pills</h4>
+      <p>Delta reads every email and labels it so you can see what matters at a glance. Click a pill at the top of the list to show only that kind:</p>
+      <table>
+        <tr><th>Tag</th><th>Means</th></tr>
+        <tr><td><span class="dot d-urgent"></span><b>Urgent</b></td><td>Time-sensitive and aimed at you — handle today.</td></tr>
+        <tr><td><span class="dot d-reply"></span><b>Reply</b></td><td>Someone is waiting on your answer.</td></tr>
+        <tr><td><span class="dot d-task"></span><b>Task</b></td><td>Contains an action item for you.</td></tr>
+        <tr><td><span class="dot d-internal"></span><b>Internal</b></td><td>From the team, no urgent ask.</td></tr>
+        <tr><td><span class="dot d-receipt"></span><b>Receipt / FYI / Newsletter / Auto</b></td><td>Invoices, things you're just cc'd on, bulk mail, and automated alerts.</td></tr>
+        <tr><td><span class="dot d-done"></span><b>Done</b></td><td>You've replied and finished — archived with a green tick.</td></tr>
+      </table>
+      <div class="note"><span class="ntag">Smart, not literal</span> Delta reads the whole email, not just the snippet. If you're only in <b>Cc</b> (not <b>To</b>), it leans toward <b>FYI</b> — unless the body actually asks <em>you</em> something. Mail from your Important people gets a nudge up in priority.</div>
+      <p>Use the refresh button to pull the newest mail, and the re-classify button (circular arrow) to re-run Delta's tagging if you've just updated how it sorts things.</p>
+
+      <h3>Quick actions on hover</h3>
+      <p>Hover any row to reveal one-click buttons: <b>mark read/unread</b>, <b>star</b>, <b>archive</b>, and <b>delete</b>. No need to open the email first.</p>
+      <p>The 🔔 bell at the top of the list shows overdue promises, due tasks, and unread mail from Important people — click it for the list.</p>
+    </section>
+
+    <!-- ============ READ & REPLY ============ -->
+    <section class="doc" id="read">
+      <h2><span class="ico">✉️</span> Reading &amp; replying</h2>
+      <p class="lead">Open an email and the right-hand reader shows it in full.</p>
+
+      <h3>The reader toolbar</h3>
+      <p><b>Reply</b>, <b>Reply All</b>, <b>Forward</b>, <b>Archive</b>, <b>Snooze</b>, <b>Star</b>, <b>mark unread</b>, and <b>Delete</b>. Attachments appear as chips — click to preview a PDF, image or document right inside the app, or <kbd>⌘</kbd>-click to open in a new tab.</p>
+      <div class="note"><span class="ntag">Reply All keeps everyone</span> When you Reply All, the people in <b>Cc</b> are kept by default — so nobody silently drops off the thread. You can still remove anyone before sending.</div>
+
+      <h3>Let Delta help with the email in front of you</h3>
+      <p>Under the email you'll find one-tap Delta buttons:</p>
+      <div class="caps">
+        <div class="cap"><b>Draft a reply</b><span>Delta writes a reply in your voice. It opens ready to edit — nothing sends until you click Send.</span></div>
+        <div class="cap"><b>Summarize</b><span>A three-bullet summary of a long email.</span></div>
+        <div class="cap"><b>Translate</b><span>Turns Farsi, Armenian, Dutch and other languages into English.</span></div>
+        <div class="cap"><b>Ask about this</b><span>Ask Delta a question about the email's content.</span></div>
+        <div class="cap"><b>Add to To Do</b><span>Pulls out the action items and turns them into tasks.</span></div>
+      </div>
+
+      <h3>The reply window</h3>
+      <p>When Delta drafts a reply you get an editable draft plus quick tone buttons — <b>Match my style</b>, <b>Shorter</b>, <b>Warmer</b>, <b>More formal</b>, <b>Firmer</b>, <b>Apologetic</b>, <b>In Farsi</b>, <b>In Dutch</b> — or type your own instruction (e.g. <em>"mention the flight is at 4:55 PM"</em>) and Delta re-drafts. A banner tells you how confident it is (how many past emails to that person it matched your style on), and a "Delta consulted N sources" panel lists exactly what it read to write the draft.</p>
+      <div class="note tip"><span class="ntag">It learns your voice</span> The edits you make to drafts teach Delta how you write. Over time, replies come back closer to how you'd say it yourself.</div>
+      <h4>Send safely</h4>
+      <p>After you click <b>Send</b>, a short <b>Undo</b> countdown appears (you set the length in Settings). If the email you're replying to was linked to a task, that task ticks itself off automatically.</p>
+    </section>
+
+    <!-- ============ COMPOSE ============ -->
+    <section class="doc" id="compose">
+      <h2><span class="ico">📝</span> Writing a new email</h2>
+      <p class="lead">Click <chip>+ New email</chip> in the rail (or press <kbd>c</kbd>) to open the writing window.</p>
+      <ul>
+        <li><b>To / Cc / Bcc</b> — start typing a name or address and it suggests contacts. Cc and Bcc are hidden until you click them.</li>
+        <li><b>Formatting</b> — font, size, colour, bold/italic/underline, lists, links, quotes — a full rich-text toolbar.</li>
+        <li><b>Signature</b> — your Gmail signature can be inserted automatically; control this in Settings.</li>
+        <li><b>Save as draft</b> — keeps it in Gmail Drafts to finish later.</li>
+        <li><b>Right-to-left aware</b> — Farsi and Arabic text automatically align correctly.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Reply in their language</span> If you reply to a Farsi email but type in English, a chip offers to translate your message to Farsi before sending — the quoted history is left untouched.</div>
+    </section>
+
+    <!-- ============ IMPORTANT ============ -->
+    <section class="doc" id="important">
+      <h2><span class="ico">⭐</span> Important people</h2>
+      <p class="lead">Your own VIP list — nobody is added for you.</p>
+      <p>The <b>Important</b> section in the rail is yours to build. Each person becomes a folder; clicking it shows
+      <b>only the emails they sent you</b> over the past year — not threads where they're merely cc'd. That keeps it to the conversations that are genuinely about them.</p>
+      <h4>To add someone</h4>
+      <ul>
+        <li>Click the <b>+</b> next to "Important" and enter their email, <em>or</em></li>
+        <li>Open one of their emails and click <b>Important</b> next to their name.</li>
+      </ul>
+      <h4>To remove someone</h4>
+      <p>Click the <b>×</b> next to their name in the rail.</p>
+      <div class="note"><span class="ntag">Why it matters</span> Mail from your Important people is nudged up in priority and feeds the 🔔 notifications and the morning brief — so the people you care about don't get lost.</div>
+    </section>
+
+    <!-- ============ FOLDERS ============ -->
+    <section class="doc" id="folders">
+      <h2><span class="ico">🗂️</span> Folders &amp; labels</h2>
+      <p class="lead">Your real Gmail structure, mirrored here.</p>
+      <p>Alongside the standard folders (Inbox, Starred, Sent, Drafts, Archive, Trash), the <b>Folders</b> section lists
+      your actual Gmail labels. Make a label in Gmail and it shows up here; click any folder to filter the list to it.
+      Archiving here removes mail from the inbox but keeps it in Gmail, so it's always searchable.</p>
+    </section>
+
+    <!-- ============ SEARCH ============ -->
+    <section class="doc" id="search">
+      <h2><span class="ico">🔍</span> Search</h2>
+      <p class="lead">Find anything across your whole mailbox.</p>
+      <p>Type in the search bar (or press <kbd>/</kbd>) and press <kbd>Enter</kbd>. It understands Gmail-style search:</p>
+      <ul>
+        <li><code>from:lana</code> — everything from Lana</li>
+        <li><code>subject:budget</code> — by subject word</li>
+        <li><code>newer_than:1y</code> — recent only</li>
+        <li>Combine them: <code>from:simon subject:wire</code></li>
+      </ul>
+      <p>Press <kbd>Esc</kbd> to clear. You can also ask <b>Delta</b> to search in plain English ("find Lana's emails about the budget") — and clicking an email in Delta's results filters the list to just those, with a banner you can clear.</p>
+    </section>
+
+    <!-- ============ SNOOZE ============ -->
+    <section class="doc" id="snooze">
+      <h2><span class="ico">⏰</span> Snooze</h2>
+      <p class="lead">Hide an email now, have it come back later.</p>
+      <p>Open an email and click <b>Snooze</b> (or press <kbd>b</kbd>). Pick <b>Later today</b>, <b>Tomorrow morning</b>, <b>Tomorrow evening</b>, <b>In 2 days</b>, <b>Next week</b>, <b>In a week</b>, or choose a custom date and time. The email leaves your inbox immediately and reappears, marked unread, at the time you chose. Everything snoozed sits in the <b>Snoozed</b> folder until then.</p>
+      <div class="note tip"><span class="ntag">Set your own defaults</span> Change the preset snooze times in <a href="#settings">Settings → Inbox</a>.</div>
+    </section>
+
+    <!-- ============ SHORTCUTS ============ -->
+    <section class="doc" id="shortcuts">
+      <h2><span class="ico">⌨️</span> Keyboard shortcuts</h2>
+      <p class="lead">Move through mail without the mouse. Every shortcut is remappable in Settings → Keyboard shortcuts.</p>
+      <table>
+        <tr><th>Key</th><th>Does</th><th>Key</th><th>Does</th></tr>
+        <tr><td><kbd>/</kbd></td><td>Focus search</td><td><kbd>j</kbd> / <kbd>k</kbd></td><td>Next / previous email</td></tr>
+        <tr><td><kbd>c</kbd></td><td>Compose new</td><td><kbd>Enter</kbd></td><td>Open selected</td></tr>
+        <tr><td><kbd>r</kbd></td><td>Reply</td><td><kbd>e</kbd></td><td>Archive</td></tr>
+        <tr><td><kbd>a</kbd></td><td>Reply all</td><td><kbd>#</kbd></td><td>Delete (to Trash)</td></tr>
+        <tr><td><kbd>f</kbd></td><td>Forward</td><td><kbd>u</kbd></td><td>Mark unread</td></tr>
+        <tr><td><kbd>s</kbd></td><td>Star / unstar</td><td><kbd>b</kbd></td><td>Snooze</td></tr>
+        <tr><td><kbd>?</kbd></td><td>Show this cheat-sheet</td><td><kbd>g</kbd> then <kbd>i/c/t/n/s</kbd></td><td>Go to Inbox / Calendar / To do / coNtacts / Settings</td></tr>
+      </table>
+    </section>
+
+    <!-- ============ TASKS ============ -->
+    <section class="doc" id="tasks">
+      <h2><span class="ico">✅</span> To Do (tasks)</h2>
+      <p class="lead">A full task manager, in the style of Microsoft To Do.</p>
+      <a class="openpage" href="/tasks">Open To Do →</a>
+      <h3>Lists down the left</h3>
+      <ul>
+        <li><b>My Day</b> — what you're doing today.</li>
+        <li><b>Important</b> — anything you've starred.</li>
+        <li><b>Planned</b> — a calendar-style view grouped into <b>Today</b>, <b>Tomorrow</b>, <b>This week</b> and <b>Later</b>, so you can see what's coming. Overdue items are flagged in red.</li>
+        <li><b>All</b> and <b>Completed</b> — everything, and everything done.</li>
+        <li><b>Your own lists</b> — make as many as you like with <chip>+ New list</chip>.</li>
+      </ul>
+      <h3>Working with a task</h3>
+      <p>Type in <chip>+ Add a task</chip> to create one. Click a task to open its detail panel, where you can set:</p>
+      <ul>
+        <li><b>Due date</b> — when it's due.</li>
+        <li><b>Reminder</b> — pick "5 minutes from now", "Tomorrow 9 AM", "Next Monday", or a custom time. You'll get a browser notification at that moment. If notifications aren't on yet, a <b>"Turn on reminders"</b> chip in the header switches them on.</li>
+        <li><b>Steps</b> — break a task into sub-steps with their own checkboxes.</li>
+        <li><b>Notes</b> — free text.</li>
+        <li><b>Source email</b> — if the task came from an email, the original is shown right there; click to jump back to it.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Hands-free</span> Tell Delta "remind me to call Reza on Friday" (typed or by voice) and it creates the task for you.</div>
+    </section>
+
+    <!-- ============ CALENDAR ============ -->
+    <section class="doc" id="calendar">
+      <h2><span class="ico">📅</span> Calendar</h2>
+      <p class="lead">Your Google Calendar, in a clean month grid.</p>
+      <a class="openpage" href="/calendar">Open Calendar →</a>
+      <ul>
+        <li><b>Month grid</b> with a mini-month picker to jump dates, plus a "Today &amp; upcoming" agenda on the right.</li>
+        <li><b>Create an event</b> — click <chip>+ New event</chip>, or double-click a day for a quick add. Set title, time, all-day, which calendar, location, attendees and a description.</li>
+        <li><b>Multiple calendars</b> — toggle each Google calendar on or off.</li>
+        <li><b>Event details</b> — click any event to see time, location, attendees (with who's accepted), and a button to open it in Google Calendar.</li>
+        <li><b>Default meeting link</b> — set your usual video link in Settings and it's attached to new meetings automatically.</li>
+      </ul>
+      <div class="note"><span class="ntag">Delta schedules too</span> Ask Delta to "find a time when Pia and Lana are both free" and it checks everyone's calendar, then proposes a slot for you to confirm. It respects your focus blocks and the gap you like between meetings — and it <b>never invents a meeting link</b> (see <a href="#delta-honest">Honesty &amp; accuracy</a>).</div>
+    </section>
+
+    <!-- ============ CONTACTS ============ -->
+    <section class="doc" id="contacts">
+      <h2><span class="ico">👥</span> Contacts</h2>
+      <p class="lead">Everyone you email, gathered automatically.</p>
+      <a class="openpage" href="/contacts">Open Contacts →</a>
+      <ul>
+        <li><b>Auto-built</b> — contacts are gathered from your mail; the <b>Refresh from inbox</b> button rescans for new senders.</li>
+        <li><b>Search &amp; sort</b> — by name, A–Z, recently active, or most contacted.</li>
+        <li><b>Each contact</b> shows email, phone, organisation, job title and notes (all editable), plus their <b>recent emails</b> — click one to jump to it.</li>
+        <li><b>Quick actions</b> — email the person, mark them <b>Important</b>, or add a new contact by hand.</li>
+      </ul>
+    </section>
+
+    <!-- ============ PROMISES ============ -->
+    <section class="doc" id="promises">
+      <h2><span class="ico">🤝</span> Promises</h2>
+      <p class="lead">The commitments you make in email, tracked so you don't drop them.</p>
+      <a class="openpage" href="/promises">Open Promises →</a>
+      <p>When you send an email and say something like <em>"I'll send you the report by Friday,"</em> Delta notices and records it as a <b>promise</b>, with the deadline you mentioned. You don't have to do anything.</p>
+      <ul>
+        <li><b>Open / Overdue / Fulfilled / Cancelled</b> — filter by status. Overdue promises show in red and feed your 🔔 notifications.</li>
+        <li><b>Auto-closes</b> — when the other person replies in the thread, the promise is marked fulfilled.</li>
+        <li><b>Mark done / Dismiss</b> — close one yourself, or dismiss it if Delta picked up something that wasn't really a commitment.</li>
+        <li>Each promise links back to the original email it came from.</li>
+      </ul>
+      <div class="note"><span class="ntag">Only real promises</span> Delta tracks concrete commitments ("I'll send X by Friday"), not vague pleasantries ("let me know if you need anything").</div>
+    </section>
+
+    <!-- ============ DELTA ============ -->
+    <section class="doc" id="delta">
+      <h2><span class="ico">🔺</span> Meet Delta</h2>
+      <p class="lead">Your built-in assistant — it reads your inbox so it can help you reply faster and stay on top of everything.</p>
+      <p>Open Delta with the logo button at the bottom-right of any screen. You can <b>type</b> or use your <b>voice</b>. Delta can read your mail, search your history, draft replies, manage tasks and your calendar, dig into attachments, and answer questions — always showing its work and never sending anything without you.</p>
+      <h4>How to talk to it</h4>
+      <p>Just say what you want, the way you'd ask a person:</p>
+      <div class="talk"><em>"What's urgent today?"</em> · <em>"Draft a warm reply to Pia about the Tehran trip."</em> · <em>"Find Simon's last email about the wire."</em> · <em>"Add a task to review the budget by Friday."</em> · <em>"Summarise the PDF Pia attached."</em></div>
+      <p>The welcome screen also offers one-tap starters: <chip>Organize my inbox</chip> <chip>Quick sweep</chip> <chip>Find urgent emails</chip> <chip>Plan my day</chip> <chip>Who am I behind on?</chip> <chip>Summarize inbox</chip> <chip>Translate non-English mail</chip></p>
+      <div class="note tip"><span class="ntag">Save your favourites</span> Frequently used instructions can be saved as reusable prompts (the bookmark button by the chat box, or Settings → Memory) and run any time, in text or voice.</div>
+    </section>
+
+    <!-- ============ DELTA: WHAT IT CAN DO ============ -->
+    <section class="doc" id="delta-do">
+      <h2><span class="ico">🛠️</span> What Delta can do</h2>
+      <p class="lead">Everything Delta is able to do for you, grouped by what you're trying to get done. You don't memorise commands — just ask.</p>
+
+      <h3>With your email</h3>
+      <div class="caps">
+        <div class="cap"><b>Search your inbox</b><span>Finds anything across your full Gmail history, not just recent mail. Can quote the exact text when you need it.</span></div>
+        <div class="cap"><b>Draft a reply</b><span>Writes a reply in your voice, automatically to all the right people. Opens for you to edit.</span></div>
+        <div class="cap"><b>Compose a new email</b><span>Writes a brand-new message from scratch to anyone.</span></div>
+        <div class="cap"><b>Forward</b><span>Forwards an email with an intro note you describe.</span></div>
+        <div class="cap"><b>Act on email</b><span>Archive, delete, mark read/unread, star, mark done, or snooze — by asking.</span></div>
+        <div class="cap"><b>Read attachments</b><span>Opens PDFs, Word, Excel and CSV files and pulls out the content to answer questions or summarise.</span></div>
+      </div>
+
+      <h3>Keeping you organised</h3>
+      <div class="caps">
+        <div class="cap"><b>Create tasks</b><span>Adds to your To Do with a due date, reminder, and a link back to the source email.</span></div>
+        <div class="cap"><b>Clean your inbox</b><span>"Quick sweep" groups newsletters, notifications, receipts and already-handled threads so you can clear them in batches.</span></div>
+        <div class="cap"><b>Inbox routine</b><span>A guided, step-by-step walkthrough that takes you from a full inbox to organised, one stage at a time.</span></div>
+        <div class="cap"><b>Plan your day</b><span>Pulls together what's urgent, what's due and what's on your calendar.</span></div>
+      </div>
+
+      <h3>Calendar &amp; people</h3>
+      <div class="caps">
+        <div class="cap"><b>Find a person</b><span>Looks up someone's email by name from your contacts, history and Important list.</span></div>
+        <div class="cap"><b>Find a meeting time</b><span>Checks when several @transformiran.com people are all free.</span></div>
+        <div class="cap"><b>Propose &amp; create events</b><span>Builds a meeting for you to confirm, then puts it on the calendar with invites and your default link.</span></div>
+      </div>
+
+      <h3>Beyond email</h3>
+      <div class="caps">
+        <div class="cap"><b>Search Slack</b><span>Searches your channels, DMs and threads — including transcribed voice notes (see below).</span></div>
+        <div class="cap"><b>Read Slack files</b><span>Opens and reads documents shared in Slack.</span></div>
+        <div class="cap"><b>Remember things</b><span>Saves facts and preferences you tell it, for future conversations.</span></div>
+        <div class="cap"><b>Ask Finance Delta</b><span>For finance questions ("has the wire landed?"), it consults the finance dashboard's assistant and reports back — if you have access.</span></div>
+      </div>
+      <div class="note"><span class="ntag">Nothing happens behind your back</span> Delta drafts, proposes and suggests — but <b>it never sends an email, deletes data you didn't ask it to, or moves money</b>. You're always the one who clicks the final button.</div>
+    </section>
+
+    <!-- ============ DELTA: MODELS ============ -->
+    <section class="doc" id="delta-models">
+      <h2><span class="ico">🎚️</span> Basic, Advanced &amp; Expert</h2>
+      <p class="lead">Delta runs on three levels of intelligence. Pick the level with the model button next to the chat box.</p>
+      <div class="tiers">
+        <div class="tier">
+          <div class="tname">Basic</div>
+          <div class="tmodel">Claude Sonnet · faster, lower cost</div>
+          <div class="tdesc">Quick and capable. The right choice for everyday email — drafting, searching, triage.</div>
+          <div class="twho">Available to everyone.</div>
+        </div>
+        <div class="tier">
+          <div class="tname">Advanced</div>
+          <div class="tmodel">Claude Opus · deeper reasoning</div>
+          <div class="tdesc">Slower but smarter. Reach for it on trickier drafts, longer documents, or anything needing careful thought.</div>
+          <div class="twho">Available to everyone.</div>
+        </div>
+        <div class="tier exp">
+          <div class="tname">Expert</div>
+          <div class="tmodel">Claude Opus 4.8 · max reasoning</div>
+          <div class="tdesc">The most capable level, for the highest-stakes, most complex questions. The strongest model also makes the fewest mistakes.</div>
+          <div class="twho">Senior leadership only — Shahryar, Pia, Lana, Lazarus &amp; Maggie.</div>
+        </div>
+      </div>
+      <div class="note"><span class="ntag">Good to know</span> The Expert option only appears for the people who are allowed it; for everyone else the button shows Basic and Advanced. Delta also chooses sensibly on its own when you don't pick.</div>
+    </section>
+
+    <!-- ============ DELTA: VOICE ============ -->
+    <section class="doc" id="delta-voice">
+      <h2><span class="ico">🎙️</span> Voice mode</h2>
+      <p class="lead">Talk to Delta out loud and it talks back — a real two-way conversation.</p>
+      <p>Click the voice button in the Delta panel header and allow your microphone. An animated orb shows when Delta is <b>listening</b>, <b>thinking</b> and <b>speaking</b>, and your words appear as you speak.</p>
+      <ul>
+        <li>Everything you can do by typing, you can do by voice: draft replies, create tasks and reminders, search your inbox, schedule meetings.</li>
+        <li>It understands and speaks several languages, including <b>Farsi</b>, English and Dutch.</li>
+        <li>Anything Delta creates during the call (like a draft) appears in the app afterwards, ready for you. The full transcript is saved to the chat, and you can copy it.</li>
+        <li>End the session by saying goodbye or tapping the <b>End</b> button.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: MEMORY ============ -->
+    <section class="doc" id="delta-memory">
+      <h2><span class="ico">🧠</span> Memory &amp; learning</h2>
+      <p class="lead">Delta gets more useful the longer it works with you.</p>
+      <ul>
+        <li><b>You can tell it to remember</b> — say "remember that Pia handles Tehran logistics" and it keeps that for later.</li>
+        <li><b>It notices patterns</b> — quietly, overnight, it may learn things like "replies in Farsi to Lazarus" and suggest saving them. You'll always see what it saved, with an undo.</li>
+        <li><b>It learns your writing</b> — your edits to drafts shape how it writes for you.</li>
+        <li><b>You're in control</b> — view, edit or delete everything Delta remembers in <a href="#settings">Settings → Memory</a>.</li>
+      </ul>
+    </section>
+
+    <!-- ============ DELTA: SLACK ============ -->
+    <section class="doc" id="delta-slack">
+      <h2><span class="ico">💬</span> Slack &amp; voice notes</h2>
+      <p class="lead">Connect Slack (in Settings) and Delta can search it alongside your email.</p>
+      <p>Ask things like <em>"what did Anet say about the budget?"</em> or <em>"summarise my conversation with Simon."</em> Delta searches channels, direct messages and threads.</p>
+      <h4>Voice notes</h4>
+      <p>Delta automatically <b>transcribes Slack voice clips</b> so you can search and ask about them — even ones recorded long ago. Ask "what did Anet and I talk about?" and it pulls the voice notes from that conversation and explains them.</p>
+      <div class="note warn"><span class="ntag">Farsi voice notes</span> Delta transcribes Farsi voice notes and translates them to English, but flags them as <b>"auto-transcribed, may be imperfect."</b> Use them for the gist, not for exact wording.</div>
+    </section>
+
+    <!-- ============ DELTA: BRIEF ============ -->
+    <section class="doc" id="delta-brief">
+      <h2><span class="ico">🌅</span> Morning brief</h2>
+      <p class="lead">A daily head-start, ready the first time you open Delta each day.</p>
+      <p>Delta pulls together your overnight email, today's meetings, open tasks and any due promises into a short brief: a one-line headline, your top priorities, and a queue of <b>pre-written replies</b> for the most urgent emails. Dismiss one and the next slides in — send with a click, or open to edit first.</p>
+    </section>
+
+    <!-- ============ DELTA: HONESTY ============ -->
+    <section class="doc" id="delta-honest">
+      <h2><span class="ico">🛡️</span> Honesty &amp; accuracy</h2>
+      <p class="lead">How Delta avoids making things up — and what to expect.</p>
+      <p>Like all AI assistants, Delta could in theory state something that sounds right but isn't. We've built in firm rules to prevent that with your data:</p>
+      <ul>
+        <li><b>Facts must come from somewhere real</b> — Delta will only state a specific fact (a date, an amount, a name, a grant) if it found it in the email you're reading, in something it searched for <em>this turn</em>, or in its saved memory. It won't invent details to fill a gap.</li>
+        <li><b>If it can't find it, it says so</b> — you'll get "I couldn't find that, let me search" rather than a confident guess. That's deliberate: a slower honest answer beats a fast wrong one.</li>
+        <li><b>It never invents a meeting link</b> — for video calls it only uses your saved default link, or one you paste into the chat. It will never make up a Zoom URL.</li>
+        <li><b>Drafts show their sources</b> — the "Delta consulted N sources" panel lists every email and attachment a draft was based on, so you can check it.</li>
+      </ul>
+      <div class="note tip"><span class="ntag">Best practice</span> For anything that really matters — a figure, a commitment, a name — glance at the source Delta cites, or ask it to "show me the email." It's built to make that easy.</div>
+    </section>
+
+    <!-- ============ SETTINGS ============ -->
+    <section class="doc" id="settings">
+      <h2><span class="ico">⚙️</span> Settings</h2>
+      <p class="lead">Make the app yours.</p>
+      <a class="openpage" href="/settings">Open Settings →</a>
+      <h3>What you can change</h3>
+      <ul>
+        <li><b>Account</b> — your profile and sign-out.</li>
+        <li><b>Inbox</b> — your Important contacts and your default snooze times.</li>
+        <li><b>Compose</b> — the <b>Undo send</b> delay (off, 5/10/20/30s), whether <b>Markdown shortcuts</b> turn into formatting on send, your <b>aliases</b> and <b>signature</b> (on every message, first message only, or never), and reusable <b>snippets</b> of text.</li>
+        <li><b>Calendar</b> — your <b>default meeting link</b>, the buffer between meetings, and <b>focus blocks</b> (protected time Delta won't book over).</li>
+        <li><b>Appearance</b> — Light / Dark / System theme, an accent colour, and text density &amp; font.</li>
+        <li><b>Integrations</b> — connect or disconnect <b>Slack</b>.</li>
+        <li><b>Memory</b> — review, edit and delete everything Delta remembers, and manage your saved prompts.</li>
+        <li><b>Keyboard shortcuts</b> — remap any shortcut to keys you prefer.</li>
+        <li><b>Notifications</b> — see below.</li>
+      </ul>
+      <div class="note"><span class="ntag">Privacy by default</span> Transform Iran Mail does not track whether the people you email open your messages or click your links. That's a deliberate choice, not a setting.</div>
+    </section>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <section class="doc" id="notifications">
+      <h2><span class="ico">🔔</span> Notifications</h2>
+      <p class="lead">Stay informed without being buried.</p>
+      <ul>
+        <li>Turn on browser notifications, then choose what alerts you: <b>new mail</b>, <b>task reminders</b>, <b>calendar alerts</b>.</li>
+        <li><b>Quiet hours</b> — set a window (and days) when nothing interrupts you.</li>
+        <li><b>Hourly budget</b> — cap how many alerts can fire in any hour.</li>
+        <li><b>Per-contact</b> — always notify for some people, mute others entirely.</li>
+        <li>In the inbox, the 🔔 bell gathers overdue promises, due tasks and unread mail from your Important people.</li>
+      </ul>
+    </section>
+
+    <!-- ============ ADMIN ============ -->
+    <section class="doc" id="admin">
+      <h2><span class="ico">🗝️</span> Admin console</h2>
+      <p class="lead">For administrators only — an organisation-wide view of how the app is used. Most people will never need this.</p>
+      <p>The admin console lives at <code>/admin</code> and has its own <b>passphrase</b> login, separate from your mailbox sign-in. It's intended for the operator (Shahryar).</p>
+      <h3>Overview &amp; users</h3>
+      <ul>
+        <li><b>Headline numbers</b> — total and active users, emails handled, Delta calls, and Delta's running cost — over the last 7, 30 or 90 days.</li>
+        <li><b>Delta cost over time</b> — a chart of daily spend.</li>
+        <li><b>Usage by model</b> — how much each level (Basic/Advanced/Expert) is used and what it costs.</li>
+        <li><b>Users table</b> — per person: last active, time in the app, emails, Delta calls, cost, and status. Click a row for a detail panel with their recent Delta chats.</li>
+        <li><b>Block / unblock</b> — an administrator can block a user, which immediately ends their access.</li>
+      </ul>
+      <h3>Delta chat monitoring</h3>
+      <p>The most recent Delta conversations across everyone, newest first — used to spot-check that Delta's tone, accuracy and refusals are right. This is a quality-control tool for the administrator.</p>
+    </section>
+
+    <!-- ============ PRIVACY ============ -->
+    <section class="doc" id="privacy">
+      <h2><span class="ico">🔒</span> Privacy &amp; safety</h2>
+      <ul>
+        <li><b>Your mailbox is yours.</b> Delta reads your inbox to help you, and one person's data is never shared with another.</li>
+        <li><b>No read-tracking.</b> The app doesn't tell you (or anyone) when recipients open your email or click links.</li>
+        <li><b>Delta can't act without you.</b> It never sends, deletes or moves money on its own.</li>
+        <li><b>Keep secrets out of chat.</b> Enter passwords and sensitive credentials in their proper settings, not in the chat box.</li>
+        <li><b>Works alongside your team.</b> For judgement calls — complex travel, sensitive decisions — loop in your human assistant. Delta is the fast digital layer, not a replacement for people.</li>
+      </ul>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section class="doc" id="faq">
+      <h2><span class="ico">💡</span> Tips &amp; FAQ</h2>
+      <h4>The page feels slow the first time</h4>
+      <p>The very first load fetches the app's files; after that they're cached and pages switch almost instantly. If something looks stale after an update, a hard refresh (<kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) clears it.</p>
+      <h4>Delta says it can't find an email I know exists</h4>
+      <p>If you've just joined, Delta may still be indexing your older mail (watch the progress bar at the top of the inbox). Try again shortly, or ask it to search again — and remember it would rather say "I couldn't find it" than guess.</p>
+      <h4>A draft has a detail I didn't expect</h4>
+      <p>Open the "Delta consulted N sources" panel to see exactly what it read. If a fact isn't traceable there, treat it as a draft suggestion and confirm it.</p>
+      <h4>Can I use this on my phone?</h4>
+      <p>Yes — the layout adapts to smaller screens. Voice mode works wherever your browser can use the microphone.</p>
+      <h4>Which language will Delta reply in?</h4>
+      <p>It matches you. Write to it in Farsi and it answers in Farsi; the same goes for drafting replies to people who write in another language.</p>
+      <h4>Something's wrong or missing</h4>
+      <p>Tell your administrator — they can see usage and help, and the team ships fixes quickly.</p>
+    </section>
+
+    <footer class="foot">
+      © 2026 Transform Iran · Transform Iran Mail, powered by Delta · This manual reflects the app as built. Features are added regularly — check back for updates.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+// ---- Find-it-fast index data: subject -> { where it's documented, the live page } ----
+const INDEX = [
+  ["Reading & replying to email","Open an email, reply, reply-all, forward, translate","#read","/","Inbox"],
+  ["Writing a new email","Compose window, formatting, signature, Cc/Bcc","#compose","/","Inbox"],
+  ["Category tags & filters","Urgent / Reply / Task / FYI colour pills","#inbox","/","Inbox"],
+  ["Snooze an email","Hide now, return later","#snooze","/","Inbox"],
+  ["Search your mail","from:, subject:, date filters","#search","/","Inbox"],
+  ["Important people","Build your own VIP list","#important","/","Inbox"],
+  ["Folders & Gmail labels","Your real Gmail structure","#folders","/","Inbox"],
+  ["Keyboard shortcuts","Move without the mouse","#shortcuts","/","Inbox"],
+  ["To Do & reminders","My Day, Planned, reminders, steps","#tasks","/tasks","To Do"],
+  ["Calendar & meetings","Month grid, create events, default link","#calendar","/calendar","Calendar"],
+  ["Contacts","Auto-built people directory","#contacts","/contacts","Contacts"],
+  ["Promises","Commitments tracked from your sent mail","#promises","/promises","Promises"],
+  ["Settings","Compose, signature, theme, snooze, Slack","#settings","/settings","Settings"],
+  ["Delta's memory","See & edit what Delta remembers","#delta-memory","/settings","Settings"],
+  ["Notifications & quiet hours","Choose alerts, quiet times","#notifications","/settings","Settings"],
+  ["Talk to Delta","How to ask, starter prompts","#delta","/","Inbox"],
+  ["What Delta can do","Full list of Delta's abilities","#delta-do","/","Inbox"],
+  ["Basic / Advanced / Expert","Delta's three intelligence levels","#delta-models","/","Inbox"],
+  ["Voice mode","Talk to Delta out loud","#delta-voice","/","Inbox"],
+  ["Slack & voice notes","Search Slack, transcribed clips","#delta-slack","/settings","Settings"],
+  ["Morning brief","Your daily head-start","#delta-brief","/","Inbox"],
+  ["Does Delta make things up?","Honesty & accuracy rules","#delta-honest","/","Inbox"],
+  ["Admin console","Usage, cost, chat monitoring (admins)","#admin","/admin","Admin"],
+  ["Privacy & safety","What's protected, what Delta won't do","#privacy",null,null],
+];
+
+const grid = document.getElementById('idxgrid');
+function renderIndex(filter){
+  const f = (filter||'').trim().toLowerCase();
+  grid.innerHTML = '';
+  INDEX.filter(r => !f || (r[0]+' '+r[1]+' '+(r[4]||'')).toLowerCase().includes(f)).forEach(r=>{
+    const [subj,desc,jump,page,pageName] = r;
+    const card = document.createElement('div');
+    card.className = 'idxcard';
+    const openLink = page ? `<a class="open" href="${page}">Open ${pageName} ↗</a>` : '';
+    card.innerHTML = `<div class="subj">${subj}</div><div class="desc">${desc}</div>
+      <div class="links"><a class="jump" href="${jump}">Read →</a>${openLink}</div>`;
+    grid.appendChild(card);
+  });
+  if(!grid.children.length){
+    grid.innerHTML = '<div class="desc" style="color:var(--muted);padding:6px 2px">No match — try another word.</div>';
+  }
+}
+renderIndex('');
+document.getElementById('finderInput').addEventListener('input', e=>renderIndex(e.target.value));
+
+// ---- Scrollspy: highlight the active section in the TOC ----
+const links = [...document.querySelectorAll('nav.toc a')];
+const map = {};
+links.forEach(a=>{ const id=a.getAttribute('href').slice(1); if(id) map[id]=a; });
+const targets = Object.keys(map).map(id=>document.getElementById(id)).filter(Boolean);
+const spy = new IntersectionObserver((entries)=>{
+  entries.forEach(en=>{
+    if(en.isIntersecting){
+      links.forEach(l=>l.classList.remove('active'));
+      const a = map[en.target.id];
+      if(a){ a.classList.add('active'); }
+    }
+  });
+},{rootMargin:'-20% 0px -70% 0px',threshold:0});
+targets.forEach(t=>spy.observe(t));
+</script>
+</body>
+</html>
