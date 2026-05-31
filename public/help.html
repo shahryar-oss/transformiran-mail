@@ -201,10 +201,9 @@
     <a href="#delta-slack">Slack &amp; voice notes</a>
     <a href="#delta-brief">Morning brief</a>
     <a href="#delta-honest">Honesty &amp; accuracy</a>
-    <div class="tlabel">Setup &amp; admin</div>
+    <div class="tlabel">Setup &amp; help</div>
     <a href="#settings">Settings</a>
     <a href="#notifications">Notifications</a>
-    <a href="#admin">Admin console</a>
     <a href="#privacy">Privacy &amp; safety</a>
     <a href="#faq">Tips &amp; FAQ</a>
   </nav>
@@ -509,7 +508,6 @@
         <div class="cap"><b>Search Slack</b><span>Searches your channels, DMs and threads — including transcribed voice notes (see below).</span></div>
         <div class="cap"><b>Read Slack files</b><span>Opens and reads documents shared in Slack.</span></div>
         <div class="cap"><b>Remember things</b><span>Saves facts and preferences you tell it, for future conversations.</span></div>
-        <div class="cap"><b>Ask Finance Delta</b><span>For finance questions ("has the wire landed?"), it consults the finance dashboard's assistant and reports back — if you have access.</span></div>
       </div>
       <div class="note"><span class="ntag">Nothing happens behind your back</span> Delta drafts, proposes and suggests — but <b>it never sends an email, deletes data you didn't ask it to, or moves money</b>. You're always the one who clicks the final button.</div>
     </section>
@@ -630,23 +628,6 @@
       </ul>
     </section>
 
-    <!-- ============ ADMIN ============ -->
-    <section class="doc" id="admin">
-      <h2><span class="ico">🗝️</span> Admin console</h2>
-      <p class="lead">For administrators only — an organisation-wide view of how the app is used. Most people will never need this.</p>
-      <p>The admin console lives at <code>/admin</code> and has its own <b>passphrase</b> login, separate from your mailbox sign-in. It's intended for the operator (Shahryar).</p>
-      <h3>Overview &amp; users</h3>
-      <ul>
-        <li><b>Headline numbers</b> — total and active users, emails handled, Delta calls, and Delta's running cost — over the last 7, 30 or 90 days.</li>
-        <li><b>Delta cost over time</b> — a chart of daily spend.</li>
-        <li><b>Usage by model</b> — how much each level (Basic/Advanced/Expert) is used and what it costs.</li>
-        <li><b>Users table</b> — per person: last active, time in the app, emails, Delta calls, cost, and status. Click a row for a detail panel with their recent Delta chats.</li>
-        <li><b>Block / unblock</b> — an administrator can block a user, which immediately ends their access.</li>
-      </ul>
-      <h3>Delta chat monitoring</h3>
-      <p>The most recent Delta conversations across everyone, newest first — used to spot-check that Delta's tone, accuracy and refusals are right. This is a quality-control tool for the administrator.</p>
-    </section>
-
     <!-- ============ PRIVACY ============ -->
     <section class="doc" id="privacy">
       <h2><span class="ico">🔒</span> Privacy &amp; safety</h2>
@@ -673,7 +654,7 @@
       <h4>Which language will Delta reply in?</h4>
       <p>It matches you. Write to it in Farsi and it answers in Farsi; the same goes for drafting replies to people who write in another language.</p>
       <h4>Something's wrong or missing</h4>
-      <p>Tell your administrator — they can see usage and help, and the team ships fixes quickly.</p>
+      <p>Let the team know — fixes ship quickly, and your feedback shapes what's built next.</p>
     </section>
 
     <footer class="foot">
@@ -708,7 +689,6 @@ const INDEX = [
   ["Slack & voice notes","Search Slack, transcribed clips","#delta-slack","/settings","Settings"],
   ["Morning brief","Your daily head-start","#delta-brief","/","Inbox"],
   ["Does Delta make things up?","Honesty & accuracy rules","#delta-honest","/","Inbox"],
-  ["Admin console","Usage, cost, chat monitoring (admins)","#admin","/admin","Admin"],
   ["Privacy & safety","What's protected, what Delta won't do","#privacy",null,null],
 ];
 
