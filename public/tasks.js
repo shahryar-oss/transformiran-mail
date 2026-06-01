@@ -383,10 +383,45 @@
     loadLists();
   }
 
+  // A soft single "ding" when a task is completed — synthesized with the
+  // Web Audio API so there's no audio file to ship. A completing click is a
+  // user gesture, so playback is allowed. Set localStorage ti_task_sound=off
+  // to silence it.
+  let _chimeCtx = null;
+  function playCompleteChime() {
+    try {
+      if (localStorage.getItem("ti_task_sound") === "off") return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      _chimeCtx = _chimeCtx || new AC();
+      const ctx = _chimeCtx;
+      if (ctx.state === "suspended") ctx.resume();
+      const now = ctx.currentTime;
+      const master = ctx.createGain();
+      master.connect(ctx.destination);
+      // Soft bell = fundamental (A5) + octave shimmer + a gentle fifth.
+      [{ f: 880, g: 1.0 }, { f: 1760, g: 0.35 }, { f: 1318.5, g: 0.18 }].forEach((p) => {
+        const o = ctx.createOscillator();
+        o.type = "sine";
+        o.frequency.value = p.f;
+        const g = ctx.createGain();
+        g.gain.value = p.g;
+        o.connect(g); g.connect(master);
+        o.start(now);
+        o.stop(now + 0.6);
+      });
+      // Quick attack, smooth exponential decay — bell-like, not harsh.
+      master.gain.setValueAtTime(0.0001, now);
+      master.gain.exponentialRampToValueAtTime(0.22, now + 0.006);
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+    } catch (_) { /* audio not available — ignore */ }
+  }
+
   async function toggleComplete(id) {
     const t = _tasks.find((x) => x.id === id);
     if (!t) return;
     const completed = !t.completed_at;
+    if (completed) playCompleteChime();   // only on completing, not un-checking
     t.completed_at = completed ? new Date().toISOString() : null;
     renderTasks();
     await fetch(`/api/tasks/${id}`, {
