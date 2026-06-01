@@ -1870,6 +1870,10 @@
     // still letting an English signature in the same message stay LTR.
     return `<!doctype html><html dir="auto"><head><base target="_blank">
 <style>
+  /* Emails are authored for a light background, so we always render them on
+     white — even in dark mode — so the sender's (usually dark) text stays
+     readable. The app shell stays dark; the email shows as a light "sheet". */
+  html, body { background: #ffffff; }
   body { margin: 0; padding: 0; font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #282F39; unicode-bidi: plaintext; }
   body, p, div, blockquote, li, td, th { unicode-bidi: plaintext; }
   img { max-width: 100%; height: auto; }

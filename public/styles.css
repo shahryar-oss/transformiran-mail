@@ -1235,7 +1235,10 @@ button { font-family: inherit; cursor: pointer; }
 .reader-iframe {
   width: 100%;
   border: none;
-  background: var(--paper);
+  /* Always white — emails are authored for a light background. In dark mode
+     this renders the email as a light "sheet" so the sender's (usually dark)
+     text stays readable, matching Gmail / Apple Mail behaviour. */
+  background: #ffffff;
   min-height: 200px;
   display: block;
 }
