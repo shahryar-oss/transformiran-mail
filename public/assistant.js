@@ -1235,9 +1235,18 @@ window.renderMarkdown = renderMarkdown;
       div.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4z"/></svg><span>${desc}</span>`;
       messagesEl.appendChild(div);
 
-      // For draft_reply with a successful result, render the draft card too.
+      // For draft_reply: open the reply DIRECTLY in the middle-pane
+      // composer (same behaviour as compose_email / forward_email), so the
+      // user reviews and sends it inside the dashboard. We never bounce
+      // them to Gmail and never leave the draft buried as a chat card they
+      // have to dig out. Falls back to the inline card only if the composer
+      // opener isn't available (e.g. a context without inbox.js loaded).
       if (ev.name === "draft_reply" && ev.result?.ok && ev.result.draft) {
-        renderChatDraftCard(ev.result.draft, ev.result.styleExamples);
+        if (typeof window.openComposerWithDraft === "function") {
+          window.openComposerWithDraft(ev.result.draft, { keepDeltaOpen: true });
+        } else {
+          renderChatDraftCard(ev.result.draft, ev.result.styleExamples);
+        }
       }
 
       // Phase 5.BM — compose_email auto-opens the NEW EMAIL composer
@@ -1592,7 +1601,7 @@ window.renderMarkdown = renderMarkdown;
           <svg viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;fill:currentColor;vertical-align:text-bottom;margin-right:4px"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
           Revise
         </button>
-        <button class="cd-save btn">Save to Gmail Drafts</button>
+        <button class="cd-save btn">Save as draft</button>
         <span class="cd-sig-hint">+ your Transform Iran signature</span>
         <span class="cd-status"></span>
       </div>
@@ -1673,7 +1682,7 @@ window.renderMarkdown = renderMarkdown;
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
         statusEl.className = "cd-status ok";
-        statusEl.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail Drafts ↗</a>`;
+        statusEl.textContent = "Saved to your Drafts ✓";
         saveBtn.textContent = "Saved";
         toEl.disabled = true; subjEl.disabled = true; bodyEl.disabled = true;
       } catch (err) {
@@ -2034,7 +2043,7 @@ window.renderMarkdown = renderMarkdown;
             if (!r.ok || !data.ok) throw new Error(data.message || "save failed");
             if (status) {
               status.className = "bc-reply-status ok";
-              status.innerHTML = `Saved ✓ <a href="${escapeHtml(data.gmailUrl || "#")}" target="_blank" rel="noopener">Open in Gmail Drafts ↗</a>`;
+              status.textContent = "Saved to your Drafts ✓";
             }
             btn.textContent = "Saved";
           } catch (err) {

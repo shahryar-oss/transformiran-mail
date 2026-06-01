@@ -2942,7 +2942,7 @@
       if (!currentDraft) return;
       saveBtn.disabled = true;
       statusEl.className = "draft-status";
-      statusEl.textContent = "Saving to Gmail Drafts…";
+      statusEl.textContent = "Saving draft…";
       // Apply markdown shortcuts so the saved Gmail draft matches Send.
       maybeApplyMarkdown(bodyTa);
       try {
@@ -2963,7 +2963,7 @@
         const data = await r.json();
         if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
         statusEl.className = "draft-status ok";
-        statusEl.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail Drafts ↗</a>`;
+        statusEl.textContent = "Saved to your Drafts ✓";
         titleEl.textContent = "Draft saved";
         setBodyEditable(false);
         toInput.disabled = true;
@@ -3302,7 +3302,7 @@
       const data = await postCompose("/api/gmail/draft");
       if (data === false) { cmpSend.disabled = false; cmpSave.disabled = false; return; }
       cmpStatus.className = "compose-status ok";
-      cmpStatus.innerHTML = `Saved! <a href="${data.gmailUrl}" target="_blank" rel="noopener">Open in Gmail ↗</a>`;
+      cmpStatus.textContent = "Saved to your Drafts ✓";
       showToast("Saved as draft", "ok");
       cmpSave.disabled = false; cmpSend.disabled = false;
     } catch (err) {
