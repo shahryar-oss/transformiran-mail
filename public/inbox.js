@@ -760,6 +760,7 @@
   // Counts update as classifications arrive.
   let _allMessages = [];
   let _classificationMap = {};
+  let _autoReadTimer = null;   // dwell timer for auto-mark-read on open
   let _activeFilter = "all";
 
   // Delta-search filter mode — when the user clicks an email reference
@@ -1107,6 +1108,34 @@
     readerEl.querySelectorAll(".reader-toolbar [data-tb]").forEach((btn) => {
       btn.addEventListener("click", () => onToolbarAction(btn.dataset.tb, stub, btn));
     });
+
+    // Auto-mark-read on open. After a short dwell (so rapid j/k navigation
+    // doesn't clear every message you pass), tell Gmail to drop the UNREAD
+    // label. This hits Gmail's REAL modify, so the unread state also clears
+    // in the Gmail app and in Outlook — the whole mailbox is one source of
+    // truth. Cancelled if the user opens a different message first.
+    clearTimeout(_autoReadTimer);
+    if (isUnread) {
+      _autoReadTimer = setTimeout(() => {
+        if (window.__deltaOpenMessageId !== id) return; // moved on — skip
+        modifyLabels(id, null, {
+          remove: ["UNREAD"],
+          onSuccess: () => {
+            const r2 = document.querySelector(`.mail-row[data-id="${CSS.escape(id)}"]`);
+            if (r2) r2.classList.remove("unread");
+            if (stub) {
+              stub.unread = false;
+              if (Array.isArray(stub.labelIds)) stub.labelIds = stub.labelIds.filter((l) => l !== "UNREAD");
+            }
+            // Flip the reader's toggle so it now offers "Mark unread".
+            const ub = readerEl.querySelector('[data-tb="unread"] span');
+            if (ub) ub.textContent = "Mark unread";
+            updateFilterCounts();
+            loadCounts();
+          },
+        });
+      }, 1200);
+    }
 
     // "+ Important" — one-click promote the sender into the user's
     // Important folders list. Re-renders the rail + the reader header.
