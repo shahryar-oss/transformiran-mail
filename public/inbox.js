@@ -3090,7 +3090,11 @@
       subjInput.value = prefill.subject || "";
       bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, null);
       titleEl.textContent = `Reply ready (${prefill.intent || "drafted"})`;
-      regenBtn.disabled = false; saveBtn.disabled = false; setBodyEditable(true);
+      // currentDraft is populated above, so Send can fire immediately —
+      // enable it here. (generate() enables Send on the normal path, but
+      // this synchronous-prefill path skips generate(), so without this
+      // the Send button stays disabled and clicking it does nothing.)
+      regenBtn.disabled = false; saveBtn.disabled = false; sendBtn.disabled = false; setBodyEditable(true);
       // Background-fetch ONLY the parent's quoted HTML so the composer
       // shows the original message + signature. Best-effort; if it fails
       // we keep the plain body. Don't touch to/cc/subject the user may
@@ -3129,7 +3133,10 @@
             subjInput.value = data.subject || "";
             bodyTa.innerHTML = renderInitialDraftHtml(prefill.body, data.quotedHtml);
             titleEl.textContent = `Smart reply ready (${prefill.intent || "commit"})`;
-            regenBtn.disabled = false; saveBtn.disabled = false; setBodyEditable(true);
+            // currentDraft is set just above → enable Send (this path
+            // skips generate(), which is the only other place Send is
+            // enabled, so otherwise the button stays dead).
+            regenBtn.disabled = false; saveBtn.disabled = false; sendBtn.disabled = false; setBodyEditable(true);
           })
           .catch(() => {
             // Fall back to normal generate if metadata fetch fails.
