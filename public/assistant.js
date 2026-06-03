@@ -1099,11 +1099,42 @@ window.renderMarkdown = renderMarkdown;
     // otherwise scroll out of view and the user couldn't see what they
     // asked / that a result is on the way.
     try { userWrap?.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (_) {}
-    // Live token-by-token streaming state. We reuse the "thinking" bubble
-    // (loadingEl) as the surface: on the first text token we swap its
-    // spinner for a text container and append deltas as they arrive.
-    let streamContentEl = null;
-    let streamText = "";
+    // Live token-by-token streaming with a SMOOTH typewriter. The network
+    // delivers tokens in uneven bursts; painting each one the instant it
+    // lands looks jerky / stop-start. So we buffer everything into
+    // `streamFull` and reveal it on a steady requestAnimationFrame loop:
+    // a floor speed keeps a natural cadence, and a gentle proportional
+    // catch-up drains big bursts over ~150ms instead of dumping them.
+    let streamContentEl = null;   // the .md-content div we type into
+    let streamFull = "";          // all text received so far (the target)
+    let shownLen = 0;             // characters currently revealed
+    let rafId = null;
+    let lastTs = 0;
+    const ensureStreamBubble = () => {
+      if (streamContentEl) return;
+      const bubble = loadingEl.querySelector(".delta-msg");
+      if (!bubble) return;
+      bubble.classList.remove("loading");
+      bubble.innerHTML =
+        `<img class="delta-msg-avatar" src="/delta-logo.png" alt="Delta">` +
+        `<div class="md-content" dir="auto"></div>`;
+      streamContentEl = bubble.querySelector(".md-content");
+    };
+    const typeTick = (ts) => {
+      if (!lastTs) lastTs = ts;
+      const dt = Math.min(0.05, (ts - lastTs) / 1000); // clamp tab-switch gaps
+      lastTs = ts;
+      const backlog = streamFull.length - shownLen;
+      if (backlog > 0 && streamContentEl) {
+        // floor cadence + proportional catch-up → smooth, never jerky.
+        const advance = Math.max(240 * dt, backlog * 8 * dt) + 0.6;
+        shownLen = Math.min(streamFull.length, shownLen + advance);
+        streamContentEl.textContent = streamFull.slice(0, Math.floor(shownLen));
+      }
+      if (shownLen < streamFull.length) rafId = requestAnimationFrame(typeTick);
+      else { rafId = null; lastTs = 0; }
+    };
+    const ensureTyping = () => { if (rafId == null) { lastTs = 0; rafId = requestAnimationFrame(typeTick); } };
 
     // Phase 5.AU — live-progress labels. As Delta calls tools, the
     // bubble's label flips to match. Returns to "thinking" between
@@ -1144,29 +1175,16 @@ window.renderMarkdown = renderMarkdown;
       if (ev.type === "thinking") {
         setLoadingLabel("Delta is thinking");
       } else if (ev.type === "text_start") {
-        // A new hop began emitting text — reset the streaming buffer so
-        // only the LAST hop's text shows (matches the server's finalReply).
-        streamText = "";
+        // A new hop began emitting text — reset the buffer so only the
+        // LAST hop's text shows (matches the server's finalReply).
+        streamFull = ""; shownLen = 0;
         if (streamContentEl) streamContentEl.textContent = "";
       } else if (ev.type === "text_chunk") {
-        // First token: convert the "thinking" bubble into a live text
-        // surface (drop the spinner, keep the Delta avatar).
-        if (!streamContentEl) {
-          const bubble = loadingEl.querySelector(".delta-msg");
-          if (bubble) {
-            bubble.classList.remove("loading");
-            bubble.innerHTML =
-              `<img class="delta-msg-avatar" src="/delta-logo.png" alt="Delta">` +
-              `<div class="md-content" dir="auto"></div>`;
-            streamContentEl = bubble.querySelector(".md-content");
-          }
-        }
-        if (streamContentEl) {
-          streamText += ev.text || "";
-          // Plain text while streaming (cheap); full markdown is applied
-          // once at 'done' when the final reply replaces this bubble.
-          streamContentEl.textContent = streamText;
-        }
+        // Buffer the delta and let the rAF typewriter reveal it smoothly
+        // (don't paint per-chunk — that's what caused the jerky look).
+        ensureStreamBubble();
+        streamFull += ev.text || "";
+        ensureTyping();
       } else if (ev.type === "tool_start") {
         setLoadingLabel(TOOL_LABELS[ev.tool] || `Delta is using ${ev.tool}`);
       } else if (ev.type === "tool_end") {
@@ -1233,6 +1251,23 @@ window.renderMarkdown = renderMarkdown;
       if (streamErr) throw new Error(streamErr);
       const body = finalBody || {};
       const reply = body.reply || "(no reply)";
+      // If we streamed text, let the typewriter catch up to the final
+      // reply before swapping the plain stream for formatted markdown —
+      // the catch-up rate makes this near-instant, and it avoids a jarring
+      // jump when the network finishes ahead of the on-screen reveal.
+      if (streamContentEl) {
+        streamFull = reply;       // authoritative final text
+        ensureTyping();
+        await new Promise((resolve) => {
+          const t0 = Date.now();
+          const chk = () => {
+            if ((rafId == null && shownLen >= streamFull.length) || Date.now() - t0 > 1500) resolve();
+            else setTimeout(chk, 30);
+          };
+          chk();
+        });
+      }
+      if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
       loadingEl.remove();
       // Render any tool events the live stream missed (e.g. if it
       // dropped one, or for legacy /api/assistant payloads). De-dupe
@@ -1244,6 +1279,7 @@ window.renderMarkdown = renderMarkdown;
       appendMessage("assistant", reply);
       history.push({ role: "assistant", content: reply });
     } catch (err) {
+      if (rafId != null) { cancelAnimationFrame(rafId); rafId = null; }
       loadingEl.remove();
       appendMessage("assistant", "Couldn't reach Delta: " + (err.message || err), { error: true });
     } finally {
