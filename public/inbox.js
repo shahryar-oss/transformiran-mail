@@ -1923,16 +1923,29 @@
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   }
 
-  // Delta action buttons in the reader. 'Draft a reply' opens the
-  // inline draft composer. All other Delta actions (Summarize /
-  // Translate / Ask about this / Add to To Do) open a docked red-
-  // bordered card in the middle reader pane showing Delta's result.
-  // Phase 5.AS — moved from "open Delta side-panel" to "open in
-  // middle pane" so all email-related Delta interactions live in the
-  // same primary work area.
+  // Delta action buttons in the reader.
+  //   • 'Draft a reply' → inline draft composer in the MIDDLE pane.
+  //   • Summarize / Translate / Ask about this → answer in the Delta
+  //     CHAT panel (right side), keeping the email visible in the middle.
+  //     If, from that conversation, the user then asks Delta to draft /
+  //     compose / forward, that result opens in the MIDDLE composer
+  //     (handled by the dock's renderToolEvents). This is the split the
+  //     user asked for: reading-Q&A in chat, writing in the middle.
+  //   • Add to To Do → still uses the middle-pane action card (it just
+  //     creates tasks + offers an "Open To Do →" link).
+  const CHAT_PANEL_PROMPTS = {
+    summarize: "Summarize this email in 3 bullets.",
+    translate: "Translate this email into English (or to whichever language I usually reply in if it's already in English).",
+    explain:   "What is this email actually asking for? What should I do about it?",
+  };
   function onDeltaAction(action, msg) {
     if (action === "draft-reply") {
       return openDraftComposer(msg);
+    }
+    if (CHAT_PANEL_PROMPTS[action] && typeof window.__deltaAskInPanel === "function") {
+      // Pass the open email's id explicitly so "this email" resolves
+      // server-side regardless of list selection / virtualization.
+      return window.__deltaAskInPanel(CHAT_PANEL_PROMPTS[action], msg && msg.id);
     }
     return openDeltaActionCard(action, msg);
   }

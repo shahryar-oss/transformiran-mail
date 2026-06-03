@@ -1077,7 +1077,7 @@ window.renderMarkdown = renderMarkdown;
   // -- sending -----------------------------------------------------------
   let inFlight = false;
 
-  async function sendMessage(text) {
+  async function sendMessage(text, opts = {}) {
     const trimmed = (text || "").trim();
     if (!trimmed || inFlight) return;
     inFlight = true;
@@ -1154,7 +1154,9 @@ window.renderMarkdown = renderMarkdown;
         body: JSON.stringify({
           message: trimmed,
           history: history.slice(0, -1),   // backend already gets `message` as the latest user turn
-          openMessageId: getOpenMessageId(),
+          // Explicit override (from the reader's Summarize/Translate/Ask
+          // buttons) wins; otherwise infer from the selected row.
+          openMessageId: opts.openMessageId || getOpenMessageId(),
           model: getSelectedModel(),
         }),
       });
@@ -1213,6 +1215,21 @@ window.renderMarkdown = renderMarkdown;
       [sendWelcome, sendChat].forEach((b) => b && (b.disabled = false));
     }
   }
+
+  // Public hook — open the Delta chat panel and ask a question about the
+  // currently-open email. Used by the reader's Summarize / Translate /
+  // Ask-about-this buttons so their answer renders in the CHAT (right
+  // side) instead of a middle-pane card. The dock sends openMessageId
+  // automatically (getOpenMessageId reads the selected row), so "this
+  // email" resolves to whatever is open. Any draft/compose Delta makes
+  // from the conversation still opens in the middle composer via
+  // renderToolEvents — exactly the split the user asked for.
+  window.__deltaAskInPanel = function (text, openMessageId) {
+    if (!text || typeof text !== "string") return;
+    openPanel();
+    // sendMessage() handles ensureChatState() + append + stream.
+    sendMessage(text, openMessageId ? { openMessageId } : {});
+  };
 
   // Render a small gray transparency line for each tool Delta called.
   // For draft_reply, also render an inline editable draft card.
