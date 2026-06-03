@@ -4810,8 +4810,16 @@ function resolveDeltaAttachments(userId, ids) {
   for (const id of (Array.isArray(ids) ? ids : []).slice(0, 6)) {
     const a = _deltaAttachStore.get(id);
     if (!a || a.userId !== userId) continue;
-    if (a.kind === "image") out.push({ kind: "image", name: a.name, mediaType: a.mediaType, dataB64: a.dataB64 });
-    else out.push({ kind: "document", name: a.name, text: a.text });
+    if (a.kind === "image") {
+      out.push({ kind: "image", name: a.name, mediaType: a.mediaType, dataB64: a.dataB64 });
+    } else if (a.kind === "image_pages" && Array.isArray(a.images)) {
+      // Scanned PDF rendered to page images → one vision block per page.
+      a.images.forEach((img, i) => out.push({
+        kind: "image", name: `${a.name} (page ${i + 1})`, mediaType: img.mediaType, dataB64: img.dataB64,
+      }));
+    } else {
+      out.push({ kind: "document", name: a.name, text: a.text });
+    }
   }
   return out;
 }
@@ -4854,13 +4862,28 @@ app.post("/api/assistant/attach",
 
       // Otherwise parse as a document.
       const attLib = require("./lib/attachments");
+      const isPdf = mime.includes("pdf") || name.toLowerCase().endsWith(".pdf");
       const parsed = await attLib.parseBuffer(buf, { filename: name, mime });
-      if (parsed.error || !parsed.textContent) {
-        console.warn(`[/api/assistant/attach] parse_failed name="${name}" mime="${mime}" bytes=${buf.length} reason="${parsed.error || "no text"}"`);
-        return res.status(422).json({ ok: false, error: "parse_failed", message: parsed.error || "Couldn't read any text from that file." });
+      const placeholder = parsed.textContent && /^\(PDF appears empty/.test(parsed.textContent);
+      const hasRealText = parsed.textContent && !placeholder && !parsed.error;
+
+      if (hasRealText) {
+        _deltaAttachStore.set(id, { userId: req.user.id, kind: "document", name, text: parsed.textContent, expires });
+        return res.json({ ok: true, id, kind: "document", name, truncated: !!parsed.truncated, chars: parsed.textContent.length });
       }
-      _deltaAttachStore.set(id, { userId: req.user.id, kind: "document", name, text: parsed.textContent, expires });
-      return res.json({ ok: true, id, kind: "document", name, truncated: !!parsed.truncated, chars: parsed.textContent.length });
+
+      // No usable text. For a PDF this is usually a scanned / design PDF —
+      // render its pages to images so Claude can READ them with vision.
+      if (isPdf) {
+        const pages = await attLib.renderPdfPages(buf, { maxPages: 5, scale: 2 });
+        if (pages.length) {
+          _deltaAttachStore.set(id, { userId: req.user.id, kind: "image_pages", name, images: pages, expires });
+          return res.json({ ok: true, id, kind: "document", name, pages: pages.length, scanned: true });
+        }
+      }
+
+      console.warn(`[/api/assistant/attach] parse_failed name="${name}" mime="${mime}" bytes=${buf.length} reason="${parsed.error || "no text"}"`);
+      return res.status(422).json({ ok: false, error: "parse_failed", message: parsed.error || "Couldn't read this file." });
     } catch (err) {
       console.error("[/api/assistant/attach] failed:", err);
       return res.status(500).json({ ok: false, error: "attach_failed", message: err.message || "Attach failed." });
