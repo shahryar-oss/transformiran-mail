@@ -1226,9 +1226,17 @@ window.renderMarkdown = renderMarkdown;
   // renderToolEvents — exactly the split the user asked for.
   window.__deltaAskInPanel = function (text, openMessageId) {
     if (!text || typeof text !== "string") return;
-    openPanel();
-    // sendMessage() handles ensureChatState() + append + stream.
-    sendMessage(text, openMessageId ? { openMessageId } : {});
+    // Defer to the next tick. The click that triggered this (a reader
+    // Summarize/Translate/Ask button — OUTSIDE the panel) is still
+    // bubbling; the document-level "click outside the panel closes it"
+    // handler runs AFTER our button handler, so opening synchronously
+    // would be undone in the same click and the panel would appear not
+    // to open. Deferring lets that click finish first, then we open.
+    setTimeout(() => {
+      openPanel();
+      // sendMessage() handles ensureChatState() + append + stream.
+      sendMessage(text, openMessageId ? { openMessageId } : {});
+    }, 0);
   };
 
   // Render a small gray transparency line for each tool Delta called.
