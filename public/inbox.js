@@ -2029,6 +2029,49 @@
         localHistory.push({ role: "user", content: userMsg });
         localHistory.push({ role: "assistant", content: reply });
 
+        // Phase 5.CX — the "Ask about this email" panel can trigger a
+        // draft via a follow-up ("draft a reply, cc Lana"). It used to
+        // render ONLY Delta's text, ignoring tool events, so the draft
+        // was created server-side but NO composer ever opened — Delta
+        // then hallucinated its location ("middle panel"… "right panel").
+        // Mirror the main Delta dock: open the draft DIRECTLY in the
+        // middle-pane composer. Opening it re-renders the reader, so this
+        // action card is replaced by the live editable draft; we return
+        // early to avoid showing the now-misleading "the draft is open"
+        // text behind it.
+        const composerEvent = (data.toolEvents || []).find(
+          (ev) =>
+            ev.result?.ok && ev.result.draft &&
+            (ev.name === "draft_reply" ||
+             ev.name === "compose_email" ||
+             ev.name === "forward_email")
+        );
+        if (composerEvent) {
+          card.querySelector(".dac-temp")?.remove();
+          const d = composerEvent.result.draft;
+          if (composerEvent.name === "draft_reply" &&
+              typeof window.openComposerWithDraft === "function") {
+            window.openComposerWithDraft(d, { keepDeltaOpen: true });
+            return;
+          }
+          if ((composerEvent.name === "compose_email" ||
+               composerEvent.name === "forward_email") &&
+              typeof window.openNewEmailComposer === "function") {
+            window.openNewEmailComposer({
+              to: d.to, cc: d.cc, bcc: d.bcc, subject: d.subject, body: d.body,
+            });
+            return;
+          }
+        }
+        // Tools that mutate the inbox (archive / label) — refresh the list
+        // so the row updates after the action card finishes.
+        if ((data.toolEvents || []).some(
+              (ev) => ev.name === "email_action" && ev.result?.ok)) {
+          if (typeof window.__refreshInboxList === "function") {
+            window.__refreshInboxList();
+          }
+        }
+
         if (append) {
           card.querySelector(".dac-temp")?.remove();
           const replyEl = document.createElement("div");
