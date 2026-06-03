@@ -4780,6 +4780,85 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
 }
 
 // ====================================================================
+// Delta chat — file attachments (paperclip)
+// --------------------------------------------------------------------
+// The chat panel can attach files. We accept the RAW file bytes (NOT
+// JSON) so we stay under the global 1 MB express.json cap and apply a
+// 12 MB express.raw limit only here. Documents (PDF/Word/Excel/CSV/
+// text) are parsed to text via lib/attachments; images (JPG/PNG/GIF/
+// WebP) are kept as base64 for Claude vision. Each parsed result is
+// stashed in an in-memory store under a random id (20-min TTL); the
+// chat request then references it via `attachmentIds`, so we never push
+// multi-MB image base64 through the JSON body.
+// NOTE: in-memory ⇒ assumes a single web instance (current setup). If
+// this service is ever scaled out, move the store to the DB / R2.
+// ====================================================================
+const _deltaAttachStore = new Map(); // id -> { userId, kind, name, mediaType, text, dataB64, expires }
+const DELTA_ATTACH_TTL_MS = 20 * 60 * 1000;
+const DELTA_ATTACH_MAX_BYTES = 12 * 1024 * 1024;
+const DELTA_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+const DELTA_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
+function _pruneAttachStore() {
+  const now = Date.now();
+  for (const [k, v] of _deltaAttachStore) if (v.expires <= now) _deltaAttachStore.delete(k);
+}
+// Resolve attachmentIds from a chat request into the shape lib/assistant
+// expects, enforcing per-user ownership. Capped at 6 files per turn.
+function resolveDeltaAttachments(userId, ids) {
+  _pruneAttachStore();
+  const out = [];
+  for (const id of (Array.isArray(ids) ? ids : []).slice(0, 6)) {
+    const a = _deltaAttachStore.get(id);
+    if (!a || a.userId !== userId) continue;
+    if (a.kind === "image") out.push({ kind: "image", name: a.name, mediaType: a.mediaType, dataB64: a.dataB64 });
+    else out.push({ kind: "document", name: a.name, text: a.text });
+  }
+  return out;
+}
+
+app.post("/api/assistant/attach",
+  auth.requireAuth,
+  express.raw({ type: () => true, limit: "12mb" }),
+  async (req, res) => {
+    try {
+      const crypto = require("crypto");
+      const buf = Buffer.isBuffer(req.body) ? req.body : null;
+      if (!buf || !buf.length) return res.status(400).json({ ok: false, error: "empty_file" });
+      if (buf.length > DELTA_ATTACH_MAX_BYTES) return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 12 MB)." });
+      const name = String(req.query.name || "file").slice(0, 200);
+      const mime = String(req.query.type || req.headers["content-type"] || "application/octet-stream").split(";")[0].trim().toLowerCase();
+      _pruneAttachStore();
+      const id = "att_" + crypto.randomBytes(9).toString("hex");
+      const expires = Date.now() + DELTA_ATTACH_TTL_MS;
+
+      // Image → Claude vision (base64).
+      if (mime.startsWith("image/")) {
+        if (!DELTA_IMAGE_TYPES.has(mime)) {
+          return res.status(415).json({ ok: false, error: "bad_image_type", message: "Unsupported image type. Use JPG, PNG, GIF or WebP." });
+        }
+        if (buf.length > DELTA_IMAGE_MAX_BYTES) {
+          return res.status(413).json({ ok: false, error: "image_too_large", message: "Image too large (max 5 MB). Try a smaller version." });
+        }
+        _deltaAttachStore.set(id, { userId: req.user.id, kind: "image", name, mediaType: mime, dataB64: buf.toString("base64"), expires });
+        return res.json({ ok: true, id, kind: "image", name });
+      }
+
+      // Otherwise parse as a document.
+      const attLib = require("./lib/attachments");
+      const parsed = await attLib.parseBuffer(buf, { filename: name, mime });
+      if (parsed.error || !parsed.textContent) {
+        return res.status(422).json({ ok: false, error: "parse_failed", message: parsed.error || "Couldn't read any text from that file." });
+      }
+      _deltaAttachStore.set(id, { userId: req.user.id, kind: "document", name, text: parsed.textContent, expires });
+      return res.json({ ok: true, id, kind: "document", name, truncated: !!parsed.truncated, chars: parsed.textContent.length });
+    } catch (err) {
+      console.error("[/api/assistant/attach] failed:", err);
+      return res.status(500).json({ ok: false, error: "attach_failed", message: err.message || "Attach failed." });
+    }
+  }
+);
+
+// ====================================================================
 // Delta chat — POST /api/assistant/stream  (Phase 5.AU)
 // Server-sent-events variant of /api/assistant. Emits live progress
 // updates as Delta thinks + calls tools so the chat panel's loading
@@ -4806,7 +4885,13 @@ app.post("/api/assistant/stream", auth.requireAuth, async (req, res) => {
     } catch (_) {}
   };
 
-  const { message, history, openMessageId, model } = req.body || {};
+  let { message, history, openMessageId, model } = req.body || {};
+  const hasAttachments = Array.isArray(req.body?.attachmentIds) && req.body.attachmentIds.length > 0;
+  // Allow an empty message when files are attached (e.g. "[paperclip] +
+  // Send" with no text) — give Delta a sensible default instruction.
+  if ((!message || typeof message !== "string") && hasAttachments) {
+    message = "Take a look at the attached file(s) and tell me what's in them / what I should do.";
+  }
   if (!message || typeof message !== "string") {
     send("error", { error: "empty_message" });
     res.end();
@@ -4826,6 +4911,7 @@ app.post("/api/assistant/stream", auth.requireAuth, async (req, res) => {
       userMessage: message,
       openMessageId,
       model: effectiveModel,
+      attachments: resolveDeltaAttachments(req.user.id, req.body?.attachmentIds),
       onProgress: (ev) => send("progress", ev),
     });
     send("done", {
@@ -4849,7 +4935,11 @@ app.post("/api/assistant/stream", auth.requireAuth, async (req, res) => {
 // Stateless: client passes the conversation history each turn.
 // ====================================================================
 app.post("/api/assistant", auth.requireAuth, async (req, res) => {
-  const { message, history, openMessageId, model } = req.body || {};
+  let { message, history, openMessageId, model } = req.body || {};
+  const hasAttachments = Array.isArray(req.body?.attachmentIds) && req.body.attachmentIds.length > 0;
+  if ((!message || typeof message !== "string" || message.trim().length === 0) && hasAttachments) {
+    message = "Take a look at the attached file(s) and tell me what's in them / what I should do.";
+  }
   if (!message || typeof message !== "string" || message.trim().length === 0) {
     return res.status(400).json({ error: "empty_message" });
   }
@@ -4872,6 +4962,7 @@ app.post("/api/assistant", auth.requireAuth, async (req, res) => {
       userMessage: message.trim(),
       openMessageId: openMessageId || null,
       model: effectiveModel,
+      attachments: resolveDeltaAttachments(req.user.id, req.body?.attachmentIds),
     });
     res.json({
       reply: result.reply,

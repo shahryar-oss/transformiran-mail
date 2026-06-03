@@ -327,11 +327,18 @@
   </div>
 
   <!-- WELCOME STATE — visible until the first message is sent -->
+  <!-- Hidden file picker shared by both paperclip buttons. At panel
+       level (not inside a state div) so it's never display:none'd. -->
+  <input type="file" id="deltaFileInput" multiple
+         accept="image/jpeg,image/png,image/gif,image/webp,.pdf,.docx,.xlsx,.xls,.csv,.txt"
+         style="display:none">
+
   <div class="delta-welcome" id="deltaWelcome">
     <div class="delta-big-logo"><img src="/delta-logo.png" alt="Delta" draggable="false"></div>
     <div class="delta-greet">How can I help you today?</div>
 
     <div class="delta-input-wrap">
+      <div class="delta-attach-chips" id="deltaAttachChipsWelcome"></div>
       <textarea
         class="delta-input"
         id="deltaInputWelcome"
@@ -342,7 +349,7 @@
       ></textarea>
       <div class="delta-input-actions">
         <div class="delta-input-actions-left">
-          <button class="delta-icon-btn" type="button" aria-label="Attach file" title="Attach a file (coming soon)" disabled>
+          <button class="delta-icon-btn delta-attach-btn" type="button" aria-label="Attach file" title="Attach a file — PDF, Word, Excel, or image">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/>
             </svg>
@@ -377,6 +384,7 @@
     <div class="delta-messages" id="deltaMessages"></div>
     <div class="delta-foot">
       <div class="delta-input-wrap">
+        <div class="delta-attach-chips" id="deltaAttachChipsChat"></div>
         <textarea
           class="delta-input"
           id="deltaInputChat"
@@ -387,7 +395,7 @@
         ></textarea>
         <div class="delta-input-actions">
           <div class="delta-input-actions-left">
-            <button class="delta-icon-btn" type="button" aria-label="Attach file" title="Attach (coming soon)" disabled>
+            <button class="delta-icon-btn delta-attach-btn" type="button" aria-label="Attach file" title="Attach a file — PDF, Word, Excel, or image">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/>
               </svg>
@@ -604,7 +612,7 @@
 <script src="/inbox.js?v=5DG"></script>
 <script src="/inbox-rightpanel.js?v=5DA"></script>
 <script src="/task-notifier.js?v=5DA"></script>
-<script src="/assistant.js?v=5DJ"></script>
+<script src="/assistant.js?v=5DK"></script>
 <script src="/voice.js?v=5DC"></script>
 <script src="/shortcuts-global.js?v=1"></script>
 </body>

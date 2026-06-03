@@ -238,11 +238,21 @@ window.renderMarkdown = renderMarkdown;
   const inputChat = document.getElementById("deltaInputChat");
   const sendChat = document.getElementById("deltaSendChat");
   const suggestionsEl = document.getElementById("deltaSuggestions");
+  const fileInput = document.getElementById("deltaFileInput");
+  const attachChipsEls = [
+    document.getElementById("deltaAttachChipsWelcome"),
+    document.getElementById("deltaAttachChipsChat"),
+  ].filter(Boolean);
 
   if (!fab || !panel) return;
 
   // Conversation state — array of {role:"user"|"assistant", content:string}
   let history = [];
+
+  // Files attached via the paperclip, pending the next send. Each entry:
+  // { localId, name, kind:'image'|'document', status:'uploading'|'ready'|'error',
+  //   id (server attachment id once uploaded), error? }
+  let pendingAttachments = [];
 
   // Per-user model preference — loaded from /api/me on open
   let selectedModel = "basic";
@@ -1072,6 +1082,92 @@ window.renderMarkdown = renderMarkdown;
   bindUpKey(inputWelcome);
   bindUpKey(inputChat);
 
+  // -- file attachments (paperclip) --------------------------------------
+  // Upload each picked file to /api/assistant/attach (raw bytes). Docs are
+  // parsed to text server-side; images are kept for Claude vision. We hold
+  // a server attachment id per file and send the ids with the next message.
+  const ATTACH_ICON = {
+    image: "🖼️",
+    document: "📄",
+  };
+  if (!document.getElementById("delta-attach-css")) {
+    const st = document.createElement("style");
+    st.id = "delta-attach-css";
+    st.textContent =
+      ".delta-attach-chips{display:none;flex-wrap:wrap;gap:6px;margin:0 0 6px;}" +
+      ".delta-attach-chip{display:inline-flex;align-items:center;gap:6px;max-width:220px;background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.14);border-radius:14px;padding:3px 6px 3px 9px;font-size:12px;line-height:1.25;}" +
+      ".delta-attach-chip.err{border-color:#e0907f;background:#fdeee9;}" +
+      ".delta-attach-chip .dac-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px;}" +
+      ".delta-attach-chip .dac-x{border:none;background:transparent;cursor:pointer;font-size:15px;line-height:1;opacity:.55;padding:0 2px;color:inherit;}" +
+      ".delta-attach-chip .dac-x:hover{opacity:1;}";
+    document.head.appendChild(st);
+  }
+  function renderAttachChips() {
+    const html = pendingAttachments.map((a) => {
+      const icon = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : (ATTACH_ICON[a.kind] || "📎");
+      const cls = "delta-attach-chip" + (a.status === "error" ? " err" : "");
+      const title = a.status === "error" ? (a.error || "Couldn't attach") : a.name;
+      return `<span class="${cls}" data-lid="${a.localId}" title="${escapeHtml(title)}">`
+        + `<span class="dac-ic">${icon}</span>`
+        + `<span class="dac-nm">${escapeHtml(a.name)}</span>`
+        + `<button class="dac-x" type="button" data-lid="${a.localId}" aria-label="Remove">×</button>`
+        + `</span>`;
+    }).join("");
+    attachChipsEls.forEach((el) => {
+      el.innerHTML = html;
+      el.style.display = pendingAttachments.length ? "flex" : "none";
+      el.querySelectorAll(".dac-x").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.preventDefault(); e.stopPropagation();
+          const lid = btn.getAttribute("data-lid");
+          pendingAttachments = pendingAttachments.filter((p) => p.localId !== lid);
+          renderAttachChips();
+        });
+      });
+    });
+  }
+  async function uploadAttachment(file) {
+    const localId = "l" + Math.random().toString(36).slice(2);
+    const kindGuess = file.type.startsWith("image/") ? "image" : "document";
+    const entry = { localId, name: file.name || "file", kind: kindGuess, status: "uploading", id: null };
+    pendingAttachments.push(entry);
+    renderAttachChips();
+    try {
+      const r = await fetch(
+        `/api/assistant/attach?name=${encodeURIComponent(file.name || "file")}&type=${encodeURIComponent(file.type || "")}`,
+        { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file }
+      );
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        entry.status = "error";
+        entry.error = data.message || data.error || `Upload failed (${r.status})`;
+      } else {
+        entry.status = "ready";
+        entry.id = data.id;
+        entry.kind = data.kind || kindGuess;
+      }
+    } catch (err) {
+      entry.status = "error";
+      entry.error = err.message || "Upload failed";
+    }
+    renderAttachChips();
+  }
+  function pickFiles() { if (fileInput) fileInput.click(); }
+  document.querySelectorAll(".delta-attach-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => { e.preventDefault(); pickFiles(); });
+  });
+  if (fileInput) {
+    fileInput.addEventListener("change", () => {
+      const files = Array.from(fileInput.files || []);
+      // Cap at 6 files total (server also caps).
+      for (const f of files) {
+        if (pendingAttachments.length >= 6) break;
+        uploadAttachment(f);
+      }
+      fileInput.value = ""; // allow re-picking the same file
+    });
+  }
+
   // Initial load
   loadUserPrefs();
   loadPrompts();
@@ -1081,12 +1177,29 @@ window.renderMarkdown = renderMarkdown;
 
   async function sendMessage(text, opts = {}) {
     const trimmed = (text || "").trim();
-    if (!trimmed || inFlight) return;
+    // Capture any ready paperclip attachments for this turn.
+    const readyAtts = pendingAttachments.filter((a) => a.status === "ready" && a.id);
+    const attachmentIds = readyAtts.map((a) => a.id);
+    // Allow sending with NO text if at least one file is attached.
+    if ((!trimmed && !attachmentIds.length) || inFlight) return;
+    // If files are still uploading, wait briefly so they make this turn.
+    if (pendingAttachments.some((a) => a.status === "uploading")) {
+      ttsToast("Still attaching your file — try Send again in a moment.");
+      return;
+    }
     inFlight = true;
 
     ensureChatState();
-    const userWrap = appendMessage("user", trimmed);
-    history.push({ role: "user", content: trimmed });
+    // Show the typed text + a line listing any attached files, so the
+    // user sees exactly what they sent.
+    const attLine = readyAtts.length
+      ? (trimmed ? "\n" : "") + "📎 " + readyAtts.map((a) => a.name).join(", ")
+      : "";
+    const userWrap = appendMessage("user", (trimmed + attLine) || "📎 (file)");
+    history.push({ role: "user", content: trimmed || "(sent a file)" });
+    // Attachments are one-shot — clear the chips now that they're sent.
+    pendingAttachments = [];
+    renderAttachChips();
 
     inputWelcome.value = "";
     inputChat.value = "";
@@ -1212,6 +1325,7 @@ window.renderMarkdown = renderMarkdown;
           // buttons) wins; otherwise infer from the selected row.
           openMessageId: opts.openMessageId || getOpenMessageId(),
           model: getSelectedModel(),
+          attachmentIds,   // paperclip files for this turn (server resolves)
         }),
       });
       if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
