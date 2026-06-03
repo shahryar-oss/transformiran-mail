@@ -300,7 +300,7 @@ window.renderMarkdown = renderMarkdown;
 
   // -- panel toggle ------------------------------------------------------
   function isOpen() { return panel.classList.contains("open"); }
-  function openPanel() {
+  function openPanel(opts = {}) {
     panel.classList.add("open");
     panel.setAttribute("aria-hidden", "false");
     fab.classList.add("open");
@@ -311,7 +311,9 @@ window.renderMarkdown = renderMarkdown;
     }, 80);
     // Phase 5.AD — show today's morning briefing on panel open. Fires once
     // per session; if already shown today, the helper skips quietly.
-    maybeShowMorningBriefing();
+    // Skipped when we open specifically to answer a Summarize/Translate/
+    // Ask request, so the briefing card doesn't bury the user's Q&A.
+    if (!opts.skipBriefing) maybeShowMorningBriefing();
     // Phase 5.AF — surface any pending decision-rule suggestions.
     maybeShowRuleSuggestions();
   }
@@ -1083,7 +1085,7 @@ window.renderMarkdown = renderMarkdown;
     inFlight = true;
 
     ensureChatState();
-    appendMessage("user", trimmed);
+    const userWrap = appendMessage("user", trimmed);
     history.push({ role: "user", content: trimmed });
 
     inputWelcome.value = "";
@@ -1092,6 +1094,16 @@ window.renderMarkdown = renderMarkdown;
 
     const loadingEl = appendMessage("assistant", "Delta is thinking…", { loading: true });
     [sendWelcome, sendChat].forEach((b) => b && (b.disabled = true));
+    // Pin the user's question near the top so it stays visible while the
+    // answer streams in below (ChatGPT-style). On long replies it would
+    // otherwise scroll out of view and the user couldn't see what they
+    // asked / that a result is on the way.
+    try { userWrap?.scrollIntoView({ block: "start", behavior: "smooth" }); } catch (_) {}
+    // Live token-by-token streaming state. We reuse the "thinking" bubble
+    // (loadingEl) as the surface: on the first text token we swap its
+    // spinner for a text container and append deltas as they arrive.
+    let streamContentEl = null;
+    let streamText = "";
 
     // Phase 5.AU — live-progress labels. As Delta calls tools, the
     // bubble's label flips to match. Returns to "thinking" between
@@ -1131,6 +1143,30 @@ window.renderMarkdown = renderMarkdown;
     const handleProgress = (ev) => {
       if (ev.type === "thinking") {
         setLoadingLabel("Delta is thinking");
+      } else if (ev.type === "text_start") {
+        // A new hop began emitting text — reset the streaming buffer so
+        // only the LAST hop's text shows (matches the server's finalReply).
+        streamText = "";
+        if (streamContentEl) streamContentEl.textContent = "";
+      } else if (ev.type === "text_chunk") {
+        // First token: convert the "thinking" bubble into a live text
+        // surface (drop the spinner, keep the Delta avatar).
+        if (!streamContentEl) {
+          const bubble = loadingEl.querySelector(".delta-msg");
+          if (bubble) {
+            bubble.classList.remove("loading");
+            bubble.innerHTML =
+              `<img class="delta-msg-avatar" src="/delta-logo.png" alt="Delta">` +
+              `<div class="md-content" dir="auto"></div>`;
+            streamContentEl = bubble.querySelector(".md-content");
+          }
+        }
+        if (streamContentEl) {
+          streamText += ev.text || "";
+          // Plain text while streaming (cheap); full markdown is applied
+          // once at 'done' when the final reply replaces this bubble.
+          streamContentEl.textContent = streamText;
+        }
       } else if (ev.type === "tool_start") {
         setLoadingLabel(TOOL_LABELS[ev.tool] || `Delta is using ${ev.tool}`);
       } else if (ev.type === "tool_end") {
@@ -1233,7 +1269,7 @@ window.renderMarkdown = renderMarkdown;
     // would be undone in the same click and the panel would appear not
     // to open. Deferring lets that click finish first, then we open.
     setTimeout(() => {
-      openPanel();
+      openPanel({ skipBriefing: true });
       // sendMessage() handles ensureChatState() + append + stream.
       sendMessage(text, openMessageId ? { openMessageId } : {});
     }, 0);
