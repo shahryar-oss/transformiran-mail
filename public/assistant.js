@@ -1139,8 +1139,15 @@ window.renderMarkdown = renderMarkdown;
       );
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data.ok) {
+        let msg = data.message || data.error;
+        if (!msg) {
+          if (r.status === 413) msg = "File too large (max 25 MB).";
+          else if (r.status === 401 || r.status === 403) msg = "You're not allowed to attach files.";
+          else msg = `Upload failed (${r.status})`;
+        }
         entry.status = "error";
-        entry.error = data.message || data.error || `Upload failed (${r.status})`;
+        entry.error = msg;
+        ttsToast("Couldn't attach " + entry.name + " — " + msg, { error: true });
       } else {
         entry.status = "ready";
         entry.id = data.id;
@@ -1149,6 +1156,7 @@ window.renderMarkdown = renderMarkdown;
     } catch (err) {
       entry.status = "error";
       entry.error = err.message || "Upload failed";
+      ttsToast("Couldn't attach " + entry.name, { error: true });
     }
     renderAttachChips();
   }
@@ -1177,15 +1185,25 @@ window.renderMarkdown = renderMarkdown;
 
   async function sendMessage(text, opts = {}) {
     const trimmed = (text || "").trim();
+    if (inFlight) return;
     // Capture any ready paperclip attachments for this turn.
     const readyAtts = pendingAttachments.filter((a) => a.status === "ready" && a.id);
     const attachmentIds = readyAtts.map((a) => a.id);
-    // Allow sending with NO text if at least one file is attached.
-    if ((!trimmed && !attachmentIds.length) || inFlight) return;
     // If files are still uploading, wait briefly so they make this turn.
     if (pendingAttachments.some((a) => a.status === "uploading")) {
       ttsToast("Still attaching your file — try Send again in a moment.");
       return;
+    }
+    // Nothing to send. If a file failed to attach, nudge instead of no-op.
+    if (!trimmed && !attachmentIds.length) {
+      if (pendingAttachments.some((a) => a.status === "error")) {
+        ttsToast("That file didn't attach — click 📎 to try again.", { error: true });
+      }
+      return;
+    }
+    // Sending text but a file errored out — tell the user it won't be included.
+    if (pendingAttachments.some((a) => a.status === "error")) {
+      ttsToast("Heads up: a file didn't attach, so I'm sending without it.", { error: true });
     }
     inFlight = true;
 

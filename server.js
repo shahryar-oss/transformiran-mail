@@ -4795,7 +4795,7 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
 // ====================================================================
 const _deltaAttachStore = new Map(); // id -> { userId, kind, name, mediaType, text, dataB64, expires }
 const DELTA_ATTACH_TTL_MS = 20 * 60 * 1000;
-const DELTA_ATTACH_MAX_BYTES = 12 * 1024 * 1024;
+const DELTA_ATTACH_MAX_BYTES = 25 * 1024 * 1024;
 const DELTA_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 const DELTA_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 function _pruneAttachStore() {
@@ -4818,13 +4818,22 @@ function resolveDeltaAttachments(userId, ids) {
 
 app.post("/api/assistant/attach",
   auth.requireAuth,
-  express.raw({ type: () => true, limit: "12mb" }),
+  // Wrap express.raw so its size-limit rejection comes back as clean JSON
+  // (otherwise body-parser emits an HTML 413 the client can't parse and
+  // the user just sees a generic ⚠️).
+  (req, res, next) => express.raw({ type: () => true, limit: "25mb" })(req, res, (err) => {
+    if (err) {
+      console.warn("[/api/assistant/attach] raw parse rejected:", err.type || err.message);
+      return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 25 MB)." });
+    }
+    next();
+  }),
   async (req, res) => {
     try {
       const crypto = require("crypto");
       const buf = Buffer.isBuffer(req.body) ? req.body : null;
       if (!buf || !buf.length) return res.status(400).json({ ok: false, error: "empty_file" });
-      if (buf.length > DELTA_ATTACH_MAX_BYTES) return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 12 MB)." });
+      if (buf.length > DELTA_ATTACH_MAX_BYTES) return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 25 MB)." });
       const name = String(req.query.name || "file").slice(0, 200);
       const mime = String(req.query.type || req.headers["content-type"] || "application/octet-stream").split(";")[0].trim().toLowerCase();
       _pruneAttachStore();
@@ -4847,6 +4856,7 @@ app.post("/api/assistant/attach",
       const attLib = require("./lib/attachments");
       const parsed = await attLib.parseBuffer(buf, { filename: name, mime });
       if (parsed.error || !parsed.textContent) {
+        console.warn(`[/api/assistant/attach] parse_failed name="${name}" mime="${mime}" bytes=${buf.length} reason="${parsed.error || "no text"}"`);
         return res.status(422).json({ ok: false, error: "parse_failed", message: parsed.error || "Couldn't read any text from that file." });
       }
       _deltaAttachStore.set(id, { userId: req.user.id, kind: "document", name, text: parsed.textContent, expires });
