@@ -470,7 +470,7 @@
         <svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
         <span>Discard</span>
       </button>
-      <button id="cmpAttach" class="cmp-icon-btn" title="Attach a file (coming soon)" disabled>
+      <button id="cmpAttach" class="cmp-icon-btn" title="Attach a file to this email">
         <svg viewBox="0 0 24 24"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg>
         <span>Attach File</span>
       </button>
@@ -567,6 +567,10 @@
          dir="auto"
          data-placeholder="Write your message…"></div>
 
+    <!-- Outgoing attachment chips + hidden picker -->
+    <div class="draft-attach-chips" id="cmpAttachChips" style="display:none"></div>
+    <input type="file" id="cmpFileInput" multiple style="display:none">
+
     <!-- Footer (status + signature hint) -->
     <div class="compose-footer">
       <span class="compose-sig-hint" id="cmpSigHint" style="display:none">✓ + your Transform Iran signature</span>
@@ -609,7 +613,7 @@
 </div>
 
 <script src="/markdown-inline.js?v=1"></script>
-<script src="/inbox.js?v=5DG"></script>
+<script src="/inbox.js?v=5DH"></script>
 <script src="/inbox-rightpanel.js?v=5DA"></script>
 <script src="/task-notifier.js?v=5DA"></script>
 <script src="/assistant.js?v=5DL"></script>

@@ -4251,6 +4251,67 @@ app.get("/api/gmail/signature", auth.requireAuth, async (req, res) => {
   }
 });
 
+// ====================================================================
+// OUTGOING email attachments (composer paperclip)
+// --------------------------------------------------------------------
+// Distinct from the Delta-chat paperclip: these files ride OUT on the
+// email the user sends (the recipient gets them). We take the RAW bytes
+// (not JSON — keeps us under the 1 MB express.json cap), keep the exact
+// filename + content-type + base64, stash under a random id (30-min TTL,
+// per-user), and the Send request references them via `attachmentIds`.
+// buildMultipartMessage then emits a multipart/mixed message.
+// In-memory ⇒ single web instance (current setup).
+// ====================================================================
+const _composeAttachStore = new Map(); // id -> { userId, filename, mimeType, contentB64, size, expires }
+const COMPOSE_ATTACH_TTL_MS = 30 * 60 * 1000;
+const COMPOSE_ATTACH_MAX_BYTES = 25 * 1024 * 1024;
+function _pruneComposeAttachStore() {
+  const now = Date.now();
+  for (const [k, v] of _composeAttachStore) if (v.expires <= now) _composeAttachStore.delete(k);
+}
+function resolveComposeAttachments(userId, ids) {
+  _pruneComposeAttachStore();
+  const out = [];
+  for (const id of (Array.isArray(ids) ? ids : []).slice(0, 10)) {
+    const a = _composeAttachStore.get(id);
+    if (!a || a.userId !== userId) continue;
+    out.push({ filename: a.filename, mimeType: a.mimeType, contentB64: a.contentB64 });
+  }
+  return out;
+}
+
+app.post("/api/compose/attach",
+  auth.requireAuth,
+  (req, res, next) => express.raw({ type: () => true, limit: "25mb" })(req, res, (err) => {
+    if (err) {
+      console.warn("[/api/compose/attach] raw parse rejected:", err.type || err.message);
+      return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 25 MB)." });
+    }
+    next();
+  }),
+  async (req, res) => {
+    try {
+      const crypto = require("crypto");
+      const buf = Buffer.isBuffer(req.body) ? req.body : null;
+      if (!buf || !buf.length) return res.status(400).json({ ok: false, error: "empty_file" });
+      if (buf.length > COMPOSE_ATTACH_MAX_BYTES) return res.status(413).json({ ok: false, error: "too_large", message: "File too large (max 25 MB)." });
+      const filename = String(req.query.name || "attachment").replace(/[\r\n"\\]/g, "").slice(0, 200);
+      const mimeType = String(req.query.type || req.headers["content-type"] || "application/octet-stream").split(";")[0].trim().toLowerCase();
+      _pruneComposeAttachStore();
+      const id = "cat_" + crypto.randomBytes(9).toString("hex");
+      _composeAttachStore.set(id, {
+        userId: req.user.id, filename, mimeType,
+        contentB64: buf.toString("base64"), size: buf.length,
+        expires: Date.now() + COMPOSE_ATTACH_TTL_MS,
+      });
+      return res.json({ ok: true, id, name: filename, size: buf.length });
+    } catch (err) {
+      console.error("[/api/compose/attach] failed:", err);
+      return res.status(500).json({ ok: false, error: "attach_failed", message: err.message || "Attach failed." });
+    }
+  }
+);
+
 // SEND a real email through Gmail. Same multipart/alternative builder as
 // drafts. User clicks Send inside Delta Mail — Gmail's users.messages.send
 // is the actual send call. This is the trust line: human clicks Send;
@@ -4361,6 +4422,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       inReplyTo,
       parentHtmlSnapshot,
       parentHeaderSnapshot,
+      attachments: resolveComposeAttachments(req.user.id, req.body?.attachmentIds),
     });
 
     const sendRes = await g.users.messages.send({
@@ -4596,7 +4658,7 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 //   - bodyText (plain text — auto-escaped and wrapped into HTML), OR
 //   - bodyHtml (already-rich HTML from the rich-text compose editor)
 // Always emits BOTH a text/plain and a text/html part so any client renders OK.
-function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo, parentHtmlSnapshot, parentHeaderSnapshot }) {
+function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signatureText, signatureHtml, inReplyTo, parentHtmlSnapshot, parentHeaderSnapshot, attachments }) {
   const boundary = "delta_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
 
   // Final layout (every email client expects this order):
@@ -4744,22 +4806,8 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
       : "") +
     quotedHtml;
 
-  const headers = [
-    `To: ${to}`,
-    ...(cc ? [`Cc: ${cc}`] : []),
-    ...(bcc ? [`Bcc: ${bcc}`] : []),
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-  ];
-  if (inReplyTo) {
-    headers.push(`In-Reply-To: ${inReplyTo}`);
-    headers.push(`References: ${inReplyTo}`);
-  }
-
-  const message =
-    headers.join("\r\n") +
-    "\r\n\r\n" +
+  // The body proper — a multipart/alternative (text + html) block.
+  const altBlock =
     `--${boundary}\r\n` +
     `Content-Type: text/plain; charset="UTF-8"\r\n` +
     `Content-Transfer-Encoding: 7bit\r\n\r\n` +
@@ -4771,6 +4819,53 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     htmlPart +
     "\r\n\r\n" +
     `--${boundary}--\r\n`;
+
+  // Outgoing file attachments (from the composer paperclip). When present
+  // we wrap the alternative block + each file in a multipart/mixed
+  // envelope so the recipient receives real attachments.
+  const cleanAtts = (Array.isArray(attachments) ? attachments : [])
+    .filter((a) => a && a.contentB64 && a.filename);
+
+  const baseHeaders = [
+    `To: ${to}`,
+    ...(cc ? [`Cc: ${cc}`] : []),
+    ...(bcc ? [`Bcc: ${bcc}`] : []),
+    `Subject: ${subject}`,
+    `MIME-Version: 1.0`,
+  ];
+  if (inReplyTo) {
+    baseHeaders.push(`In-Reply-To: ${inReplyTo}`);
+    baseHeaders.push(`References: ${inReplyTo}`);
+  }
+
+  let message;
+  if (!cleanAtts.length) {
+    message =
+      baseHeaders.concat([`Content-Type: multipart/alternative; boundary="${boundary}"`]).join("\r\n") +
+      "\r\n\r\n" + altBlock;
+  } else {
+    const mixed = "mixed_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    const wrapB64 = (b64) => String(b64).replace(/[\r\n\s]/g, "").replace(/.{76}/g, "$&\r\n");
+    const cleanName = (n) => String(n || "attachment").replace(/[\r\n"\\]/g, "").slice(0, 200);
+    const cleanType = (t) => String(t || "application/octet-stream").replace(/[\r\n";\\]/g, "").slice(0, 120);
+    let body =
+      `--${mixed}\r\n` +
+      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+      altBlock + "\r\n";
+    for (const a of cleanAtts) {
+      const fn = cleanName(a.filename);
+      body +=
+        `--${mixed}\r\n` +
+        `Content-Type: ${cleanType(a.mimeType)}; name="${fn}"\r\n` +
+        `Content-Transfer-Encoding: base64\r\n` +
+        `Content-Disposition: attachment; filename="${fn}"\r\n\r\n` +
+        wrapB64(a.contentB64) + "\r\n";
+    }
+    body += `--${mixed}--\r\n`;
+    message =
+      baseHeaders.concat([`Content-Type: multipart/mixed; boundary="${mixed}"`]).join("\r\n") +
+      "\r\n\r\n" + body;
+  }
 
   return Buffer.from(message, "utf-8")
     .toString("base64")

@@ -2675,13 +2675,19 @@
       <div class="draft-body-wrap">
         <div class="draft-body" contenteditable="false" dir="auto" data-placeholder="Delta's draft will appear here…"></div>
       </div>
+      <div class="draft-attach-chips" style="display:none"></div>
       <div class="draft-actions">
         <button class="draft-send btn primary draft-btn-send" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
           Send
         </button>
         <button class="draft-save btn" disabled>Save as draft</button>
+        <button class="draft-attach btn" type="button" title="Attach a file to this email">
+          <svg viewBox="0 0 24 24" aria-hidden="true" style="width:15px;height:15px;fill:currentColor;vertical-align:text-bottom;margin-right:3px"><path d="M16.5 6.5L9 14a2.5 2.5 0 0 0 3.5 3.5l8-8a4 4 0 0 0-5.7-5.7l-8.8 8.9a5.5 5.5 0 0 0 7.8 7.8l7.3-7.3 1.4 1.4-7.3 7.3a7.5 7.5 0 1 1-10.6-10.6l8.8-8.9a6 6 0 1 1 8.5 8.5l-8 8a4.5 4.5 0 0 1-6.4-6.4L15 5l1.5 1.5z"/></svg>
+          Attach
+        </button>
         <button class="draft-cancel btn">Cancel</button>
+        <input type="file" class="draft-file-input" multiple style="display:none">
         <span class="draft-sig-hint" style="display:none">+ your Transform Iran signature</span>
         <span class="draft-status"></span>
       </div>
@@ -2694,6 +2700,70 @@
     const ccRow = composer.querySelector(".draft-cc-row");
     const bccRow = composer.querySelector(".draft-bcc-row");
     const subjInput = composer.querySelector(".draft-subject");
+
+    // ---- Outgoing file attachments (composer paperclip) --------------
+    // Files the recipient receives WITH this email (distinct from the
+    // Delta-chat paperclip). Upload to /api/compose/attach → hold an id →
+    // send the ids with the message; the server emits multipart/mixed.
+    const draftFileInput = composer.querySelector(".draft-file-input");
+    const draftAttachBtn = composer.querySelector(".draft-attach");
+    const draftChipsEl = composer.querySelector(".draft-attach-chips");
+    if (!document.getElementById("draft-attach-css")) {
+      const st = document.createElement("style"); st.id = "draft-attach-css";
+      st.textContent = ".draft-attach-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0;}"
+        + ".draft-attach-chip{display:inline-flex;align-items:center;gap:5px;max-width:240px;background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.14);border-radius:13px;padding:2px 6px 2px 9px;font-size:12px;line-height:1.3;}"
+        + ".draft-attach-chip.err{border-color:#e0907f;background:#fdeee9;}"
+        + ".draft-attach-chip .dac-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;}"
+        + ".draft-attach-chip .dac-x{border:none;background:transparent;cursor:pointer;font-size:14px;opacity:.55;padding:0 2px;color:inherit;}"
+        + ".draft-attach-chip .dac-x:hover{opacity:1;}";
+      document.head.appendChild(st);
+    }
+    let draftAttachments = []; // { localId, name, status, id, error }
+    function renderDraftChips() {
+      if (!draftChipsEl) return;
+      draftChipsEl.innerHTML = draftAttachments.map((a) => {
+        const ic = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : "📎";
+        return `<span class="draft-attach-chip${a.status === "error" ? " err" : ""}" title="${escapeHtml(a.error || a.name)}">`
+          + `<span class="dac-ic">${ic}</span><span class="dac-nm">${escapeHtml(a.name)}</span>`
+          + `<button type="button" class="dac-x" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
+      }).join("");
+      draftChipsEl.style.display = draftAttachments.length ? "flex" : "none";
+      draftChipsEl.querySelectorAll(".dac-x").forEach((b) => b.addEventListener("click", () => {
+        draftAttachments = draftAttachments.filter((p) => p.localId !== b.dataset.lid);
+        renderDraftChips();
+      }));
+    }
+    async function uploadDraftFile(file) {
+      const localId = "l" + Math.random().toString(36).slice(2);
+      const entry = { localId, name: file.name || "file", status: "uploading", id: null };
+      draftAttachments.push(entry);
+      renderDraftChips();
+      try {
+        const r = await fetch(
+          `/api/compose/attach?name=${encodeURIComponent(file.name || "file")}&type=${encodeURIComponent(file.type || "")}`,
+          { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file }
+        );
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok || !data.ok) {
+          entry.status = "error";
+          entry.error = data.message || (r.status === 413 ? "File too large (max 25 MB)." : `Upload failed (${r.status})`);
+          showToast("Couldn't attach " + entry.name + " — " + entry.error, "error");
+        } else {
+          entry.status = "ready"; entry.id = data.id;
+        }
+      } catch (err) {
+        entry.status = "error"; entry.error = err.message || "Upload failed";
+        showToast("Couldn't attach " + entry.name, "error");
+      }
+      renderDraftChips();
+    }
+    if (draftAttachBtn && draftFileInput) {
+      draftAttachBtn.addEventListener("click", (e) => { e.preventDefault(); draftFileInput.click(); });
+      draftFileInput.addEventListener("change", () => {
+        Array.from(draftFileInput.files || []).forEach((f) => { if (draftAttachments.length < 10) uploadDraftFile(f); });
+        draftFileInput.value = "";
+      });
+    }
 
     // Cc / Bcc toggles — clicking shows/hides the row.
     composer.querySelectorAll(".draft-cc-toggle").forEach((btn) => {
@@ -2940,6 +3010,13 @@
         statusEl.textContent = "Add a recipient first.";
         return;
       }
+      // Wait for any in-progress attachment uploads before sending.
+      if (draftAttachments.some((a) => a.status === "uploading")) {
+        statusEl.className = "draft-status error";
+        statusEl.textContent = "Still attaching a file — try Send again in a moment.";
+        return;
+      }
+      const attachmentIds = draftAttachments.filter((a) => a.status === "ready" && a.id).map((a) => a.id);
       // No confirm() — clicking Send means Send. The Send button is
       // already explicit + dedicated. Undo-send delay below gives a
       // safety window if the user changes their mind.
@@ -2968,6 +3045,7 @@
         // Phase 5.AE — Carry Delta's draft id so the server can
         // diff what was actually sent against the original draft.
         deltaDraftId: currentDraft.deltaDraftId || null,
+        attachmentIds, // outgoing file attachments (composer paperclip)
       });
 
       // Phase 5.CM-2 — Undo-send wrapper. Honours undoSendSeconds from
@@ -3185,6 +3263,51 @@
   const cmpSigHint = document.getElementById("cmpSigHint");
   const composeToolbar = document.getElementById("composeToolbar");
   const cmpBackdrop = composeModal?.querySelector(".compose-backdrop");
+  const cmpFileInput = document.getElementById("cmpFileInput");
+  const cmpAttachChips = document.getElementById("cmpAttachChips");
+
+  // ---- New-Email composer outgoing attachments (paperclip) ----
+  let cmpAttachments = []; // { localId, name, status, id, error }
+  function renderCmpChips() {
+    if (!cmpAttachChips) return;
+    cmpAttachChips.innerHTML = cmpAttachments.map((a) => {
+      const ic = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : "📎";
+      return `<span class="draft-attach-chip${a.status === "error" ? " err" : ""}" title="${escapeHtml(a.error || a.name)}">`
+        + `<span class="dac-ic">${ic}</span><span class="dac-nm">${escapeHtml(a.name)}</span>`
+        + `<button type="button" class="dac-x" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
+    }).join("");
+    cmpAttachChips.style.display = cmpAttachments.length ? "flex" : "none";
+    cmpAttachChips.querySelectorAll(".dac-x").forEach((b) => b.addEventListener("click", () => {
+      cmpAttachments = cmpAttachments.filter((p) => p.localId !== b.dataset.lid);
+      renderCmpChips();
+    }));
+  }
+  async function uploadCmpFile(file) {
+    const localId = "l" + Math.random().toString(36).slice(2);
+    const entry = { localId, name: file.name || "file", status: "uploading", id: null };
+    cmpAttachments.push(entry);
+    renderCmpChips();
+    try {
+      const r = await fetch(
+        `/api/compose/attach?name=${encodeURIComponent(file.name || "file")}&type=${encodeURIComponent(file.type || "")}`,
+        { method: "POST", headers: { "Content-Type": file.type || "application/octet-stream" }, body: file }
+      );
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) {
+        entry.status = "error";
+        entry.error = data.message || (r.status === 413 ? "File too large (max 25 MB)." : `Upload failed (${r.status})`);
+        showToast("Couldn't attach " + entry.name + " — " + entry.error, "error");
+      } else { entry.status = "ready"; entry.id = data.id; }
+    } catch (err) { entry.status = "error"; entry.error = err.message || "Upload failed"; showToast("Couldn't attach " + entry.name, "error"); }
+    renderCmpChips();
+  }
+  if (cmpAttach && cmpFileInput) {
+    cmpAttach.addEventListener("click", (e) => { e.preventDefault(); cmpFileInput.click(); });
+    cmpFileInput.addEventListener("change", () => {
+      Array.from(cmpFileInput.files || []).forEach((f) => { if (cmpAttachments.length < 10) uploadCmpFile(f); });
+      cmpFileInput.value = "";
+    });
+  }
 
   // Phase 5.AP — autocomplete on the standalone Compose modal too.
   if (cmpTo)  attachRecipientAutocomplete(cmpTo);
@@ -3242,6 +3365,7 @@
     cmpCcRow.hidden = true; cmpBccRow.hidden = true;
     cmpStatus.textContent = "";
     cmpSend.disabled = false; cmpSave.disabled = false;
+    cmpAttachments = []; renderCmpChips();
   }
 
   composeBtn?.addEventListener("click", openCompose);
@@ -3346,10 +3470,16 @@
       cmpStatus.textContent = "Write something first.";
       return false;
     }
+    if (cmpAttachments.some((a) => a.status === "uploading")) {
+      cmpStatus.className = "compose-status error";
+      cmpStatus.textContent = "Still attaching a file — try again in a moment.";
+      return false;
+    }
     const payload = {
       to,
       subject: cmpSubject.value,
       bodyHtml,
+      attachmentIds: cmpAttachments.filter((a) => a.status === "ready" && a.id).map((a) => a.id),
     };
     if (cmpCc.value.trim()) payload.cc = cmpCc.value.trim();
     if (cmpBcc.value.trim()) payload.bcc = cmpBcc.value.trim();
