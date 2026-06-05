@@ -4417,6 +4417,31 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       }
     }
 
+    // When editing an existing draft, re-attach the draft's ORIGINAL file
+    // attachments — the editor only re-sends newly-added files, so without
+    // this the draft's existing attachments would be silently lost on send.
+    let inheritedAtts = [];
+    if (deleteDraftId) {
+      try {
+        const dr = await g.users.drafts.get({ userId: "me", id: deleteDraftId, format: "full" });
+        const msg = dr.data.message;
+        const origParts = (mime.pickBody(msg?.payload).attachments) || [];
+        for (const p of origParts) {
+          if (!p.attachmentId) continue;
+          const ab = await g.users.messages.attachments.get({ userId: "me", messageId: msg.id, id: p.attachmentId });
+          const std = (ab.data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+          if (!std) continue;
+          inheritedAtts.push({
+            filename: p.filename || "attachment",
+            mimeType: p.mimeType || "application/octet-stream",
+            contentB64: Buffer.from(std, "base64").toString("base64"),
+          });
+        }
+      } catch (err) {
+        console.warn("[/api/gmail/send] inherit draft attachments failed:", err.message);
+      }
+    }
+
     const raw = buildMultipartMessage({
       to,
       cc, bcc,
@@ -4428,7 +4453,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
       inReplyTo,
       parentHtmlSnapshot,
       parentHeaderSnapshot,
-      attachments: resolveComposeAttachments(req.user.id, req.body?.attachmentIds),
+      attachments: [...inheritedAtts, ...resolveComposeAttachments(req.user.id, req.body?.attachmentIds)],
     });
 
     const sendRes = await g.users.messages.send({

@@ -613,13 +613,18 @@
     const title = a.status === "error" ? (a.error || "Couldn't attach") : a.name;
     const sub = a.status === "error" ? (a.error || "failed")
       : a.status === "uploading" ? "uploading…"
+      : a.inherited ? (a.size ? fmtBytes(a.size) + " · attached" : "attached")
       : (a.size ? fmtBytes(a.size) : "");
+    // Inherited = the draft's existing attachments (re-sent server-side);
+    // shown read-only (no × — they always travel with the edited draft).
+    const xBtn = a.inherited ? ""
+      : `<button class="dac-x" type="button" data-lid="${a.localId}" aria-label="Remove">×</button>`;
     return `<span class="${cls}" data-lid="${a.localId}" title="${escapeHtml(title)}">`
       + `<span class="dac-ic">${ic}</span>`
       + `<span class="dac-meta"><span class="dac-nm">${escapeHtml(a.name)}</span>`
       + (sub ? `<span class="dac-sz">${escapeHtml(sub)}</span>` : "")
       + `</span>`
-      + `<button class="dac-x" type="button" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
+      + xBtn + `</span>`;
   }
 
   const FOLDER_TITLES = {
@@ -3360,6 +3365,16 @@
 
   function openCompose() {
     if (!composeModal) return;
+    // Always start from a clean slate so state from a previous compose or
+    // draft-edit can't leak into this one (wrong thread, deleting the old
+    // draft, stale recipients/attachments). Callers (openNewEmailComposer /
+    // openDraftForEdit) apply their prefill + _editingDraft AFTER this.
+    _editingDraft = null;
+    cmpTo.value = ""; cmpCc.value = ""; cmpBcc.value = "";
+    cmpSubject.value = ""; cmpBodyRich.innerHTML = "";
+    if (cmpCcRow) cmpCcRow.hidden = true;
+    if (cmpBccRow) cmpBccRow.hidden = true;
+    cmpAttachments = []; renderCmpChips();
     // Move into the reader column + flag as docked. CSS strips the
     // backdrop / fixed positioning and stretches the card to fill.
     if (readerSection && composeModal.parentElement !== readerSection) {
@@ -3419,12 +3434,8 @@
       const r = await fetch(`/api/gmail/message/${encodeURIComponent(id)}`);
       const data = r.ok ? await r.json() : null;
       const h = (data && data.headers) || {};
-      _editingDraft = {
-        draftId: stub.draftId || null,
-        threadId: (data && data.threadId) || stub.threadId || null,
-        inReplyTo: h.inReplyTo || "",
-        rowId: id,
-      };
+      // openNewEmailComposer → openCompose resets _editingDraft + fields,
+      // so prefill FIRST, then set the editing context.
       window.openNewEmailComposer({
         to: h.to || stub.to || "",
         cc: h.cc || "",
@@ -3433,6 +3444,23 @@
         bodyHtml: (data && data.body && data.body.html) || undefined,
         body: (data && data.body && data.body.html) ? undefined : ((data && data.body && data.body.text) || ""),
       });
+      _editingDraft = {
+        draftId: stub.draftId || null,
+        threadId: (data && data.threadId) || stub.threadId || null,
+        inReplyTo: h.inReplyTo || "",
+        rowId: id,
+      };
+      // Show the draft's EXISTING attachments as read-only chips so the
+      // user knows they'll be sent (server re-attaches them on send).
+      const orig = (data && Array.isArray(data.attachments)) ? data.attachments : [];
+      if (orig.length) {
+        orig.forEach((p) => cmpAttachments.push({
+          localId: "orig" + Math.random().toString(36).slice(2),
+          name: p.filename || "attachment", size: p.size,
+          status: "ready", id: null, inherited: true,
+        }));
+        renderCmpChips();
+      }
     } catch (err) {
       showToast("Couldn't open draft: " + (err.message || err), "error");
     }
@@ -3607,7 +3635,20 @@
       showToast("Saved as draft", "ok");
       // If editing an existing draft, the server replaced it — point at the
       // NEW draft id so a second save doesn't re-delete a stale one.
-      if (_editingDraft && data.draftId) _editingDraft.draftId = data.draftId;
+      if (_editingDraft && data.draftId) {
+        // Save replaced the draft with a NEW one (new message id) and
+        // deleted the old. Re-point editing state + the visible row + the
+        // cached stub at the new id so reopening the draft doesn't 404.
+        _editingDraft.draftId = data.draftId;
+        const oldRowId = _editingDraft.rowId;
+        if (data.messageId && oldRowId) {
+          const row = document.querySelector(`.mail-row[data-id="${CSS.escape(oldRowId)}"]`);
+          if (row) row.dataset.id = data.messageId;
+          const stub = _allMessages.find((m) => m.id === oldRowId);
+          if (stub) { stub.id = data.messageId; stub.draftId = data.draftId; }
+          _editingDraft.rowId = data.messageId;
+        }
+      }
       cmpSave.disabled = false; cmpSend.disabled = false;
     } catch (err) {
       cmpStatus.className = "compose-status error";
