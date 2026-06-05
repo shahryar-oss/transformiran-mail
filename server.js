@@ -4077,6 +4077,8 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
         date: headers.date || "",
         messageId: headers["message-id"] || "",
         replyTo: headers["reply-to"] || "",
+        inReplyTo: headers["in-reply-to"] || "",
+        references: headers["references"] || "",
       },
       body: {
         html: safeHtml,
@@ -4317,7 +4319,7 @@ app.post("/api/compose/attach",
 // is the actual send call. This is the trust line: human clicks Send;
 // Delta never auto-sends without that explicit click.
 app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
-  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deltaDraftId } = req.body || {};
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deltaDraftId, deleteDraftId, noSignature } = req.body || {};
   if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
@@ -4326,9 +4328,13 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
     const g = google.gmail({ version: "v1", auth: client });
 
     // Same signature handling as the draft endpoint — honor signature_mode.
+    // noSignature (set when editing an existing draft, whose body already
+    // contains its full content + signature) forces it off so we don't
+    // append a second signature.
     const sig = await gmail.getCachedSignature(req.user.id, client);
     const mode = req.user.signature_mode || "always";
     const useSig =
+      noSignature ? false :
       mode === "never" ? false :
       mode === "first" ? !inReplyTo :
       true;
@@ -4432,6 +4438,16 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
         ...(threadId ? { threadId } : {}),
       },
     });
+
+    // If this was an EDITED draft, remove the original Gmail draft so it
+    // doesn't linger in Drafts as a duplicate (best-effort).
+    if (deleteDraftId) {
+      try {
+        await g.users.drafts.delete({ userId: "me", id: deleteDraftId });
+      } catch (err) {
+        console.warn("[/api/gmail/send] draft cleanup failed:", err.message);
+      }
+    }
 
     // Admin telemetry — count this outbound email per user (best-effort).
     try {
@@ -4593,7 +4609,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
 //   - text/html part (body in <p>s + the user's actual HTML signature)
 // Gmail then shows the proper formatted signature in the draft.
 app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
-  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo } = req.body || {};
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deleteDraftId, noSignature } = req.body || {};
   if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
@@ -4608,8 +4624,11 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
     // 'always'  → every outgoing message
     // 'first'   → only the first message of a NEW thread (no inReplyTo)
     // 'never'   → never
+    // noSignature (editing an existing draft) forces it off — the body
+    // already contains the full content + signature.
     const mode = req.user.signature_mode || "always";
     const useSig =
+      noSignature ? false :
       mode === "never"
         ? false
         : mode === "first"
@@ -4639,6 +4658,16 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
         },
       },
     });
+
+    // Editing an existing draft → remove the old one so we don't leave a
+    // duplicate behind (best-effort).
+    if (deleteDraftId && deleteDraftId !== draftRes.data.id) {
+      try {
+        await g.users.drafts.delete({ userId: "me", id: deleteDraftId });
+      } catch (err) {
+        console.warn("[/api/gmail/draft] old-draft cleanup failed:", err.message);
+      }
+    }
 
     res.json({
       ok: true,

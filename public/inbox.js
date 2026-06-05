@@ -584,6 +584,10 @@
   let _currentQuery = "";
   let _currentLabelId = null;   // set when viewing a Gmail-label folder
   let _nextPageToken = null;
+  // When editing an existing Gmail draft in the composer: { draftId,
+  // threadId, inReplyTo, rowId }. Lets Send thread correctly + remove the
+  // old draft. Null = composing a brand-new email.
+  let _editingDraft = null;
 
   const FOLDER_TITLES = {
     inbox:   "Inbox",
@@ -682,6 +686,12 @@
       row.addEventListener("click", (e) => {
         // Don't open the email when clicking a quick-action button.
         if (e.target.closest(".mail-row-actions")) return;
+        // In the Drafts folder, open the draft in the editable composer
+        // (full editing tools) instead of the read-only reader.
+        if (_currentFolder === "drafts") {
+          openDraftForEdit(row.dataset.id, messages);
+          return;
+        }
         onSelect(row.dataset.id, messages);
       });
     });
@@ -3366,6 +3376,7 @@
     cmpStatus.textContent = "";
     cmpSend.disabled = false; cmpSave.disabled = false;
     cmpAttachments = []; renderCmpChips();
+    _editingDraft = null;
   }
 
   composeBtn?.addEventListener("click", openCompose);
@@ -3373,6 +3384,34 @@
   // Phase 5.BM — Voice/chat Delta can programmatically open the
   // New-Email composer (NOT a reply) with a prefilled draft. Used
   // when the user says "draft a brand-new email to Lazarus" etc.
+  // Open a DRAFT in the editable composer (full tools) instead of the
+  // read-only reader. Prefills from the draft's content and remembers the
+  // draftId + thread so Send goes out in-thread and removes the old draft.
+  async function openDraftForEdit(id, messages) {
+    const stub = (messages || []).find((m) => m.id === id) || {};
+    try {
+      const r = await fetch(`/api/gmail/message/${encodeURIComponent(id)}`);
+      const data = r.ok ? await r.json() : null;
+      const h = (data && data.headers) || {};
+      _editingDraft = {
+        draftId: stub.draftId || null,
+        threadId: (data && data.threadId) || stub.threadId || null,
+        inReplyTo: h.inReplyTo || "",
+        rowId: id,
+      };
+      window.openNewEmailComposer({
+        to: h.to || stub.to || "",
+        cc: h.cc || "",
+        bcc: h.bcc || "",
+        subject: h.subject || stub.subject || "",
+        bodyHtml: (data && data.body && data.body.html) || undefined,
+        body: (data && data.body && data.body.html) ? undefined : ((data && data.body && data.body.text) || ""),
+      });
+    } catch (err) {
+      showToast("Couldn't open draft: " + (err.message || err), "error");
+    }
+  }
+
   window.openNewEmailComposer = function (prefill = {}) {
     openCompose();
     // openCompose() does an async settings fetch, but the DOM fields
@@ -3483,6 +3522,14 @@
     };
     if (cmpCc.value.trim()) payload.cc = cmpCc.value.trim();
     if (cmpBcc.value.trim()) payload.bcc = cmpBcc.value.trim();
+    // Editing an existing draft: send in-thread, skip a second signature,
+    // and tell the server to remove the original Gmail draft.
+    if (_editingDraft) {
+      payload.noSignature = true;
+      if (_editingDraft.draftId) payload.deleteDraftId = _editingDraft.draftId;
+      if (_editingDraft.threadId) payload.threadId = _editingDraft.threadId;
+      if (_editingDraft.inReplyTo) payload.inReplyTo = _editingDraft.inReplyTo;
+    }
     const r = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -3509,6 +3556,12 @@
       if (Array.isArray(data.autoCompletedTasks) && data.autoCompletedTasks.length) {
         for (const t of data.autoCompletedTasks) showTaskAutoCompletedToast(t);
       }
+      // If we just sent an edited draft, drop its row from the Drafts list
+      // + refresh the Drafts badge (it's no longer a draft).
+      if (_editingDraft && _editingDraft.rowId) {
+        try { removeFromList(_editingDraft.rowId, "Sent ✓"); } catch (_) {}
+        try { loadCounts(); } catch (_) {}
+      }
       setTimeout(() => closeCompose(true), 1200);
     } catch (err) {
       cmpStatus.className = "compose-status error";
@@ -3526,6 +3579,9 @@
       cmpStatus.className = "compose-status ok";
       cmpStatus.textContent = "Saved to your Drafts ✓";
       showToast("Saved as draft", "ok");
+      // If editing an existing draft, the server replaced it — point at the
+      // NEW draft id so a second save doesn't re-delete a stale one.
+      if (_editingDraft && data.draftId) _editingDraft.draftId = data.draftId;
       cmpSave.disabled = false; cmpSend.disabled = false;
     } catch (err) {
       cmpStatus.className = "compose-status error";
