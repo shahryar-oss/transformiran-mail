@@ -4284,6 +4284,30 @@ function resolveComposeAttachments(userId, ids) {
   return out;
 }
 
+// Re-download the file attachments of an existing Gmail message so they can
+// be re-emitted on a new outgoing message. Used by the Forward flow (carry
+// the original attachments forward) and by Save-as-draft when editing a
+// draft (preserve its existing attachments). `payload` is the message's
+// payload tree; `messageId` is the id the attachment bytes hang off.
+async function fetchInheritedAttachments(g, messageId, payload) {
+  const out = [];
+  const origParts = (mime.pickBody(payload).attachments) || [];
+  for (const p of origParts) {
+    if (!p.attachmentId) continue;
+    try {
+      const ab = await g.users.messages.attachments.get({ userId: "me", messageId, id: p.attachmentId });
+      const std = (ab.data.data || "").replace(/-/g, "+").replace(/_/g, "/");
+      if (!std) continue;
+      out.push({
+        filename: p.filename || "attachment",
+        mimeType: p.mimeType || "application/octet-stream",
+        contentB64: Buffer.from(std, "base64").toString("base64"),
+      });
+    } catch (_) { /* skip a single bad part, keep the rest */ }
+  }
+  return out;
+}
+
 app.post("/api/compose/attach",
   auth.requireAuth,
   (req, res, next) => express.raw({ type: () => true, limit: "25mb" })(req, res, (err) => {
@@ -4321,7 +4345,7 @@ app.post("/api/compose/attach",
 // is the actual send call. This is the trust line: human clicks Send;
 // Delta never auto-sends without that explicit click.
 app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
-  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deltaDraftId, deleteDraftId, noSignature } = req.body || {};
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deltaDraftId, deleteDraftId, noSignature, forwardFrom } = req.body || {};
   if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
@@ -4441,6 +4465,16 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
         }
       } catch (err) {
         console.warn("[/api/gmail/send] inherit draft attachments failed:", err.message);
+      }
+    }
+    // Forwarding: carry the ORIGINAL message's file attachments onto the
+    // forwarded copy (the composer only re-uploads newly-added files).
+    if (forwardFrom) {
+      try {
+        const fm = await g.users.messages.get({ userId: "me", id: forwardFrom, format: "full" });
+        inheritedAtts.push(...await fetchInheritedAttachments(g, forwardFrom, fm.data.payload));
+      } catch (err) {
+        console.warn("[/api/gmail/send] inherit forward attachments failed:", err.message);
       }
     }
 
@@ -4636,7 +4670,7 @@ app.post("/api/gmail/send", auth.requireAuth, async (req, res) => {
 //   - text/html part (body in <p>s + the user's actual HTML signature)
 // Gmail then shows the proper formatted signature in the draft.
 app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
-  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deleteDraftId, noSignature } = req.body || {};
+  const { to, cc, bcc, subject, body, bodyHtml, threadId, inReplyTo, deleteDraftId, noSignature, forwardFrom } = req.body || {};
   if (!to || (!body && !bodyHtml)) return res.status(400).json({ error: "to_and_body_required" });
   try {
     const creds = await auth.loadGoogleCreds(req.user.id);
@@ -4665,6 +4699,28 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
     const sigHtml = useSig && sig?.html ? sig.html : "";
     const sigText = useSig && sig ? gmail.signatureToPlainText(sig.html) : "";
 
+    // Preserve existing attachments when saving: an edited draft's original
+    // files (deleteDraftId) and a forwarded message's files (forwardFrom)
+    // must survive — the composer only re-uploads newly-added files.
+    let inheritedAtts = [];
+    if (deleteDraftId) {
+      try {
+        const dr = await g.users.drafts.get({ userId: "me", id: deleteDraftId, format: "full" });
+        const m = dr.data.message;
+        if (m) inheritedAtts.push(...await fetchInheritedAttachments(g, m.id, m.payload));
+      } catch (err) {
+        console.warn("[/api/gmail/draft] inherit draft attachments failed:", err.message);
+      }
+    }
+    if (forwardFrom) {
+      try {
+        const fm = await g.users.messages.get({ userId: "me", id: forwardFrom, format: "full" });
+        inheritedAtts.push(...await fetchInheritedAttachments(g, forwardFrom, fm.data.payload));
+      } catch (err) {
+        console.warn("[/api/gmail/draft] inherit forward attachments failed:", err.message);
+      }
+    }
+
     const raw = buildMultipartMessage({
       to,
       cc, bcc,
@@ -4674,6 +4730,7 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
       signatureText: sigText,
       signatureHtml: sigHtml,
       inReplyTo,
+      attachments: [...inheritedAtts, ...resolveComposeAttachments(req.user.id, req.body?.attachmentIds)],
     });
 
     const draftRes = await g.users.drafts.create({

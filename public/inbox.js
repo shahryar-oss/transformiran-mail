@@ -588,6 +588,10 @@
   // threadId, inReplyTo, rowId }. Lets Send thread correctly + remove the
   // old draft. Null = composing a brand-new email.
   let _editingDraft = null;
+  // When forwarding, the id of the ORIGINAL message — sent to the server so
+  // it re-attaches that message's files onto the forwarded copy. Null = not
+  // a forward. Reset on every composer open/close (like _editingDraft).
+  let _forwardFrom = null;
 
   // Attachment-chip helpers (shared by reply + new-email composers).
   function fmtBytes(b) {
@@ -2203,9 +2207,10 @@
       return openDraftComposer(msg, { mode: action });
     }
     if (action === "forward") {
-      // Forward — open composer with empty 'To' and original quoted (Phase 2c.3)
-      // For v1 just open the composer with no extra instructions.
-      return openDraftComposer(msg);
+      // Real forward: fresh composer (empty To), "Fwd:" subject, the
+      // original message quoted, and its attachments carried along — NOT a
+      // reply to the sender (the old behaviour replied instead of forwarding).
+      return forwardMessage(msg);
     }
     if (action === "star") {
       const isStarred = btn.classList.contains("active");
@@ -3370,6 +3375,7 @@
     // draft, stale recipients/attachments). Callers (openNewEmailComposer /
     // openDraftForEdit) apply their prefill + _editingDraft AFTER this.
     _editingDraft = null;
+    _forwardFrom = null;
     cmpTo.value = ""; cmpCc.value = ""; cmpBcc.value = "";
     cmpSubject.value = ""; cmpBodyRich.innerHTML = "";
     if (cmpCcRow) cmpCcRow.hidden = true;
@@ -3418,6 +3424,7 @@
     cmpSend.disabled = false; cmpSave.disabled = false;
     cmpAttachments = []; renderCmpChips();
     _editingDraft = null;
+    _forwardFrom = null;
   }
 
   composeBtn?.addEventListener("click", openCompose);
@@ -3464,6 +3471,60 @@
     } catch (err) {
       showToast("Couldn't open draft: " + (err.message || err), "error");
     }
+  }
+
+  // Forward an email: open the full editable composer with an empty
+  // recipient, a "Fwd:" subject, the original message quoted in a standard
+  // forwarded-message block, and the original attachments re-attached
+  // (server pulls the bytes via forwardFrom on send/save).
+  async function forwardMessage(msg) {
+    let data = null;
+    try {
+      const r = await fetch(`/api/gmail/message/${encodeURIComponent(msg.id)}`);
+      data = r.ok ? await r.json() : null;
+    } catch (_) { /* fall back to the list stub below */ }
+    const h = (data && data.headers) || {};
+    const origSubject = h.subject || msg.subject || "";
+    const fwdSubject = /^\s*fwd:/i.test(origSubject) ? origSubject : `Fwd: ${origSubject}`;
+    const origHtml = (data && data.body && data.body.html) || "";
+    const origText = (data && data.body && data.body.text) || msg.snippet || "";
+
+    const line = (label, val) => val ? `<div><b>${label}:</b> ${escapeHtml(val)}</div>` : "";
+    const banner =
+      `<div><br></div>` +
+      `<div>---------- Forwarded message ----------</div>` +
+      line("From", h.from || msg.from || "") +
+      line("Date", h.date || "") +
+      line("Subject", origSubject) +
+      line("To", h.to || "") +
+      line("Cc", h.cc || "") +
+      `<div><br></div>`;
+    const quoted = origHtml
+      ? `<blockquote style="margin:0;padding-left:1ex;border-left:2px solid #ccc">${origHtml}</blockquote>`
+      : `<div>${escapeHtml(origText).replace(/\n/g, "<br>")}</div>`;
+
+    window.openNewEmailComposer({
+      to: "",
+      subject: fwdSubject,
+      bodyHtml: `<div><br></div>${banner}${quoted}`,
+    });
+    // Mark this compose as a forward AFTER openNewEmailComposer (which runs
+    // openCompose → resets _forwardFrom) so the flag survives to send/save.
+    _forwardFrom = msg.id;
+
+    // Carry the original attachments as read-only chips; the server re-emits
+    // them from the original message on send/save (no re-upload needed).
+    const orig = (data && Array.isArray(data.attachments)) ? data.attachments : [];
+    if (orig.length) {
+      orig.forEach((p) => cmpAttachments.push({
+        localId: "fwd" + Math.random().toString(36).slice(2),
+        name: p.filename || "attachment", size: p.size,
+        status: "ready", id: null, inherited: true,
+      }));
+      renderCmpChips();
+    }
+    // Recipient is empty on a forward — put the cursor there.
+    setTimeout(() => { try { cmpTo.focus(); } catch (_) {} }, 60);
   }
 
   window.openNewEmailComposer = function (prefill = {}) {
@@ -3584,6 +3645,8 @@
       if (_editingDraft.threadId) payload.threadId = _editingDraft.threadId;
       if (_editingDraft.inReplyTo) payload.inReplyTo = _editingDraft.inReplyTo;
     }
+    // Forwarding: tell the server which message to re-attach files from.
+    if (_forwardFrom) payload.forwardFrom = _forwardFrom;
     const r = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
