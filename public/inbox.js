@@ -589,6 +589,39 @@
   // old draft. Null = composing a brand-new email.
   let _editingDraft = null;
 
+  // Attachment-chip helpers (shared by reply + new-email composers).
+  function fmtBytes(b) {
+    b = Number(b) || 0;
+    if (b >= 1048576) return (b / 1048576).toFixed(1) + " MB";
+    if (b >= 1024) return Math.round(b / 1024) + " KB";
+    return b + " B";
+  }
+  function iconForName(name) {
+    const n = String(name || "").toLowerCase();
+    if (/\.(png|jpe?g|gif|webp|bmp|svg|heic)$/.test(n)) return "🖼️";
+    if (/\.pdf$/.test(n)) return "📕";
+    if (/\.(docx?|rtf|odt)$/.test(n)) return "📄";
+    if (/\.(xlsx?|csv|ods)$/.test(n)) return "📊";
+    if (/\.(pptx?|key|odp)$/.test(n)) return "📑";
+    if (/\.(zip|rar|7z|gz|tar)$/.test(n)) return "🗜️";
+    return "📎";
+  }
+  // Build one attachment card's HTML (status: uploading|ready|error).
+  function attachChipHtml(a) {
+    const ic = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : iconForName(a.name);
+    const cls = "draft-attach-chip" + (a.status === "error" ? " err" : "");
+    const title = a.status === "error" ? (a.error || "Couldn't attach") : a.name;
+    const sub = a.status === "error" ? (a.error || "failed")
+      : a.status === "uploading" ? "uploading…"
+      : (a.size ? fmtBytes(a.size) : "");
+    return `<span class="${cls}" data-lid="${a.localId}" title="${escapeHtml(title)}">`
+      + `<span class="dac-ic">${ic}</span>`
+      + `<span class="dac-meta"><span class="dac-nm">${escapeHtml(a.name)}</span>`
+      + (sub ? `<span class="dac-sz">${escapeHtml(sub)}</span>` : "")
+      + `</span>`
+      + `<button class="dac-x" type="button" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
+  }
+
   const FOLDER_TITLES = {
     inbox:   "Inbox",
     starred: "Starred",
@@ -2682,10 +2715,10 @@
           <img class="k-logo" src="/delta-logo.png" alt="Delta" /> Re-draft
         </button>
       </div>
+      <div class="draft-attach-chips" style="display:none"></div>
       <div class="draft-body-wrap">
         <div class="draft-body" contenteditable="false" dir="auto" data-placeholder="Delta's draft will appear here…"></div>
       </div>
-      <div class="draft-attach-chips" style="display:none"></div>
       <div class="draft-actions">
         <button class="draft-send btn primary draft-btn-send" disabled>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
@@ -2720,23 +2753,21 @@
     const draftChipsEl = composer.querySelector(".draft-attach-chips");
     if (!document.getElementById("draft-attach-css")) {
       const st = document.createElement("style"); st.id = "draft-attach-css";
-      st.textContent = ".draft-attach-chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0;}"
-        + ".draft-attach-chip{display:inline-flex;align-items:center;gap:5px;max-width:240px;background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.14);border-radius:13px;padding:2px 6px 2px 9px;font-size:12px;line-height:1.3;}"
+      st.textContent = ".draft-attach-chips{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 10px;}"
+        + ".draft-attach-chip{display:inline-flex;align-items:center;gap:9px;max-width:300px;background:#fff;border:1px solid rgba(0,0,0,.18);border-radius:8px;padding:7px 10px;font-size:12.5px;line-height:1.25;box-shadow:0 1px 2px rgba(0,0,0,.06);}"
         + ".draft-attach-chip.err{border-color:#e0907f;background:#fdeee9;}"
-        + ".draft-attach-chip .dac-nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:170px;}"
-        + ".draft-attach-chip .dac-x{border:none;background:transparent;cursor:pointer;font-size:14px;opacity:.55;padding:0 2px;color:inherit;}"
+        + ".draft-attach-chip .dac-ic{font-size:19px;flex:0 0 auto;line-height:1;}"
+        + ".draft-attach-chip .dac-meta{display:flex;flex-direction:column;min-width:0;}"
+        + ".draft-attach-chip .dac-nm{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:210px;}"
+        + ".draft-attach-chip .dac-sz{opacity:.6;font-size:11px;}"
+        + ".draft-attach-chip .dac-x{border:none;background:transparent;cursor:pointer;font-size:16px;opacity:.5;padding:0 0 0 4px;color:inherit;margin-left:auto;}"
         + ".draft-attach-chip .dac-x:hover{opacity:1;}";
       document.head.appendChild(st);
     }
     let draftAttachments = []; // { localId, name, status, id, error }
     function renderDraftChips() {
       if (!draftChipsEl) return;
-      draftChipsEl.innerHTML = draftAttachments.map((a) => {
-        const ic = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : "📎";
-        return `<span class="draft-attach-chip${a.status === "error" ? " err" : ""}" title="${escapeHtml(a.error || a.name)}">`
-          + `<span class="dac-ic">${ic}</span><span class="dac-nm">${escapeHtml(a.name)}</span>`
-          + `<button type="button" class="dac-x" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
-      }).join("");
+      draftChipsEl.innerHTML = draftAttachments.map(attachChipHtml).join("");
       draftChipsEl.style.display = draftAttachments.length ? "flex" : "none";
       draftChipsEl.querySelectorAll(".dac-x").forEach((b) => b.addEventListener("click", () => {
         draftAttachments = draftAttachments.filter((p) => p.localId !== b.dataset.lid);
@@ -2759,7 +2790,7 @@
           entry.error = data.message || (r.status === 413 ? "File too large (max 25 MB)." : `Upload failed (${r.status})`);
           showToast("Couldn't attach " + entry.name + " — " + entry.error, "error");
         } else {
-          entry.status = "ready"; entry.id = data.id;
+          entry.status = "ready"; entry.id = data.id; entry.size = data.size;
         }
       } catch (err) {
         entry.status = "error"; entry.error = err.message || "Upload failed";
@@ -3280,12 +3311,7 @@
   let cmpAttachments = []; // { localId, name, status, id, error }
   function renderCmpChips() {
     if (!cmpAttachChips) return;
-    cmpAttachChips.innerHTML = cmpAttachments.map((a) => {
-      const ic = a.status === "uploading" ? "⏳" : a.status === "error" ? "⚠️" : "📎";
-      return `<span class="draft-attach-chip${a.status === "error" ? " err" : ""}" title="${escapeHtml(a.error || a.name)}">`
-        + `<span class="dac-ic">${ic}</span><span class="dac-nm">${escapeHtml(a.name)}</span>`
-        + `<button type="button" class="dac-x" data-lid="${a.localId}" aria-label="Remove">×</button></span>`;
-    }).join("");
+    cmpAttachChips.innerHTML = cmpAttachments.map(attachChipHtml).join("");
     cmpAttachChips.style.display = cmpAttachments.length ? "flex" : "none";
     cmpAttachChips.querySelectorAll(".dac-x").forEach((b) => b.addEventListener("click", () => {
       cmpAttachments = cmpAttachments.filter((p) => p.localId !== b.dataset.lid);
@@ -3307,7 +3333,7 @@
         entry.status = "error";
         entry.error = data.message || (r.status === 413 ? "File too large (max 25 MB)." : `Upload failed (${r.status})`);
         showToast("Couldn't attach " + entry.name + " — " + entry.error, "error");
-      } else { entry.status = "ready"; entry.id = data.id; }
+      } else { entry.status = "ready"; entry.id = data.id; entry.size = data.size; }
     } catch (err) { entry.status = "error"; entry.error = err.message || "Upload failed"; showToast("Couldn't attach " + entry.name, "error"); }
     renderCmpChips();
   }
