@@ -649,9 +649,11 @@ app.get("/api/meeting-prep/upcoming", auth.requireAuth, async (req, res) => {
     let events = [];
     try { events = await calendarLib.listEvents(userId, { start: now.toISOString(), end: end.toISOString() }); }
     catch (_) { events = []; }
+    // listEvents returns SHAPED events: e.start is a plain ISO/date string
+    // (not {dateTime|date}). Reading the old nested shape made `within`
+    // always empty → meeting-prep reminders never fired.
     const within = events.filter((e) => {
-      const startMs = e.start?.dateTime ? new Date(e.start.dateTime).getTime()
-                    : (e.start?.date ? new Date(e.start.date).getTime() : null);
+      const startMs = e.start ? new Date(e.start).getTime() : null;
       return startMs && startMs >= now.getTime() && startMs <= end.getTime();
     });
     const userEmail = String(req.user.email || "").toLowerCase();
@@ -672,16 +674,16 @@ app.get("/api/meeting-prep/upcoming", auth.requireAuth, async (req, res) => {
             [userId, a.email]
           );
           recentByEmail.push({
-            email: a.email, name: a.displayName || a.email.split("@")[0],
+            email: a.email, name: a.name || a.email.split("@")[0],
             recent: r.rows.map((row) => ({ subject: row.subject, from: row.from_header, when: row.date_header || row.internal_date })),
           });
         } catch (_) {
-          recentByEmail.push({ email: a.email, name: a.displayName || a.email.split("@")[0], recent: [] });
+          recentByEmail.push({ email: a.email, name: a.name || a.email.split("@")[0], recent: [] });
         }
       }
       briefs.push({
         eventId: ev.id, summary: ev.summary || "(no title)",
-        startISO: ev.start?.dateTime || ev.start?.date,
+        startISO: ev.start,
         location: ev.location || null, hangoutLink: ev.hangoutLink || null, htmlLink: ev.htmlLink || null,
         attendees: recentByEmail,
       });
