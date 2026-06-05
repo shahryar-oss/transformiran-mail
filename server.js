@@ -4683,6 +4683,38 @@ app.post("/api/gmail/draft", auth.requireAuth, async (req, res) => {
 });
 
 // Builds a multipart/alternative RFC-2822 message, base64url-encoded for Gmail.
+// --- MIME encoding helpers ---------------------------------------------
+// Body parts are base64-encoded (NOT 7bit): a real HTML signature carries
+// UTF-8 bytes + single >998-char lines, which violate 7bit/RFC5322 and make
+// strict clients drop the HTML part and show the flattened text/plain one
+// (the "+31…<tel:…>" / "[cid:…]" signature bug). Headers/filenames with
+// non-ASCII are RFC 2047 / RFC 2231 encoded so Farsi/Dutch don't garble.
+function _mimeHasNonAscii(s) { return /[^\x00-\x7F]/.test(String(s == null ? "" : s)); }
+function _mimeHeaderWord(s) {
+  s = String(s == null ? "" : s);
+  if (!_mimeHasNonAscii(s)) return s;
+  const chunks = []; let cur = "";
+  for (const ch of s) {
+    if (Buffer.byteLength(cur + ch, "utf8") > 39) { if (cur) chunks.push(cur); cur = ch; }
+    else cur += ch;
+  }
+  if (cur) chunks.push(cur);
+  return chunks.map((c) => `=?UTF-8?B?${Buffer.from(c, "utf8").toString("base64")}?=`).join("\r\n ");
+}
+function _mimeRfc5987(str) {
+  return encodeURIComponent(String(str || ""))
+    .replace(/['()*]/g, (c) => "%" + c.charCodeAt(0).toString(16).toUpperCase());
+}
+function _mimeB64Part(str) {
+  return Buffer.from(String(str || ""), "utf8").toString("base64").replace(/.{76}/g, "$&\r\n");
+}
+function _mimeStripCidImgs(html) {
+  // Embedded signature logos use cid: refs whose image bytes aren't
+  // available via the Gmail API, so they'd render as a broken image.
+  // Drop those <img> tags (the rest of the signature still renders).
+  return String(html || "").replace(/<img\b[^>]*\bsrc\s*=\s*["']?cid:[^>]*>/gi, "");
+}
+
 // Accepts EITHER:
 //   - bodyText (plain text — auto-escaped and wrapped into HTML), OR
 //   - bodyHtml (already-rich HTML from the rich-text compose editor)
@@ -4831,21 +4863,23 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
       proseHtml +
     `</div>` +
     (signatureHtml
-      ? `<br><div class="gmail_signature" data-smartmail="gmail_signature" dir="auto">${signatureHtml}</div>`
+      ? `<br><div class="gmail_signature" data-smartmail="gmail_signature" dir="auto">${_mimeStripCidImgs(signatureHtml)}</div>`
       : "") +
     quotedHtml;
 
-  // The body proper — a multipart/alternative (text + html) block.
+  // The body proper — a multipart/alternative (text + html) block. Both
+  // parts are base64 (see helper note) so UTF-8 + long signature lines
+  // survive instead of forcing a flattened text/plain fallback.
   const altBlock =
     `--${boundary}\r\n` +
     `Content-Type: text/plain; charset="UTF-8"\r\n` +
-    `Content-Transfer-Encoding: 7bit\r\n\r\n` +
-    textPart +
+    `Content-Transfer-Encoding: base64\r\n\r\n` +
+    _mimeB64Part(textPart) +
     "\r\n\r\n" +
     `--${boundary}\r\n` +
     `Content-Type: text/html; charset="UTF-8"\r\n` +
-    `Content-Transfer-Encoding: 7bit\r\n\r\n` +
-    htmlPart +
+    `Content-Transfer-Encoding: base64\r\n\r\n` +
+    _mimeB64Part(htmlPart) +
     "\r\n\r\n" +
     `--${boundary}--\r\n`;
 
@@ -4859,7 +4893,7 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     `To: ${to}`,
     ...(cc ? [`Cc: ${cc}`] : []),
     ...(bcc ? [`Bcc: ${bcc}`] : []),
-    `Subject: ${subject}`,
+    `Subject: ${_mimeHeaderWord(subject)}`,
     `MIME-Version: 1.0`,
   ];
   if (inReplyTo) {
@@ -4877,17 +4911,28 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     const wrapB64 = (b64) => String(b64).replace(/[\r\n\s]/g, "").replace(/.{76}/g, "$&\r\n");
     const cleanName = (n) => String(n || "attachment").replace(/[\r\n"\\]/g, "").slice(0, 200);
     const cleanType = (t) => String(t || "application/octet-stream").replace(/[\r\n";\\]/g, "").slice(0, 120);
+    // RFC 2231 for non-ASCII filenames (Farsi/Dutch) — emit filename*/name*
+    // with UTF-8 pct-encoding; ASCII names keep the simple quoted form.
+    const nameParams = (n) => {
+      const fn = cleanName(n);
+      if (_mimeHasNonAscii(fn)) {
+        const ascii = fn.replace(/[^\x00-\x7F]/g, "_");
+        const enc = `UTF-8''${_mimeRfc5987(fn)}`;
+        return { typeParam: `name="${ascii}"; name*=${enc}`, dispParam: `filename="${ascii}"; filename*=${enc}` };
+      }
+      return { typeParam: `name="${fn}"`, dispParam: `filename="${fn}"` };
+    };
     let body =
       `--${mixed}\r\n` +
       `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
       altBlock + "\r\n";
     for (const a of cleanAtts) {
-      const fn = cleanName(a.filename);
+      const np = nameParams(a.filename);
       body +=
         `--${mixed}\r\n` +
-        `Content-Type: ${cleanType(a.mimeType)}; name="${fn}"\r\n` +
+        `Content-Type: ${cleanType(a.mimeType)}; ${np.typeParam}\r\n` +
         `Content-Transfer-Encoding: base64\r\n` +
-        `Content-Disposition: attachment; filename="${fn}"\r\n\r\n` +
+        `Content-Disposition: attachment; ${np.dispParam}\r\n\r\n` +
         wrapB64(a.contentB64) + "\r\n";
     }
     body += `--${mixed}--\r\n`;
