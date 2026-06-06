@@ -21,6 +21,7 @@
     dot:      `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>`,
     trash:    `<svg viewBox="0 0 24 24"><path d="M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>`,
     bell:     `<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>`,
+    repeat:   `<svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>`,
   };
 
   // ----- STATE -----
@@ -279,6 +280,7 @@
             ${t.list_id ? `<span>${escapeHtml(listName(t.list_id))}</span>` : ""}
             ${dueText ? `<span class="due ${isOverdue ? "overdue" : ""}"><span class="meta-i">${ICONS.calendar}</span>${escapeHtml(dueText)}</span>` : ""}
             ${t.in_my_day && _view !== "my-day" ? `<span class="my-day-tag"><span class="meta-i">${ICONS.sun}</span>My Day</span>` : ""}
+            ${t.repeat ? `<span class="repeat-tag"><span class="meta-i">${ICONS.repeat}</span>${escapeHtml(formatRepeat(t.repeat))}</span>` : ""}
             ${t.source_message_id ? `<a class="src-link" href="/?msg=${encodeURIComponent(t.source_message_id)}" title="Open source email" onclick="event.stopPropagation()"><span class="meta-i">${ICONS.envelope}</span>from email</a>` : ""}
           </div>
         </div>
@@ -317,6 +319,8 @@
     const timePart = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
     return `${dayPart} at ${timePart}`;
   }
+  const REPEAT_LABELS = { daily: "Daily", weekdays: "Weekdays", weekly: "Weekly", monthly: "Monthly", yearly: "Yearly" };
+  function formatRepeat(rule) { return REPEAT_LABELS[rule] || ""; }
 
   // ----- BROWSER NOTIFICATIONS -----
   // Reminders fire as browser notifications via task-notifier.js, but
@@ -516,6 +520,20 @@
             <input type="datetime-local" id="reminderInput" value="${reminderForInput}">
           </label>
         </div>
+
+        <div class="detail-row repeat-row ${t.repeat ? "" : "empty"}" id="repeatRow">
+          <span class="icon">${ICONS.repeat}</span>
+          <span class="value" id="repeatValue">${t.repeat ? "Repeats · " + escapeHtml(formatRepeat(t.repeat)) : "Repeat"}</span>
+          ${t.repeat ? `<button class="detail-row-clear" id="repeatClear" title="Stop repeating">×</button>` : ""}
+        </div>
+        <!-- Repeat quick-pick popover -->
+        <div class="reminder-popover" id="repeatPopover" hidden>
+          <button class="rp-opt" data-repeat="daily">Daily</button>
+          <button class="rp-opt" data-repeat="weekdays">Weekdays (Mon–Fri)</button>
+          <button class="rp-opt" data-repeat="weekly">Weekly</button>
+          <button class="rp-opt" data-repeat="monthly">Monthly</button>
+          <button class="rp-opt" data-repeat="yearly">Yearly</button>
+        </div>
       </div>
 
       <div class="section-label">Steps</div>
@@ -624,6 +642,35 @@
       if (!reminderPopover || reminderPopover.hidden) return;
       if (!reminderPopover.contains(ev.target) && !reminderRow.contains(ev.target)) {
         reminderPopover.hidden = true;
+      }
+    });
+
+    // ----- REPEAT quick-pick -----
+    async function setRepeat(rule) {
+      await patchTask(t.id, { repeat: rule || null });
+      t.repeat = rule || null;
+      const pop = $("repeatPopover");
+      if (pop) pop.hidden = true;
+      renderDetail();   // refresh the value + clear button
+      loadTasks();      // refresh the list (repeat chip on rows)
+    }
+    const repeatRow = $("repeatRow");
+    const repeatPopover = $("repeatPopover");
+    repeatRow?.addEventListener("click", (e) => {
+      if (e.target.closest("#repeatClear")) return; // handled below
+      repeatPopover.hidden = !repeatPopover.hidden;
+    });
+    $("repeatClear")?.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setRepeat(null);
+    });
+    repeatPopover?.querySelectorAll(".rp-opt").forEach((btn) => {
+      btn.addEventListener("click", () => setRepeat(btn.dataset.repeat));
+    });
+    document.addEventListener("click", function closeRepeatP(ev) {
+      if (!repeatPopover || repeatPopover.hidden) return;
+      if (!repeatPopover.contains(ev.target) && !repeatRow.contains(ev.target)) {
+        repeatPopover.hidden = true;
       }
     });
     $("notesInput").addEventListener("blur", (e) => {

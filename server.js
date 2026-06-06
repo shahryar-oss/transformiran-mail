@@ -5314,6 +5314,7 @@ dbReady
     startGmailPushRenewerWorker();
     startSlackSyncWorker();
     startSlackVoiceWorker();
+    startMyDayResetWorker();
     // Resolve pilot bridge user id at boot (logs a warning if missing).
     resolveBridgeUserId().catch(() => {});
   })
@@ -5690,6 +5691,31 @@ function startSnoozeWakeWorker() {
   setTimeout(cycle, 10_000);
   setInterval(cycle, 60_000);
   console.log("[boot] snooze wake worker scheduled (cycle 60s)");
+}
+
+// ====================================================================
+// MY DAY RESET WORKER — hourly sweep that rolls every user's My Day list,
+// clearing uncompleted items older than 18h (MS To Do parity). Without
+// this, tasks added to My Day stayed there forever (resetMyDay was never
+// called by anything). Rolling 18h window is timezone-agnostic.
+// ====================================================================
+function startMyDayResetWorker() {
+  let running = false;
+  const cycle = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const n = await tasks.resetMyDayAllUsers();
+      if (n) console.log(`[my-day-reset] cleared ${n} stale My Day item(s)`);
+    } catch (err) {
+      console.error("[my-day-reset-worker] cycle failed:", err);
+    } finally {
+      running = false;
+    }
+  };
+  setTimeout(cycle, 3 * 60 * 1000);       // 3 min after boot
+  setInterval(cycle, 60 * 60 * 1000);     // hourly
+  console.log("[boot] my-day reset worker scheduled (cycle 60m, rolling 18h)");
 }
 
 // ====================================================================
