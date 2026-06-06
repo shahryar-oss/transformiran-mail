@@ -2959,7 +2959,18 @@
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;");
-      const proseHtml = escHtml(prose || "")
+      // The server appends a PLAIN-TEXT quoted-history block (delimited by a
+      // 20+ underscore separator) to `prose`. When we also have the rich
+      // HTML quote, drop that flat copy — otherwise the original shows TWICE
+      // and the visible (plain-text) copy flattens the sender's HTML
+      // signature to bare lines. Keep the plain quote only as a fallback
+      // when there's no HTML quote.
+      let proseOnly = String(prose || "");
+      if (quotedHtml) {
+        const sepIdx = proseOnly.search(/_{20,}/);
+        if (sepIdx >= 0) proseOnly = proseOnly.slice(0, sepIdx);
+      }
+      const proseHtml = escHtml(proseOnly.replace(/\s+$/, ""))
         .split(/\n{2,}/)
         .map((p) => `<div>${p.replace(/\n/g, "<br>")}</div>`)
         .join(`<div><br></div>`);
