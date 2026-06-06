@@ -842,7 +842,11 @@
 
   function updateFilterCounts() {
     const counts = { URGENT: 0, REPLY_NEEDED: 0, TASK: 0, INTERNAL: 0, RECEIPT: 0 };
+    // Only count classifications for messages STILL in the list — otherwise
+    // an archived/trashed message's classification keeps inflating the pill.
+    const present = new Set(_allMessages.map((m) => m.id));
     for (const id of Object.keys(_classificationMap)) {
+      if (!present.has(id)) continue;
       const cat = _classificationMap[id].category;
       if (counts[cat] !== undefined) counts[cat] += 1;
     }
@@ -2518,6 +2522,14 @@
   function removeFromList(id, reason) {
     const row = document.querySelector(`.mail-row[data-id="${CSS.escape(id)}"]`);
     if (row) row.remove();
+    // Keep in-memory state in lockstep with the DOM. Without this the
+    // archived/trashed/sent message lingered in _allMessages (wrong filter
+    // counts, re-selectable, and loadMore's dedup would wrongly skip it if
+    // it ever came back) and its classification stayed in the counts.
+    const idx = _allMessages.findIndex((m) => m.id === id);
+    if (idx !== -1) _allMessages.splice(idx, 1);
+    if (_classificationMap[id]) delete _classificationMap[id];
+    try { updateFilterCounts(); } catch (_) {}
     readerEl.innerHTML = `<div class="reader-empty"><div class="empty-sub">${escapeHtml(reason)}. Select another email.</div></div>`;
     showToast(reason, "ok");
   }
@@ -4119,7 +4131,11 @@
     updateLoadMoreButton();
     try {
       const result = await loadInbox({ pageToken: _nextPageToken });
-      const newMessages = result.messages || [];
+      // Dedup against what we already hold: Gmail page boundaries can shift
+      // (a new message arriving, or overlapping page tokens) and re-return a
+      // message we've already shown → duplicate rows. Drop any id we have.
+      const seen = new Set(_allMessages.map((m) => m.id));
+      const newMessages = (result.messages || []).filter((m) => m && m.id && !seen.has(m.id));
       _allMessages = _allMessages.concat(newMessages);
       _nextPageToken = result.nextPageToken;
       appendList(newMessages);
@@ -4137,6 +4153,14 @@
   function appendList(messages) {
     const listEl2 = document.getElementById("mailList");
     if (!listEl2 || !messages.length) return;
+    // Guard against appending a row that's already in the DOM (defensive —
+    // loadMore already dedups against _allMessages, but a stub-prepend path
+    // could also collide). Skip ids that already have a row.
+    const inDom = new Set(
+      Array.from(listEl2.querySelectorAll(".mail-row")).map((r) => r.dataset.id)
+    );
+    messages = messages.filter((m) => m && m.id && !inDom.has(m.id));
+    if (!messages.length) return;
     // Reuse renderList but only add new rows. Markup MUST stay in sync with
     // renderList — keep hover actions, threadId data attr, all of it.
     const html = messages
