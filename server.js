@@ -1585,8 +1585,24 @@ app.post("/api/slack/disconnect", auth.requireAuth, async (req, res) => {
   }
 });
 
+// Operator-only gate: caller must be authenticated AND their email must be
+// in ADMIN_EMAILS (comma-separated env). Layer AFTER auth.requireAuth so
+// req.user is populated. Fail-closed: if ADMIN_EMAILS is unset/empty, NOBODY
+// passes (these endpoints are diagnostics + workspace bootstrap, not user
+// features). Used by the Slack admin routes (seed-workspace etc.) and the
+// bug-report admin view.
+function requireAdminEmail(req, res, next) {
+  const admins = (process.env.ADMIN_EMAILS || "")
+    .toLowerCase().split(",").map((s) => s.trim()).filter(Boolean);
+  const email = (req.user && req.user.email ? req.user.email : "").toLowerCase();
+  if (!admins.length || !email || !admins.includes(email)) {
+    return res.status(403).json({ error: "forbidden", message: "Admin access required." });
+  }
+  next();
+}
+
 // Admin — kick a sync pass right now (out of cycle). Useful for testing.
-app.post("/api/slack/admin/sync-now", auth.requireAuth, async (req, res) => {
+app.post("/api/slack/admin/sync-now", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const slackSync = require("./lib/slackSync");
     const result = await slackSync.syncAll();
@@ -1598,7 +1614,7 @@ app.post("/api/slack/admin/sync-now", auth.requireAuth, async (req, res) => {
 });
 
 // Stats — how much Slack content do we have in the DB?
-app.get("/api/slack/admin/stats", auth.requireAuth, async (req, res) => {
+app.get("/api/slack/admin/stats", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const slackSync = require("./lib/slackSync");
     const stats = await slackSync.stats(req.query.team_id || null);
@@ -1611,7 +1627,7 @@ app.get("/api/slack/admin/stats", auth.requireAuth, async (req, res) => {
 // Voice-note transcription — kick a transcription pass now + report
 // progress. ?reset=1 first re-queues previously-errored notes. ?limit=N
 // controls how many to process this call (default 20 for a manual drain).
-app.post("/api/slack/admin/transcribe-now", auth.requireAuth, async (req, res) => {
+app.post("/api/slack/admin/transcribe-now", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const sv = require("./lib/slackVoice");
     let reset = 0;
@@ -1627,7 +1643,7 @@ app.post("/api/slack/admin/transcribe-now", auth.requireAuth, async (req, res) =
 });
 
 // Voice-note transcription stats (done / pending / errored).
-app.get("/api/slack/admin/voice-stats", auth.requireAuth, async (req, res) => {
+app.get("/api/slack/admin/voice-stats", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const sv = require("./lib/slackVoice");
     res.json({ ok: true, stats: await sv.stats() });
@@ -1638,7 +1654,7 @@ app.get("/api/slack/admin/voice-stats", auth.requireAuth, async (req, res) => {
 
 // Admin/diagnostic — list all currently-connected users + the
 // workspace install state. Auth-gated but doesn't expose tokens.
-app.get("/api/slack/admin/status", auth.requireAuth, async (req, res) => {
+app.get("/api/slack/admin/status", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const { pool } = require("./lib/db");
     const ws = await pool.query(
@@ -1667,7 +1683,7 @@ app.get("/api/slack/admin/status", auth.requireAuth, async (req, res) => {
 // installed in Slack and you have the xoxb-... token from the
 // "Install to Workspace" step. Validates the token via auth.test +
 // pulls team metadata before saving.
-app.post("/api/slack/admin/seed-workspace", auth.requireAuth, async (req, res) => {
+app.post("/api/slack/admin/seed-workspace", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
     const slack = require("./lib/slack");
     const { botToken } = req.body || {};
@@ -3524,11 +3540,8 @@ app.post("/api/support/bug", auth.requireAuth, async (req, res) => {
     res.status(500).json({ error: "save_failed", message: err.message });
   }
 });
-app.get("/api/admin/bug-reports", auth.requireAuth, async (req, res) => {
+app.get("/api/admin/bug-reports", auth.requireAuth, requireAdminEmail, async (req, res) => {
   try {
-    // Gate to admin emails defined via env (comma-separated).
-    const admins = (process.env.ADMIN_EMAILS || "").toLowerCase().split(",").map(s => s.trim()).filter(Boolean);
-    if (!admins.includes((req.user.email || "").toLowerCase())) return res.status(403).json({ error: "forbidden" });
     const r = await pool.query(
       `SELECT id, user_id, user_email, description, url, user_agent, status, created_at
          FROM bug_reports ORDER BY created_at DESC LIMIT 200`
