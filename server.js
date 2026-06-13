@@ -4812,6 +4812,51 @@ function _mimeStripCidImgs(html) {
   return String(html || "").replace(/<img\b[^>]*\bsrc\s*=\s*["']?cid:[^>]*>/gi, "");
 }
 
+// Extract embedded data:image URIs from outgoing HTML and turn them into
+// inline parts referenced by cid. Recipient clients (Gmail/Outlook) STRIP
+// data: image src on received mail, so a screenshot or logo pasted into
+// the compose body would show as a broken image unless we send it as a
+// proper Content-ID inline part inside multipart/related. Identical
+// images share one part; oversized images are left inline rather than
+// failing the send. Returns { html, images: [{cid, mimeType, b64, filename}] }.
+// (Ported from NexaMails' Gmail-parity pass; no-image sends are byte-
+// identical to before, so zero regression for the common case.)
+const _INLINE_IMG_MAX_BYTES = 3 * 1024 * 1024;
+const _INLINE_IMG_MAX_TOTAL = 10 * 1024 * 1024;
+function _extractDataUriImages(html) {
+  if (!html || !html.includes("data:image/")) return { html, images: [] };
+  const images = [];
+  const seen = new Map(); // dataKey → cid
+  let total = 0;
+  let n = 0;
+  const out = String(html).replace(
+    /(src=["'])data:image\/(png|jpe?g|gif|webp);base64,([A-Za-z0-9+/=]+)(["'])/gi,
+    (full, pre, ext, b64, post) => {
+      const key = ext + ":" + b64;
+      let cid = seen.get(key);
+      if (!cid) {
+        const bytes = Math.floor(b64.length * 3 / 4);
+        if (bytes > _INLINE_IMG_MAX_BYTES || total + bytes > _INLINE_IMG_MAX_TOTAL) {
+          return full; // leave oversized image as data URI rather than fail the send
+        }
+        total += bytes;
+        n++;
+        const cleanExt = ext.toLowerCase() === "jpg" ? "jpeg" : ext.toLowerCase();
+        cid = `ti-img-${n}@mail.transformiran.info`;
+        seen.set(key, cid);
+        images.push({
+          cid,
+          mimeType: `image/${cleanExt}`,
+          b64,
+          filename: `inline-${n}.${cleanExt === "jpeg" ? "jpg" : cleanExt}`,
+        });
+      }
+      return `${pre}cid:${cid}${post}`;
+    }
+  );
+  return { html: out, images };
+}
+
 // Accepts EITHER:
 //   - bodyText (plain text — auto-escaped and wrapped into HTML), OR
 //   - bodyHtml (already-rich HTML from the rich-text compose editor)
@@ -4955,7 +5000,7 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
   // Phase 5.BD — dir="auto" + unicode-bidi:plaintext so recipients'
   // mail clients render each paragraph in the right direction
   // (English signatures stay LTR, Farsi/Arabic body flips to RTL).
-  const htmlPart =
+  let htmlPart =
     `<div dir="auto" style="font-family:Arial,sans-serif;font-size:13.5px;line-height:1.5;color:#222;unicode-bidi:plaintext">` +
       proseHtml +
     `</div>` +
@@ -4963,6 +5008,15 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
       ? `<br><div class="gmail_signature" data-smartmail="gmail_signature" dir="auto">${_mimeStripCidImgs(signatureHtml)}</div>`
       : "") +
     quotedHtml;
+
+  // Pull embedded data: images out of the HTML into inline cid parts so
+  // recipients render them (data: image src is stripped by Gmail/Outlook
+  // on received mail). Catches screenshots/logos pasted into the rich
+  // composer. When there are no data: images this is a no-op and the
+  // message bytes are identical to before.
+  const { html: htmlPartCid, images: inlineImages } = _extractDataUriImages(htmlPart);
+  htmlPart = htmlPartCid;
+  const wrapB64 = (b64) => String(b64).replace(/[\r\n\s]/g, "").replace(/.{76}/g, "$&\r\n");
 
   // The body proper — a multipart/alternative (text + html) block. Both
   // parts are base64 (see helper note) so UTF-8 + long signature lines
@@ -4979,6 +5033,32 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     _mimeB64Part(htmlPart) +
     "\r\n\r\n" +
     `--${boundary}--\r\n`;
+
+  // When the body carries inline images, wrap the alternative block in a
+  // multipart/related so the cid: refs resolve in the recipient's client.
+  // Otherwise the content block IS the alternative block (byte-identical
+  // to the previous behaviour).
+  let contentBlock = altBlock;
+  let contentType = `multipart/alternative; boundary="${boundary}"`;
+  if (inlineImages.length) {
+    const related = "rel_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+    let rel =
+      `--${related}\r\n` +
+      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
+      altBlock + "\r\n";
+    for (const img of inlineImages) {
+      rel +=
+        `--${related}\r\n` +
+        `Content-Type: ${img.mimeType}\r\n` +
+        `Content-Transfer-Encoding: base64\r\n` +
+        `Content-ID: <${img.cid}>\r\n` +
+        `Content-Disposition: inline; filename="${img.filename}"\r\n\r\n` +
+        wrapB64(img.b64) + "\r\n";
+    }
+    rel += `--${related}--\r\n`;
+    contentBlock = rel;
+    contentType = `multipart/related; boundary="${related}"`;
+  }
 
   // Outgoing file attachments (from the composer paperclip). When present
   // we wrap the alternative block + each file in a multipart/mixed
@@ -5001,11 +5081,10 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
   let message;
   if (!cleanAtts.length) {
     message =
-      baseHeaders.concat([`Content-Type: multipart/alternative; boundary="${boundary}"`]).join("\r\n") +
-      "\r\n\r\n" + altBlock;
+      baseHeaders.concat([`Content-Type: ${contentType}`]).join("\r\n") +
+      "\r\n\r\n" + contentBlock;
   } else {
     const mixed = "mixed_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
-    const wrapB64 = (b64) => String(b64).replace(/[\r\n\s]/g, "").replace(/.{76}/g, "$&\r\n");
     const cleanName = (n) => String(n || "attachment").replace(/[\r\n"\\]/g, "").slice(0, 200);
     const cleanType = (t) => String(t || "application/octet-stream").replace(/[\r\n";\\]/g, "").slice(0, 120);
     // RFC 2231 for non-ASCII filenames (Farsi/Dutch) — emit filename*/name*
@@ -5021,8 +5100,8 @@ function buildMultipartMessage({ to, cc, bcc, subject, bodyText, bodyHtml, signa
     };
     let body =
       `--${mixed}\r\n` +
-      `Content-Type: multipart/alternative; boundary="${boundary}"\r\n\r\n` +
-      altBlock + "\r\n";
+      `Content-Type: ${contentType}\r\n\r\n` +
+      contentBlock + "\r\n";
     for (const a of cleanAtts) {
       const np = nameParams(a.filename);
       body +=
