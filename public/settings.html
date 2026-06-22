@@ -1664,6 +1664,23 @@
             <button id="meetingLinkSave" class="btn primary" type="button" disabled>Save link</button>
           </div>
         </div>
+
+        <!-- People you schedule for (assistant / on behalf of) -->
+        <div class="card">
+          <h3>People you schedule for</h3>
+          <p class="card-sub">If you book meetings for someone as their assistant, list their email here. When a meeting you set up includes them, Delta treats them as the host: it attaches <em>their</em> saved meeting link (not yours) and leaves you off the invite — you're arranging it between them and the other person. One email per line.</p>
+
+          <div class="compose-row">
+            <label class="compose-row-label">Their email(s)</label>
+            <textarea id="assistsEmails" class="compose-row-control" rows="3" placeholder="shahryar@transformiran.com" style="min-width:360px;padding:8px 12px;border:1px solid var(--line);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--paper);color:var(--navy);resize:vertical;"></textarea>
+            <p class="compose-row-hint">For the meeting to land on their calendar (and stay off yours entirely), they should share their Google Calendar with you and grant "Make changes to events". Otherwise Delta still keeps you off the invite, but the event is organized from your calendar.</p>
+          </div>
+
+          <div class="compose-save-row">
+            <span class="snooze-save-hint" id="assistsHint"></span>
+            <button id="assistsSave" class="btn primary" type="button" disabled>Save</button>
+          </div>
+        </div>
       </section>
 
       <!-- ===== INTEGRATIONS — includes Slack ===== -->
@@ -2611,6 +2628,7 @@
     if ($("meetingPrepMinutesSelect")) $("meetingPrepMinutesSelect").value = String(settings.meetingPrepMinutes || 15);
     if ($("defaultMeetingProvider")) $("defaultMeetingProvider").value = settings.defaultMeetingProvider || "zoom";
     if ($("defaultMeetingLink")) $("defaultMeetingLink").value = settings.defaultMeetingLink || "";
+    if ($("assistsEmails")) $("assistsEmails").value = (settings.assistsEmails || []).join("\n");
     renderFocusBlocks();
     _calOriginal = currentCalValues();
     paintCalDirty();
@@ -2680,6 +2698,41 @@
     } catch (_) {
       mlHint.textContent = "Save failed"; mlSaveBtn.disabled = false;
     } finally { mlSaveBtn.textContent = "Save link"; }
+  });
+
+  // People you schedule for (EA / on behalf of)
+  const asSaveBtn = $("assistsSave");
+  const asHint    = $("assistsHint");
+  function parseAssists() {
+    return Array.from(new Set(
+      ($("assistsEmails")?.value || "")
+        .split(/[\n,;]+/)
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.includes("@"))
+    ));
+  }
+  $("assistsEmails")?.addEventListener("input", () => {
+    if (!asSaveBtn) return;
+    asSaveBtn.disabled = false;
+    asHint.textContent = "Unsaved";
+  });
+  asSaveBtn?.addEventListener("click", async () => {
+    asSaveBtn.disabled = true; asSaveBtn.textContent = "Saving…";
+    try {
+      const r = await fetch("/api/me/calendar-prefs", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assistsEmails: parseAssists() }),
+      });
+      if (!r.ok) throw new Error("save_failed");
+      const { settings } = await r.json().catch(() => ({ settings: {} }));
+      if (settings && Array.isArray(settings.assistsEmails) && $("assistsEmails")) {
+        $("assistsEmails").value = settings.assistsEmails.join("\n");
+      }
+      asHint.textContent = "Saved ✓";
+      setTimeout(() => { asHint.textContent = ""; }, 1800);
+    } catch (_) {
+      asHint.textContent = "Save failed"; asSaveBtn.disabled = false;
+    } finally { asSaveBtn.textContent = "Save"; }
   });
 
   // Connected calendars list

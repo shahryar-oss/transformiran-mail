@@ -3129,7 +3129,7 @@ makePrefsRoutes({
   defaults: {
     focusBlocks: [], meetingBufferMinutes: 10, meetingPrep: true,
     meetingPrepMinutes: 15, defaultMeetingProvider: "zoom",
-    defaultMeetingLink: null, watchedCalendars: null,
+    defaultMeetingLink: null, watchedCalendars: null, assistsEmails: [],
   },
   validators: {
     focusBlocks: (v) => {
@@ -3172,6 +3172,16 @@ makePrefsRoutes({
       if (v === null) return null;
       if (!Array.isArray(v)) return undefined;
       return v.filter((s) => typeof s === "string" && s.length <= 256).slice(0, 50);
+    },
+    // People this user schedules meetings for as their assistant (EA). When a
+    // meeting includes one of these principals, Delta treats that person as the
+    // host: uses THEIR saved meeting link and leaves this user off the invite.
+    assistsEmails: (v) => {
+      if (!Array.isArray(v)) return undefined;
+      return Array.from(new Set(
+        v.filter((s) => typeof s === "string" && s.includes("@") && s.length <= 256)
+         .map((s) => s.toLowerCase().trim())
+      )).slice(0, 20);
     },
   },
 });
