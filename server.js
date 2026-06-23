@@ -4042,7 +4042,13 @@ app.get("/api/gmail/message/:id", auth.requireAuth, async (req, res) => {
     if (!creds) return res.status(400).json({ error: "no_google_creds" });
     const client = gmail.authedClientFromTokens(creds);
     const g = google.gmail({ version: "v1", auth: client });
-    const r = await g.users.messages.get({ userId: "me", id, format: "full" });
+    // Retry transient Google blips (e.g. a truncated token-refresh response,
+    // "Premature close") so a one-off network hiccup doesn't surface as a hard
+    // 500 in the reader. Auth/4xx errors are not retried.
+    const r = await gmail.withGoogleRetry(
+      () => g.users.messages.get({ userId: "me", id, format: "full" }),
+      { label: "reader:message.get" }
+    );
     const m = r.data;
     const headers = mime.headersToMap(m.payload?.headers || []);
     const body = mime.pickBody(m.payload);
