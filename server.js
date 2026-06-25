@@ -27,7 +27,12 @@ const { google } = require("googleapis");
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: "1mb" }));
+// 25mb (matches the raw attachment cap): a reply/forward carries the quoted
+// thread in bodyHtml, and quoted emails often embed inline images as base64
+// data: URIs — which pushed image-heavy replies past the old 1mb cap and got
+// rejected with 413 PayloadTooLargeError before the route could run. Uploaded
+// files don't ride in this JSON body (separate 25mb raw endpoint).
+app.use(express.json({ limit: "25mb" }));
 
 // Phase 5.AQ — Request-level timing middleware. Logs path + method +
 // status + duration for every API request, so we can pinpoint slow

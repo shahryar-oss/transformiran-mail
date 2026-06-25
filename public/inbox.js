@@ -3131,8 +3131,10 @@
           headers: { "Content-Type": "application/json" },
           body: payload,
         });
-        const data = await r.json();
-        if (!r.ok || !data.ok) throw new Error(data.message || data.error || "send failed");
+        if (r.status === 413) throw new Error("This email is too large to send — the quoted message below your reply probably has large inline images. Delete the quoted history, or send the image as a file attachment instead.");
+        let data = {};
+        try { data = await r.json(); } catch (_) { /* non-JSON error body */ }
+        if (!r.ok || !data.ok) throw new Error(data.message || data.error || `Send failed (HTTP ${r.status}).`);
         return { r, data };
       });
       if (undoResult && undoResult.undone) {
@@ -3197,8 +3199,10 @@
             inReplyTo: currentDraft.inReplyTo,
           }),
         });
-        const data = await r.json();
-        if (!r.ok || !data.ok) throw new Error(data.message || data.error || "save failed");
+        if (r.status === 413) throw new Error("This draft is too large to save — the quoted message below your reply probably has large inline images. Delete the quoted history, or send the image as a file attachment instead.");
+        let data = {};
+        try { data = await r.json(); } catch (_) { /* non-JSON error body */ }
+        if (!r.ok || !data.ok) throw new Error(data.message || data.error || `Save failed (HTTP ${r.status}).`);
         statusEl.className = "draft-status ok";
         statusEl.textContent = "Saved to your Drafts ✓";
         titleEl.textContent = "Draft saved";
@@ -3675,8 +3679,15 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
-    const data = await r.json();
-    if (!r.ok || !data.ok) throw new Error(data.message || data.error || "request failed");
+    if (r.status === 413) {
+      throw new Error("This email is too large to send — the quoted message below your reply probably has large inline images. Delete the quoted history, or send the image as a file attachment instead.");
+    }
+    // A 413 (or any error) can come back as a non-JSON body; parsing that with
+    // r.json() throws Safari's cryptic "did not match the expected pattern",
+    // so guard it and surface a real message.
+    let data = {};
+    try { data = await r.json(); } catch (_) { /* non-JSON error body */ }
+    if (!r.ok || !data.ok) throw new Error(data.message || data.error || `Send failed (HTTP ${r.status}).`);
     return data;
   }
 
